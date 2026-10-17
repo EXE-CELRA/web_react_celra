@@ -5,7 +5,7 @@ import { HomePage } from './pages/Home/HomePage';
 import { LoginPage } from './pages/Auth/LoginPage';
 import { RegisterPage } from './pages/Auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage';
-import { OnboardingPage } from './pages/Onboarding/OnboardingPage';
+import { SurveyPage } from './pages/Survey/SurveyPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { ContextPage } from './pages/Context/ContextPage';
 import { TasksPage } from './pages/Tasks/TasksPage';
@@ -38,11 +38,11 @@ export const App: React.FC = () => {
 
           {/* Protected Routes (Require Login) */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/onboarding" element={<OnboardingPage />} />
-
             <Route element={<MainLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/context" element={<ContextPage />} />
+              <Route path="/survey" element={<SurveyPage />} />
+              <Route path="/onboarding" element={<Navigate to="/survey" replace />} />
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/evidence" element={<EvidencePage />} />
               <Route path="/wallet" element={<WalletPage />} />
