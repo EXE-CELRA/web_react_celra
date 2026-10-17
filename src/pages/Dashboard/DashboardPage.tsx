@@ -16,7 +16,6 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useWalletStore } from '../../store/useWalletStore';
-import apiClient from '../../api/client';
 import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
 import { VietQRModal } from '../../components/common/VietQRModal';
 
@@ -35,14 +34,14 @@ export const DashboardPage: React.FC = () => {
     completedTasks: number;
     inProgressTasks: number;
     overdueTasks: number;
-    openFindings: number;
+    urgentTasksCount: number;
     complianceScore: number;
   }>({
     totalTasks: 0,
     completedTasks: 0,
     inProgressTasks: 0,
     overdueTasks: 0,
-    openFindings: 0,
+    urgentTasksCount: 0,
     complianceScore: 100,
   });
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -58,13 +57,16 @@ export const DashboardPage: React.FC = () => {
       await fetchTasks();
       await fetchWallet();
 
-      const findingsRes: any = await apiClient.get('/findings');
-      const findingsList = Array.isArray(findingsRes) ? findingsRes : [];
-
       const currentTasks = tasks;
       const completed = currentTasks.filter((t) => t.status === 'COMPLETED').length;
       const inProgress = currentTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'TODO').length;
       const overdue = currentTasks.filter((t) => t.status === 'OVERDUE').length;
+      const urgent = currentTasks.filter(
+        (t) =>
+          (t.priority as string)?.toLowerCase() === 'high' ||
+          (t.priority as string)?.toLowerCase() === 'urgent' ||
+          (t.priority as string)?.toLowerCase() === 'critical',
+      ).length;
       const total = currentTasks.length;
 
       const score = total > 0 ? Math.round((completed / total) * 100) : 100;
@@ -74,7 +76,7 @@ export const DashboardPage: React.FC = () => {
         completedTasks: completed,
         inProgressTasks: inProgress,
         overdueTasks: overdue,
-        openFindings: findingsList.filter((f: any) => f.status === 'OPEN').length,
+        urgentTasksCount: urgent,
         complianceScore: score,
       });
     } catch (err) {
@@ -120,7 +122,7 @@ export const DashboardPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <Card
         style={{
-          background: 'linear-gradient(135deg, #001529 0%, #003a8c 100%)',
+          background: 'linear-gradient(135deg, #0d3b66 0%, #1677ff 100%)',
           borderRadius: 12,
           color: '#fff',
           border: 'none',
@@ -147,8 +149,8 @@ export const DashboardPage: React.FC = () => {
               >
                 Nạp Tiền Vào Ví
               </Button>
-              <Button icon={<FileTextOutlined />} onClick={() => navigate('/survey')}>
-                Làm Khảo Sát
+              <Button icon={<FileTextOutlined />} onClick={() => navigate('/context')}>
+                Rà Soát Bối Cảnh
               </Button>
             </Space>
           </Col>
@@ -192,13 +194,13 @@ export const DashboardPage: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card bordered={false} style={{ borderRadius: 10 }}>
             <Statistic
-              title="Rủi Ro / Sai Lệch Phát Hiện"
-              value={stats.openFindings}
-              valueStyle={{ color: stats.openFindings > 0 ? '#ff4d4f' : '#52c41a', fontWeight: 'bold' }}
+              title="Nghĩa Vụ Ưu Tiên Cao"
+              value={stats.urgentTasksCount}
+              valueStyle={{ color: stats.urgentTasksCount > 0 ? '#fa8c16' : '#52c41a', fontWeight: 'bold' }}
               prefix={<WarningOutlined />}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Cần khắc phục ngay
+              Cần theo dõi sát sao
             </Text>
           </Card>
         </Col>

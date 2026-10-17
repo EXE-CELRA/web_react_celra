@@ -12,7 +12,6 @@ import {
   ShieldCheck, 
   X, 
   HelpCircle,
-  RefreshCw,
   Receipt,
   FileText,
   Layers,
@@ -20,13 +19,11 @@ import {
   Lock
 } from 'lucide-react';
 import { message } from 'antd';
-import { useNavigate } from 'react-router-dom';
 
 type FilterTab = 'all' | 'tax_accounting';
 
 export const ContextPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { facts, fetchFacts, updateFact, isLoading } = useContextStore();
+  const { facts, fetchFacts, updateFact } = useContextStore();
 
   const [selectedTab, setSelectedTab] = useState<FilterTab>('all');
   const [activeFactForHistory, setActiveFactForHistory] = useState<ContextFact | null>(null);
@@ -68,14 +65,14 @@ export const ContextPage: React.FC = () => {
       case 'tax_accounting':
         return {
           title: 'Thuế Doanh Nghiệp',
-          tag: 'MODULE 1: THUẾ',
+          tag: 'THUẾ DOANH NGHIỆP',
           badgeClass: 'text-blue-700 bg-blue-50 border border-blue-200',
           icon: Receipt,
         };
       case 'revenue_invoices':
         return {
           title: 'Hóa Đơn & Dòng Tiền',
-          tag: 'MODULE 2: HÓA ĐƠN & DÒNG TIỀN',
+          tag: 'HÓA ĐƠN & DÒNG TIỀN',
           badgeClass: 'text-purple-700 bg-purple-50 border border-purple-200',
           icon: FileText,
         };
@@ -96,7 +93,7 @@ export const ContextPage: React.FC = () => {
       case 'hr_labor':
         return {
           title: 'Lao Động & BHXH',
-          tag: 'MODULE 3: LAO ĐỘNG (LỘ TRÌNH 2)',
+          tag: 'LAO ĐỘNG & BHXH',
           badgeClass: 'text-teal-700 bg-teal-50 border border-teal-200',
           icon: Users,
         };
@@ -255,21 +252,10 @@ export const ContextPage: React.FC = () => {
             <Database className="w-5 h-5 text-teal-600" />
             Bối cảnh Doanh nghiệp (Enterprise Context Engine)
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            CELRA theo dõi dữ liệu nguồn gốc, phát hiện mâu thuẫn giữa chủ DN và nhân sự, và kích hoạt các Rule tương ứng.
-          </p>
         </div>
 
         {/* Nút tính năng: Rà soát tuân thủ */}
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
-          <button
-            onClick={() => fetchFacts()}
-            className="p-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
-            title="Làm mới dữ liệu"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-
           <button
             onClick={() => {
               setAuditTargetFactId(null);
@@ -295,21 +281,21 @@ export const ContextPage: React.FC = () => {
           onClick={() => setSelectedTab('all')}
           className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             selectedTab === 'all'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-blue-700 hover:bg-blue-50'
           }`}
         >
           <span>Tất cả dữ kiện</span>
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-              selectedTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+              selectedTab === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
             }`}
           >
             {allCount}
           </span>
         </button>
 
-        {/* TAB MODULE 1: THUẾ DOANH NGHIỆP - ĐANG KÍCH HOẠT */}
+        {/* TAB THUẾ DOANH NGHIỆP - ĐANG KÍCH HOẠT */}
         <button
           type="button"
           onClick={() => setSelectedTab('tax_accounting')}
@@ -320,7 +306,7 @@ export const ContextPage: React.FC = () => {
           }`}
         >
           <Receipt className="w-3.5 h-3.5" />
-          <span>Module 1: Thuế Doanh Nghiệp</span>
+          <span>Thuế Doanh Nghiệp</span>
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
               selectedTab === 'tax_accounting' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
@@ -336,10 +322,10 @@ export const ContextPage: React.FC = () => {
           disabled
           aria-disabled="true"
           className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-          title="Module Hóa đơn đang khóa trong MVP (chỉ kích hoạt Core Thuế)"
+          title="Hóa đơn đang khóa trong MVP (chỉ kích hoạt Core Thuế)"
         >
           <Lock className="w-3 h-3 text-slate-400" />
-          <span>Module 2: Hóa Đơn & Dòng Tiền</span>
+          <span>Hóa Đơn & Dòng Tiền</span>
           <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
             Chưa mở
           </span>
@@ -412,14 +398,14 @@ export const ContextPage: React.FC = () => {
           <div className="space-y-1">
             <h3 className="text-base font-bold text-slate-800">Không có dữ kiện nào trong mục này</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Chưa có dữ kiện bối cảnh nào thuộc nhóm được chọn. Hãy hoàn thành khảo sát tình huống để kích hoạt đầy đủ các thẻ.
+              Chưa có dữ kiện bối cảnh nào thuộc nhóm được chọn. Bạn có thể xem tất cả dữ kiện của doanh nghiệp.
             </p>
           </div>
           <button
-            onClick={() => navigate('/survey')}
-            className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
+            onClick={() => setSelectedTab('all')}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
           >
-            Đến trang Khảo sát tình huống
+            Xem tất cả nhóm dữ kiện
           </button>
         </div>
       ) : (

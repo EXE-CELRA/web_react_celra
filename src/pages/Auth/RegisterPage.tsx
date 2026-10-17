@@ -1,10 +1,11 @@
 import React from 'react';
-import { Card, Form, Input, Button, Typography, message, Divider } from 'antd';
+import { Form, Input, Button, Typography, message, Row, Col } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { AuthLayout } from '../../components/layout/AuthLayout';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,103 +28,110 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f0f2f5',
-        backgroundImage: 'radial-gradient(#e6f4ff 1px, transparent 1px)',
-        backgroundSize: '24px 24px',
-        padding: 24,
-      }}
+    <AuthLayout
+      title="Đăng Ký Tài Khoản"
+      subtitle="Khởi tạo tài khoản doanh nghiệp để bắt đầu kiểm soát nghĩa vụ thuế và pháp lý."
+      rightButtonText="Đăng Nhập"
+      rightButtonLink="/login"
+      cardMaxWidth={540}
     >
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 460,
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
-          borderRadius: 12,
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: 'bold',
-              fontSize: 24,
-              marginBottom: 12,
-            }}
-          >
-            C
-          </div>
-          <Title level={3} style={{ margin: 0 }}>
-            Tạo Tài Khoản CELRA
-          </Title>
-          <Paragraph type="secondary" style={{ marginTop: 4 }}>
-            Bắt đầu quản trị nghĩa vụ pháp lý & tuân thủ của doanh nghiệp
-          </Paragraph>
+      <Form layout="vertical" onFinish={onFinish} size="large" requiredMark={false}>
+        <Row gutter={[14, 0]}>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="fullName"
+              label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Họ và tên</span>}
+              rules={[{ required: true, message: 'Vui lòng nhập họ và tên của bạn' }]}
+              style={{ marginBottom: 12 }}
+            >
+              <Input
+                prefix={<UserOutlined style={{ color: '#94a3b8', marginRight: 6 }} />}
+                placeholder="Nhập họ và tên của bạn"
+                style={{ height: 40, borderRadius: 8 }}
+              />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="phoneNumber"
+              label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Số điện thoại</span>}
+              rules={[{ required: true, message: 'Vui lòng nhập số điện thoại liên hệ' }]}
+              style={{ marginBottom: 12 }}
+            >
+              <Input
+                prefix={<PhoneOutlined style={{ color: '#94a3b8', marginRight: 6 }} />}
+                placeholder="0901234567"
+                style={{ height: 40, borderRadius: 8 }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={[14, 0]}>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="email"
+              label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Email công việc</span>}
+              rules={[
+                { required: true, message: 'Vui lòng nhập email công việc' },
+                { type: 'email', message: 'Email không đúng định dạng' },
+              ]}
+              style={{ marginBottom: 16 }}
+            >
+              <Input
+                prefix={<MailOutlined style={{ color: '#94a3b8', marginRight: 6 }} />}
+                placeholder="ceo@company.vn"
+                style={{ height: 40, borderRadius: 8 }}
+              />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="password"
+              label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Mật khẩu</span>}
+              rules={[
+                { required: true, message: 'Vui lòng nhập mật khẩu' },
+                { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự' },
+              ]}
+              style={{ marginBottom: 16 }}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: '#94a3b8', marginRight: 6 }} />}
+                placeholder="••••••••"
+                style={{ height: 40, borderRadius: 8 }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={isLoading}
+          block
+          style={{
+            height: 42,
+            borderRadius: 8,
+            backgroundColor: '#0052cc',
+            borderColor: '#0052cc',
+            fontSize: 15,
+            fontWeight: 600,
+            marginTop: 4,
+            boxShadow: '0 4px 14px rgba(0, 82, 204, 0.3)',
+          }}
+        >
+          Tạo Tài Khoản
+        </Button>
+
+        <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13 }}>
+          <Text style={{ color: '#64748b' }}>Đã có tài khoản doanh nghiệp? </Text>
+          <Link to="/login" style={{ color: '#0052cc', fontWeight: 600 }}>
+            Đăng nhập ngay
+          </Link>
         </div>
-
-        <Form layout="vertical" onFinish={onFinish} size="large">
-          <Form.Item
-            name="fullName"
-            label="Họ và tên"
-            rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="Nguyễn Văn A" />
-          </Form.Item>
-
-          <Form.Item
-            name="email"
-            label="Email công việc"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email' },
-              { type: 'email', message: 'Email không hợp lệ' },
-            ]}
-          >
-            <Input prefix={<MailOutlined />} placeholder="nguyenvana@company.vn" />
-          </Form.Item>
-
-          <Form.Item
-            name="phoneNumber"
-            label="Số điện thoại"
-            rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}
-          >
-            <Input prefix={<PhoneOutlined />} placeholder="0901234567" />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            label="Mật khẩu"
-            rules={[
-              { required: true, message: 'Vui lòng nhập mật khẩu' },
-              { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự' },
-            ]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="••••••••" />
-          </Form.Item>
-
-          <Button type="primary" htmlType="submit" loading={isLoading} block style={{ height: 44, marginTop: 8 }}>
-            Tạo Tài Khoản
-          </Button>
-
-          <Divider style={{ margin: '20px 0' }} />
-
-          <div style={{ textAlign: 'center' }}>
-            <Text type="secondary">Đã có tài khoản? </Text>
-            <Link to="/login">Đăng nhập</Link>
-          </div>
-        </Form>
-      </Card>
-    </div>
+      </Form>
+    </AuthLayout>
   );
 };

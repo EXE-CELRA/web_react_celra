@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Form, Input, Button, Typography, message, Divider } from 'antd';
-import { UserOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Checkbox, Typography, message } from 'antd';
+import { MailOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { AuthLayout } from '../../components/layout/AuthLayout';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,94 +34,107 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f0f2f5',
-        backgroundImage: 'radial-gradient(#e6f4ff 1px, transparent 1px)',
-        backgroundSize: '24px 24px',
-        padding: 24,
-      }}
+    <AuthLayout
+      title="Đăng Nhập"
+      subtitle="Chào mừng bạn quay lại. Vui lòng đăng nhập để tiếp tục quản trị tuân thủ doanh nghiệp."
+      rightButtonText="Đăng Ký Miễn Phí"
+      rightButtonLink="/register"
+      cardMaxWidth={460}
     >
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 420,
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
-          borderRadius: 12,
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: 'bold',
-              fontSize: 24,
-              marginBottom: 12,
-            }}
+      <Form layout="vertical" onFinish={onFinish} size="large" requiredMark={false}>
+        <Form.Item
+          name="email"
+          label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13.5 }}>Email</span>}
+          rules={[
+            { required: true, message: 'Vui lòng nhập email của bạn' },
+            { type: 'email', message: 'Email không đúng định dạng' },
+          ]}
+          style={{ marginBottom: 18 }}
+        >
+          <Input
+            prefix={<MailOutlined style={{ color: '#94a3b8', marginRight: 6 }} />}
+            placeholder="Nhập email của bạn"
+            style={{ height: 44, borderRadius: 8 }}
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="password"
+          label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13.5 }}>Mật khẩu</span>}
+          rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+          style={{ marginBottom: 14 }}
+        >
+          <Input.Password
+            prefix={<LockOutlined style={{ color: '#94a3b8', marginRight: 6 }} />}
+            placeholder="Nhập mật khẩu"
+            style={{ height: 44, borderRadius: 8 }}
+          />
+        </Form.Item>
+
+        {twoFactorRequired && (
+          <Form.Item
+            name="twoFactorCode"
+            label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13.5 }}>Mã xác thực 2 bước (2FA OTP)</span>}
+            rules={[{ required: true, message: 'Vui lòng nhập mã 6 số từ Google Authenticator' }]}
+            style={{ marginBottom: 18 }}
           >
-            C
-          </div>
-          <Title level={3} style={{ margin: 0 }}>
-            CELRA Compliance
-          </Title>
-          <Paragraph type="secondary" style={{ marginTop: 4 }}>
-            Nền Tảng Điều Phối Tuân Thủ & Nghĩa Vụ Doanh Nghiệp
-          </Paragraph>
+            <Input
+              prefix={<SafetyCertificateOutlined style={{ color: '#0052cc', marginRight: 6 }} />}
+              placeholder="123456"
+              maxLength={6}
+              style={{ height: 44, borderRadius: 8 }}
+            />
+          </Form.Item>
+        )}
+
+        {/* Ghi nhớ đăng nhập & Quên mật khẩu */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 24,
+            fontSize: 13,
+          }}
+        >
+          <Form.Item name="remember" valuePropName="checked" noStyle initialValue={true}>
+            <Checkbox style={{ color: '#475569', fontSize: 13 }}>Ghi nhớ đăng nhập</Checkbox>
+          </Form.Item>
+          <Link
+            to="/forgot-password"
+            style={{ color: '#0052cc', fontWeight: 500, fontSize: 13 }}
+          >
+            Quên mật khẩu?
+          </Link>
         </div>
 
-        <Form layout="vertical" onFinish={onFinish} size="large">
-          <Form.Item
-            name="email"
-            label="Email Doanh Nghiệp"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email' },
-              { type: 'email', message: 'Email không đúng định dạng' },
-            ]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="ceo@company.vn" />
-          </Form.Item>
+        {/* Nút đăng nhập */}
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={isLoading}
+          block
+          style={{
+            height: 46,
+            borderRadius: 8,
+            backgroundColor: '#0052cc',
+            borderColor: '#0052cc',
+            fontSize: 15,
+            fontWeight: 600,
+            boxShadow: '0 4px 14px rgba(0, 82, 204, 0.3)',
+          }}
+        >
+          Đăng Nhập
+        </Button>
 
-          <Form.Item
-            name="password"
-            label="Mật khẩu"
-            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="••••••••" />
-          </Form.Item>
-
-          {twoFactorRequired && (
-            <Form.Item
-              name="twoFactorCode"
-              label="Mã xác thực 2 bước (2FA OTP)"
-              rules={[{ required: true, message: 'Vui lòng nhập mã 6 số từ Google Authenticator' }]}
-            >
-              <Input prefix={<SafetyCertificateOutlined />} placeholder="123456" maxLength={6} />
-            </Form.Item>
-          )}
-
-          <Button type="primary" htmlType="submit" loading={isLoading} block style={{ height: 44, marginTop: 8 }}>
-            Đăng Nhập
-          </Button>
-
-          <Divider style={{ margin: '20px 0' }} />
-
-          <div style={{ textAlign: 'center' }}>
-            <Text type="secondary">Chưa có tài khoản doanh nghiệp? </Text>
-            <Link to="/register">Đăng ký ngay</Link>
-          </div>
-        </Form>
-      </Card>
-    </div>
+        {/* Link chuyển hướng Đăng ký */}
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 13.5 }}>
+          <Text style={{ color: '#64748b' }}>Chưa có tài khoản? </Text>
+          <Link to="/register" style={{ color: '#0052cc', fontWeight: 600 }}>
+            Đăng ký miễn phí
+          </Link>
+        </div>
+      </Form>
+    </AuthLayout>
   );
 };
