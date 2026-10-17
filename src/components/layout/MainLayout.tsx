@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
   DatabaseOutlined,
+  FormOutlined,
   CheckSquareOutlined,
   FolderOpenOutlined,
   WalletOutlined,
@@ -34,7 +35,7 @@ export const MainLayout: React.FC = () => {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const { user, logout } = useAuthStore();
-  const { organizations, activeOrg, fetchMyOrganizations, isLoading: orgLoading } = useOrgStore();
+  const { activeOrg, fetchMyOrganizations } = useOrgStore();
   const { wallet, fetchWallet } = useWalletStore();
 
   useEffect(() => {
@@ -49,16 +50,12 @@ export const MainLayout: React.FC = () => {
 
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
-    { key: '/context', icon: <DatabaseOutlined />, label: 'Dữ Liệu Doanh Nghiệp' },
-    { key: '/tasks', icon: <CheckSquareOutlined />, label: 'Công Việc & Nghĩa Vụ' },
-    { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Kho Hồ Sơ Minh Chứng' },
+    { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
+    { key: '/survey', icon: <FormOutlined />, label: 'Câu Hỏi Tình Huống' },
+    { key: '/tasks', icon: <CheckSquareOutlined />, label: 'Check-list & Task' },
+    { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Hồ Sơ & Bằng Chứng' },
+    { key: '/wallet', icon: <WalletOutlined />, label: 'Ví & Thanh Toán' },
   ];
-
-  useEffect(() => {
-    if (!orgLoading && organizations.length === 0 && location.pathname !== '/onboarding') {
-      navigate('/onboarding');
-    }
-  }, [orgLoading, organizations.length, location.pathname]);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

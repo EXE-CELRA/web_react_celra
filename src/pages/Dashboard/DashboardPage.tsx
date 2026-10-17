@@ -106,7 +106,7 @@ export const DashboardPage: React.FC = () => {
           description="Bạn chưa có hồ sơ doanh nghiệp nào trên hệ thống"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         >
-          <Button type="primary" size="large" onClick={() => navigate('/onboarding')}>
+          <Button type="primary" size="large" onClick={() => navigate('/survey')}>
             Bắt đầu tạo hồ sơ doanh nghiệp ngay
           </Button>
         </Empty>
@@ -149,8 +149,8 @@ export const DashboardPage: React.FC = () => {
               >
                 Nạp Tiền Vào Ví
               </Button>
-              <Button icon={<FileTextOutlined />} onClick={() => navigate('/context')}>
-                Rà Soát Bối Cảnh
+              <Button icon={<FileTextOutlined />} onClick={() => navigate('/survey')}>
+                Thu Thập Bối Cảnh
               </Button>
             </Space>
           </Col>
