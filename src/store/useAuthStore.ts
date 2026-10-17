@@ -14,6 +14,7 @@ interface AuthState {
   register: (data: { email: string; password?: string; passwordHash?: string; fullName?: string; name?: string; phoneNumber?: string; phone?: string }) => Promise<any>;
   logout: () => void;
   loadUserProfile: () => Promise<void>;
+  updateProfile: (data: { fullName?: string; name?: string; phoneNumber?: string; phone?: string; email?: string }) => Promise<any>;
   setActiveRole: (role: string) => void;
 }
 
@@ -126,6 +127,43 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
     } catch (err) {
       set({ isLoading: false });
+    }
+  },
+
+  updateProfile: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const payload = {
+        name: data.fullName || data.name,
+        phone: data.phoneNumber || data.phone,
+        email: data.email,
+      };
+
+      let updatedUser: any = null;
+      try {
+        const res: any = await apiClient.patch('/auth/profile', payload);
+        updatedUser = res?.user || res;
+      } catch (apiErr) {
+        console.warn('API /auth/profile update fallback to local state:', apiErr);
+      }
+
+      const currentUser = JSON.parse(localStorage.getItem('celra_user') || '{}');
+      const mergedUser = {
+        ...currentUser,
+        ...(updatedUser || {}),
+        name: payload.name || currentUser.name || currentUser.fullName,
+        fullName: payload.name || currentUser.fullName || currentUser.name,
+        phone: payload.phone !== undefined ? payload.phone : (currentUser.phone || currentUser.phoneNumber),
+        phoneNumber: payload.phone !== undefined ? payload.phone : (currentUser.phoneNumber || currentUser.phone),
+        email: payload.email || currentUser.email,
+      };
+
+      localStorage.setItem('celra_user', JSON.stringify(mergedUser));
+      set({ user: mergedUser, isLoading: false });
+      return { success: true, user: mergedUser };
+    } catch (err: any) {
+      set({ isLoading: false, error: err.message || 'Cập nhật thông tin thất bại' });
+      throw err;
     }
   },
 

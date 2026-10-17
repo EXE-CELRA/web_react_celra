@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, ConfigProvider } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
   DatabaseOutlined,
-  FormOutlined,
   CheckSquareOutlined,
   FolderOpenOutlined,
   WalletOutlined,
@@ -12,12 +11,16 @@ import {
   UserOutlined,
   LogoutOutlined,
   PlusOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { AIChatDrawer } from '../common/AIChatDrawer';
 import { VietQRModal } from '../common/VietQRModal';
+import { ProfileModal } from '../common/ProfileModal';
+import celraLogo from '../../assets/logo_celra_tachnen.png';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -28,6 +31,7 @@ export const MainLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const { user, logout } = useAuthStore();
   const { organizations, activeOrg, fetchMyOrganizations, isLoading: orgLoading } = useOrgStore();
@@ -46,88 +50,137 @@ export const MainLayout: React.FC = () => {
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
     { key: '/context', icon: <DatabaseOutlined />, label: 'Dữ Liệu Doanh Nghiệp' },
-    { key: '/survey', icon: <FormOutlined />, label: 'Khảo Sát Tuân Thủ' },
     { key: '/tasks', icon: <CheckSquareOutlined />, label: 'Công Việc & Nghĩa Vụ' },
     { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Kho Hồ Sơ Minh Chứng' },
   ];
 
-  const getPageTitle = (pathname: string) => {
-    if (pathname === '/wallet') return 'Ví & Thanh Toán';
-    const item = menuItems.find((m) => m.key === pathname);
-    return item ? item.label : 'Bảng Điều Khiển';
-  };
-
   useEffect(() => {
-    if (!orgLoading && organizations.length === 0 && location.pathname !== '/survey') {
-      navigate('/survey');
+    if (!orgLoading && organizations.length === 0 && location.pathname !== '/onboarding') {
+      navigate('/onboarding');
     }
   }, [orgLoading, organizations.length, location.pathname]);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={(val) => setCollapsed(val)}
-        theme="dark"
-        width={250}
-        style={{
-          overflow: 'auto',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
+      <ConfigProvider
+        theme={{
+          components: {
+            Layout: {
+              siderBg: '#0d2b59',
+            },
+            Menu: {
+              darkItemBg: 'transparent',
+              darkSubMenuItemBg: 'transparent',
+              darkItemSelectedBg: '#1677ff',
+              darkItemSelectedColor: '#ffffff',
+              darkItemColor: 'rgba(255, 255, 255, 0.85)',
+              darkItemHoverBg: 'rgba(255, 255, 255, 0.08)',
+              darkItemHoverColor: '#ffffff',
+            },
+          },
         }}
       >
-        <div
+        <Sider
+          collapsible
+          collapsed={collapsed}
+          trigger={null}
+          theme="dark"
+          width={250}
           style={{
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: '0 20px',
-            backgroundColor: '#001529',
-            borderBottom: '1px solid #1f1f1f',
-            cursor: 'pointer',
+            overflow: 'auto',
+            height: '100vh',
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 100,
+            background: '#0d2b59',
+            boxShadow: '2px 0 10px rgba(13, 43, 89, 0.15)',
           }}
-          onClick={() => navigate('/')}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              height: 68,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: collapsed ? 0 : '0 16px',
+              backgroundColor: '#0d2b59',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              position: 'relative',
+              width: '100%',
+            }}
+          >
             <div
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontWeight: 'bold',
-                fontSize: 16,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: collapsed ? 0 : 10,
+                cursor: 'pointer',
+                overflow: 'hidden',
+                width: '100%',
               }}
+              onClick={() => navigate('/')}
             >
-              C
+              <img
+                src={celraLogo}
+                alt="CELRA Logo"
+                style={{
+                  width: 38,
+                  height: 38,
+                  objectFit: 'contain',
+                  flexShrink: 0,
+                  display: 'block',
+                }}
+              />
+              {!collapsed && (
+                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <span
+                    style={{
+                      color: '#fff',
+                      fontWeight: 900,
+                      fontSize: 18,
+                      letterSpacing: 1.2,
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    CELRA
+                  </span>
+                  <span
+                    style={{
+                      color: 'rgba(255,255,255,0.75)',
+                      fontSize: 8,
+                      fontWeight: 500,
+                      marginTop: 2,
+                      lineHeight: 1.15,
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    Compliance Evaluation, Legal Recovery & Assistance
+                  </span>
+                </div>
+              )}
             </div>
-            {!collapsed && (
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: 18, letterSpacing: 0.5 }}>
-                CELRA
-              </span>
-            )}
           </div>
-        </div>
 
-        <Menu
-          theme="dark"
-          selectedKeys={[location.pathname]}
-          mode="inline"
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-          style={{ marginTop: 8 }}
-        />
-      </Sider>
+          <Menu
+            theme="dark"
+            selectedKeys={[location.pathname]}
+            mode="inline"
+            items={menuItems}
+            onClick={({ key }) => navigate(key)}
+            style={{
+              marginTop: 8,
+              background: 'transparent',
+              borderRight: 0,
+              fontWeight: 500,
+            }}
+          />
+        </Sider>
+      </ConfigProvider>
 
       <Layout style={{ marginLeft: collapsed ? 80 : 250, transition: 'all 0.2s' }}>
         <Header
@@ -143,13 +196,27 @@ export const MainLayout: React.FC = () => {
             zIndex: 99,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>
-              Hệ thống /
-            </span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
-              {getPageTitle(location.pathname)}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Button
+              type="text"
+              icon={
+                collapsed ? (
+                  <MenuUnfoldOutlined style={{ fontSize: 16 }} />
+                ) : (
+                  <MenuFoldOutlined style={{ fontSize: 16 }} />
+                )
+              }
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
+              style={{
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 6,
+              }}
+            />
           </div>
 
           <Space size="middle">
@@ -191,14 +258,10 @@ export const MainLayout: React.FC = () => {
               menu={{
                 items: [
                   {
-                    key: 'profile',
-                    label: user?.name || user?.fullName || 'Người dùng',
-                    disabled: true,
-                  },
-                  {
-                    key: 'email',
-                    label: user?.email,
-                    disabled: true,
+                    key: 'profile-modal-btn',
+                    icon: <UserOutlined style={{ color: '#1677ff' }} />,
+                    label: <span style={{ fontWeight: 500 }}>Hồ sơ cá nhân</span>,
+                    onClick: () => setProfileModalOpen(true),
                   },
                   { type: 'divider' },
                   {
@@ -223,17 +286,14 @@ export const MainLayout: React.FC = () => {
           </Space>
         </Header>
 
-        <Content style={{ margin: '24px 24px 0', overflow: 'initial' }}>
+        <Content style={{ margin: '24px 24px 24px', overflow: 'initial' }}>
           <Outlet />
         </Content>
-
-        <footer style={{ textAlign: 'center', padding: '24px', color: '#8c8c8c', fontSize: 12 }}>
-          CELRA Compliance & Multi-party Coordination Platform © {new Date().getFullYear()} - Nền Tảng Điều Phối & Giám Sát Tuân Thủ Doanh Nghiệp
-        </footer>
       </Layout>
 
       <AIChatDrawer visible={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />
       <VietQRModal visible={qrModalOpen} onClose={() => setQrModalOpen(false)} />
+      <ProfileModal open={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
     </Layout>
   );
 };

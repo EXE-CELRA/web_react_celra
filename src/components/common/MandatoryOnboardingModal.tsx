@@ -25,6 +25,7 @@ import {
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useOrgStore } from '../../store/useOrgStore';
+import celraLogo from '../../assets/logo_celra_tachnen.png';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -128,25 +129,32 @@ export const MandatoryOnboardingModal: React.FC<MandatoryOnboardingModalProps> =
         },
       }}
     >
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: 'linear-gradient(135deg, #1677ff 0%, #003a8c 100%)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: 22,
-            marginBottom: 8,
-          }}
-        >
-          C
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 14 }}>
+        <img
+          src={celraLogo}
+          alt="CELRA Logo"
+          style={{ width: 56, height: 56, objectFit: 'contain' }}
+        />
+        <div style={{ textAlign: 'left' }}>
+          <div
+            style={{
+              fontSize: 26,
+              fontWeight: 900,
+              color: '#072448',
+              letterSpacing: 1.5,
+              lineHeight: 1.1,
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
+          >
+            CELRA
+          </div>
+          <div style={{ fontSize: 10.5, color: '#475569', fontWeight: 500, marginTop: 3 }}>
+            Compliance Evaluation, Legal Recovery & Assistance
+          </div>
         </div>
-        <Title level={3} style={{ margin: 0 }}>
+      </div>
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <Title level={4} style={{ margin: 0, color: '#1e293b' }}>
           Kích Hoạt Hồ Sơ Doanh Nghiệp (Bắt Buộc)
         </Title>
         <Paragraph type="secondary" style={{ marginTop: 4, fontSize: 13 }}>

@@ -141,9 +141,14 @@ export interface User {
   fullName: string;
   name?: string;
   phoneNumber?: string;
+  phone?: string;
   avatarUrl?: string;
+  avatar?: string;
   systemRole: string;
-  twoFactorEnabled: boolean;
+  role?: string;
+  roleTitle?: string;
+  twoFactorEnabled?: boolean;
+  isTwoFactorEnabled?: boolean;
   createdAt: string;
 }
 
