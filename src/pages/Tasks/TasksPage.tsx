@@ -38,6 +38,7 @@ import { useTaskStore } from '../../store/useTaskStore';
 import type { TaskItem, TaskStatus, TaskPriority, RoleType } from '../../types';
 import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
+import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -130,11 +131,26 @@ export const TasksPage: React.FC = () => {
           <Text strong style={{ color: '#1677ff', cursor: 'pointer' }} onClick={() => handleOpenTask(record)}>
             {text}
           </Text>
-          {record.legalCitation && (
-            <div style={{ fontSize: 11, color: '#8c8c8c' }}>
-              <AuditOutlined /> {record.legalCitation}
-            </div>
-          )}
+          {record.legalCitation && (() => {
+            const clean = cleanDLPLUrl(record.legalCitation);
+            const directUrl = (clean.startsWith('http') ? clean : null) || matchCoreLegalDocUrl(record.legalCitation);
+            return (
+              <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+                <AuditOutlined /> {clean}
+                {directUrl && (
+                  <a
+                    href={directUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ marginLeft: 6, color: '#0958d9', fontWeight: 500 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    [Xem DLPL ↗]
+                  </a>
+                )}
+              </div>
+            );
+          })()}
         </div>
       ),
     },
@@ -373,14 +389,30 @@ export const TasksPage: React.FC = () => {
               </Card>
             )}
 
-            {selectedTask.legalCitation && (
-              <div style={{ background: '#f0f5ff', padding: 12, borderRadius: 6, borderLeft: '4px solid #1677ff' }}>
-                <Text strong style={{ color: '#1677ff' }}>
-                  <AuditOutlined /> Căn cứ pháp lý:
-                </Text>
-                <div style={{ marginTop: 4 }}>{selectedTask.legalCitation}</div>
-              </div>
-            )}
+            {selectedTask.legalCitation && (() => {
+              const clean = cleanDLPLUrl(selectedTask.legalCitation);
+              const directUrl = (clean.startsWith('http') ? clean : null) || matchCoreLegalDocUrl(selectedTask.legalCitation);
+              return (
+                <div style={{ background: '#f0f5ff', padding: 12, borderRadius: 6, borderLeft: '4px solid #1677ff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ color: '#1677ff' }}>
+                      <AuditOutlined /> Căn cứ pháp lý:
+                    </Text>
+                    {directUrl && (
+                      <a
+                        href={directUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: 12, color: '#0958d9', fontWeight: 600 }}
+                      >
+                        Tra cứu toàn văn trên Cổng DLPL ↗
+                      </a>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 4 }}>{clean}</div>
+                </div>
+              );
+            })()}
 
             <Card size="small" title="Điều Phối Đa Bên (Multi-party Roles)" type="inner">
               <Row gutter={16}>

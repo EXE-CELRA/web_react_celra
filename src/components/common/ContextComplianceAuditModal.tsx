@@ -22,9 +22,10 @@ import {
   Check, 
   PlusCircle, 
   Building2,
-  Receipt,
-  Lock
+  ExternalLink
 } from 'lucide-react';
+import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
+import { CONTEXT_GROUPS } from '../../pages/Context/ContextPage';
 
 interface ContextComplianceAuditModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ interface AuditFindingResult {
   departmentName: string;
   suggestedChecklistCode: string;
   suggestedChecklistTitle: string;
+  directUrl?: string;
   tasks: {
     code: string;
     title: string;
@@ -71,7 +73,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const { facts, updateFact } = useContextStore();
   const { wallet, fetchWallet, buyPackage } = useWalletStore();
 
-  type AuditModalTab = 'all' | 'tax_accounting';
+  type AuditModalTab = 'all' | string;
   const [activeTab, setActiveTab] = useState<AuditModalTab>('tax_accounting');
   const [step, setStep] = useState<'select' | 'confirm' | 'scanning' | 'results'>('select');
   const [selectedFactIds, setSelectedFactIds] = useState<string[]>([]);
@@ -81,15 +83,10 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const [allCreated, setAllCreated] = useState(false);
   const [updatedFactValues, setUpdatedFactValues] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [auditResults, setAuditResults] = useState<AuditFindingResult[]>([]);
 
-  // 4 thẻ Hồ sơ nền tảng (MST, Loại hình DN, Quy mô nhân sự, Ngành nghề)
-  const baseFacts = facts.filter((f) => f.group === 'legal' || f.group === 'operations');
-  // 3 thẻ Thuế Doanh Nghiệp
-  const taxFacts = facts.filter((f) => f.group === 'tax_accounting');
-  // Tab Tất cả = 4 thẻ Nền tảng + 3 thẻ Thuế (Tổng 7 thẻ y hệt như bên ngoài)
-  const allDisplayFacts = [...baseFacts, ...taxFacts];
-
-  const displayedFacts = activeTab === 'tax_accounting' ? taxFacts : allDisplayFacts;
+  // Cho phép rà soát toàn bộ các thẻ bối cảnh thực tế trong cơ sở dữ liệu
+  const displayedFacts = activeTab === 'all' ? facts : facts.filter((f) => f.group === activeTab);
 
   useEffect(() => {
     if (isOpen) {
@@ -98,6 +95,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       setCreatedChecklists({});
       setAllCreated(false);
       setUpdatedFactValues({});
+      setAuditResults([]);
       fetchWallet();
 
       const currentTaxFacts = facts.filter((f) => f.group === 'tax_accounting');
@@ -488,32 +486,19 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       }
     });
 
-    return results;
+    return results.map((r) => ({
+      ...r,
+      directUrl: r.directUrl || matchCoreLegalDocUrl(cleanDLPLUrl(r.legalBasis)),
+    }));
   };
 
-  const auditResults = generateAuditResults();
+  const finalAuditResults = auditResults.length > 0 ? auditResults : generateAuditResults();
 
-  // Confirm payment and simulate audit execution
+  // Confirm payment and execute audit via backend
   const handleConfirmAndPay = async () => {
     if (selectedFactIds.length === 0) return;
 
     setIsProcessing(true);
-    try {
-      // Execute audit via backend for each card if possible
-      for (const factId of selectedFactIds) {
-        try {
-          await apiClient.post(`/context-facts/${factId}/compliance-audit`);
-        } catch (e) {
-          // If already audited or balance handled, continue
-        }
-      }
-      await fetchWallet();
-    } catch (err: any) {
-      console.warn('Audit backend sync:', err);
-    } finally {
-      setIsProcessing(false);
-    }
-
     setStep('scanning');
     setScanProgress(15);
     setScanStageText(`Đang kết nối hệ thống dữ liệu ${selectedFactIds.length} thẻ Context đã chọn...`);
@@ -533,9 +518,75 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       setScanStageText('Tổng hợp danh mục nghĩa vụ bắt buộc và khởi tạo đề xuất Checklist!');
     }, 1800);
 
-    setTimeout(() => {
-      setStep('results');
-    }, 2200);
+    try {
+      const realResults: AuditFindingResult[] = [];
+      const fallbackList = generateAuditResults();
+
+      for (const factId of selectedFactIds) {
+        const fact = facts.find((f) => f.id === factId);
+        try {
+          const res = await apiClient.post(`/context-facts/${factId}/compliance-audit`);
+          const data = res.data?.auditResult;
+          if (data && (data.legalCitation || data.proposedChecklist)) {
+            const citation = data.legalCitation;
+            const rawCitation = citation?.exactQuote || citation?.documentTitle || 'Quy định pháp luật hiện hành';
+            const cleanCitation = cleanDLPLUrl(rawCitation);
+            const directUrl = cleanDLPLUrl(citation?.directUrl || citation?.sourceUrl) || matchCoreLegalDocUrl(cleanCitation) || matchCoreLegalDocUrl(citation?.documentNumber) || undefined;
+
+            realResults.push({
+              id: `res-${factId}`,
+              factId: factId,
+              factLabel: data.factLabel || fact?.label || 'Nghĩa vụ pháp lý',
+              factValue: data.currentValue || fact?.value || '',
+              obligationTitle: data.proposedChecklist?.title || `Rà soát tuân thủ: ${fact?.label || ''}`,
+              category: data.proposedChecklist?.category || fact?.group || 'Pháp chế & Kế toán',
+              priority: (data.riskLevel === 'URGENT' ? 'urgent' : data.riskLevel === 'HIGH' ? 'high' : data.riskLevel === 'MEDIUM' ? 'medium' : 'low') as Priority,
+              legalBasis: `${citation?.documentTitle || 'Văn bản QPPL'} ${citation?.articleNumber ? '- ' + citation.articleNumber : ''}: ${citation?.exactQuote || cleanCitation}`,
+              penaltyWarning: data.riskSummary || 'Vi phạm có thể bị xử lý hành chính theo quy định.',
+              complianceActionItems: [
+                `Thu thập và lưu trữ hồ sơ chứng minh cho ${fact?.label || 'thẻ bối cảnh'}.`,
+                'Phân công nhân sự theo dõi và cập nhật hồ sơ định kỳ theo quy định pháp luật.'
+              ],
+              requiredDocuments: [
+                'Hồ sơ minh chứng nghiệp vụ thực tế phát sinh',
+                'Văn bản quy định nội bộ hoặc hợp đồng liên quan'
+              ],
+              recommendedDeadline: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+              departmentId: 'dept-legal',
+              departmentName: 'Ban Pháp chế & Kế toán',
+              suggestedChecklistCode: `CKL-${Date.now().toString().slice(-4)}`,
+              suggestedChecklistTitle: data.proposedChecklist?.title || `Quy trình kiểm soát tuân thủ: ${fact?.label || ''}`,
+              directUrl,
+              tasks: data.proposedChecklist?.tasks?.map((t: any, idx: number) => ({
+                code: t.code || `TASK-${idx + 1}`,
+                title: t.title,
+                description: t.description || 'Thực hiện theo quy định',
+                priority: (t.priority?.toLowerCase() || 'medium') as Priority,
+                dueDate: new Date(Date.now() + (t.dueDateDays || 14) * 86400000).toISOString().split('T')[0],
+              })) || [],
+            });
+          } else {
+            const fallback = fallbackList.find((f) => f.factId === factId);
+            if (fallback) realResults.push(fallback);
+          }
+        } catch (e) {
+          console.warn(`Audit error on fact ${factId}:`, e);
+          const fallback = fallbackList.find((f) => f.factId === factId);
+          if (fallback) realResults.push(fallback);
+        }
+      }
+
+      await fetchWallet();
+      setAuditResults(realResults.length > 0 ? realResults : fallbackList);
+    } catch (err: any) {
+      console.warn('Audit backend sync:', err);
+      setAuditResults(generateAuditResults());
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => {
+        setStep('results');
+      }, 2000);
+    }
   };
 
   // Create single checklist
@@ -568,14 +619,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   // Create all checklists
   const handleCreateAllChecklists = async () => {
     setIsProcessing(true);
-    for (const result of auditResults) {
+    for (const result of finalAuditResults) {
       if (!createdChecklists[result.id]) {
         await handleCreateSingleChecklist(result);
       }
     }
     setAllCreated(true);
     setIsProcessing(false);
-    message.success(`🎉 Đã tạo thành công toàn bộ ${auditResults.length} Checklist tuân thủ!`);
+    message.success(`🎉 Đã tạo thành công toàn bộ ${finalAuditResults.length} Checklist tuân thủ!`);
   };
 
   const handleDepositQuick = async () => {
@@ -626,7 +677,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           {/* STEP 1: CHỌN CÁC THẺ CONTEXT MUỐN RÀ SOÁT */}
           {step === 'select' && (
             <div className="space-y-4">
-              {/* TABS LỌC MODULE TUÂN THỦ TRONG MODAL */}
+              {/* TABS LỌC 9 MODULE TUÂN THỦ TRONG MODAL */}
               <div className="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-1.5 overflow-x-auto">
                 {/* TAB TẤT CẢ DỮ KIỆN KHẢ DỤNG RÀ SOÁT */}
                 <button
@@ -644,101 +695,43 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                       activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                     }`}
                   >
-                    {allDisplayFacts.length}
+                    {facts.length}
                   </span>
                 </button>
 
-                {/* TAB MODULE 1: THUẾ DOANH NGHIỆP - ĐANG KÍCH HOẠT */}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('tax_accounting')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                    activeTab === 'tax_accounting'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-blue-700 hover:bg-blue-50'
-                  }`}
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  <span>Module 1: Thuế Doanh Nghiệp</span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-                      activeTab === 'tax_accounting' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
-                    }`}
-                  >
-                    {taxFacts.length}
-                  </span>
-                </button>
+                {/* 9 NHÓM CONTEXT DYNAMIC TRONG MODAL */}
+                {CONTEXT_GROUPS.map((g) => {
+                  const count = facts.filter((f) => f.group === g.key).length;
+                  const isSelected = activeTab === g.key;
+                  const IconComp = g.icon;
 
-                {/* CÁC THẺ KHÓA DẠNG DISABLE HOÀN TOÀN, KHÔNG CLICK ĐƯỢC */}
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-                  title="Module Hóa đơn đang khóa trong MVP (chỉ kích hoạt Core Thuế)"
-                >
-                  <Lock className="w-3 h-3 text-slate-400" />
-                  <span>Module 2: Hóa Đơn & Dòng Tiền</span>
-                  <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-                    Chưa mở
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-                  title="Hồ sơ nền tảng đang khóa trong MVP"
-                >
-                  <Lock className="w-3 h-3 text-slate-400" />
-                  <span>Hồ Sơ Nền Tảng (Pháp lý)</span>
-                  <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-                    Chưa mở
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-                  title="Lĩnh vực Lao động & BHXH đang khóa trong MVP"
-                >
-                  <Lock className="w-3 h-3 text-slate-400" />
-                  <span>Lao Động & BHXH</span>
-                  <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-                    Chưa mở
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-                  title="Lĩnh vực Giấy phép con & PCCC đang khóa trong MVP"
-                >
-                  <Lock className="w-3 h-3 text-slate-400" />
-                  <span>Giấy Phép Con & PCCC</span>
-                  <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-                    Chưa mở
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-                  title="Lĩnh vực An toàn dữ liệu & Thương mại điện tử đang khóa trong MVP"
-                >
-                  <Lock className="w-3 h-3 text-slate-400" />
-                  <span>Dữ Liệu & TMĐT</span>
-                  <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-                    Chưa mở
-                  </span>
-                </button>
+                  return (
+                    <button
+                      key={g.key}
+                      type="button"
+                      onClick={() => setActiveTab(g.key)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                        isSelected
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-700 hover:text-blue-700 hover:bg-white/70'
+                      }`}
+                    >
+                      <IconComp className="w-3.5 h-3.5" />
+                      <span>{g.shortLabel}</span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                          isSelected
+                            ? 'bg-white/20 text-white'
+                            : count > 0
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* BỘ ĐIỀU KHIỂN CHỌN THẺ VÀ THÔNG TIN CHI PHÍ */}
@@ -973,7 +966,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                     <h4 className="text-base font-bold text-emerald-950">
-                      Rà soát hoàn tất! Phát hiện {auditResults.length} nghĩa vụ tuân thủ cần thực thi
+                      Rà soát hoàn tất! Phát hiện {finalAuditResults.length} nghĩa vụ tuân thủ cần thực thi
                     </h4>
                   </div>
                   <p className="text-xs text-emerald-800">
@@ -984,17 +977,17 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                 <div className="shrink-0 flex items-center gap-2">
                   <button
                     onClick={handleCreateAllChecklists}
-                    disabled={allCreated || Object.keys(createdChecklists).length === auditResults.length || isProcessing}
+                    disabled={allCreated || Object.keys(createdChecklists).length === finalAuditResults.length || isProcessing}
                     className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer ${
-                      allCreated || Object.keys(createdChecklists).length === auditResults.length
+                      allCreated || Object.keys(createdChecklists).length === finalAuditResults.length
                         ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                         : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md'
                     }`}
                   >
                     <PlusCircle className="w-4 h-4" />
-                    {allCreated || Object.keys(createdChecklists).length === auditResults.length
+                    {allCreated || Object.keys(createdChecklists).length === finalAuditResults.length
                       ? 'Đã tạo toàn bộ Checklist' 
-                      : `Tạo toàn bộ Checklist tuân thủ (${auditResults.length} bộ)`}
+                      : `Tạo toàn bộ Checklist tuân thủ (${finalAuditResults.length} bộ)`}
                   </button>
 
                   {(allCreated || Object.keys(createdChecklists).length > 0) && (
@@ -1015,7 +1008,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
               {/* AUDIT FINDINGS LIST */}
               <div className="space-y-4">
-                {auditResults.map((res) => {
+                {finalAuditResults.map((res) => {
                   const isCreated = !!createdChecklists[res.id];
 
                   return (
@@ -1134,10 +1127,23 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                       {/* Legal Basis & Penalty */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                         <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                            <Scale className="w-3.5 h-3.5 text-teal-600" />
-                            Căn cứ pháp lý áp dụng:
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <Scale className="w-3.5 h-3.5 text-teal-600" />
+                              Căn cứ pháp lý áp dụng:
+                            </span>
+                            {res.directUrl && (
+                              <a
+                                href={res.directUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] text-teal-700 hover:text-teal-900 font-semibold underline decoration-teal-400"
+                              >
+                                Xem văn bản DLPL
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
                           <p className="text-slate-800 leading-relaxed font-medium">
                             {res.legalBasis}
                           </p>
