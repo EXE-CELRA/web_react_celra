@@ -38,8 +38,8 @@ import {
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
+import { getLegalRules } from '../../api/legalApi';
 import { useOrgStore } from '../../store/useOrgStore';
-import { StickyBottomActionBar } from '../../components/common/StickyBottomActionBar';
 import { UnsavedChangesModal } from '../../components/common/UnsavedChangesModal';
 
 type LegalRule = {
@@ -135,25 +135,12 @@ export const SurveyPage: React.FC = () => {
     });
   };
 
-  // Tải danh sách quy định pháp luật động từ API backend (đồng bộ từ DLPL) để cập nhật căn cứ và link chính xác
+  // Tải danh sách quy định pháp luật cốt lõi (có bộ đệm Cache chống gọi liên tục)
   useEffect(() => {
-    apiClient.get('/ai-assistant/legal-rules')
-      .then((res: unknown) => {
-        const responseData = (res as { data?: unknown } | null)?.data;
-        const rulesList: unknown[] = Array.isArray(res)
-          ? res
-          : Array.isArray(responseData)
-            ? responseData
-            : [];
-        const map: Record<string, LegalRule> = {};
-        rulesList.forEach((r: unknown) => {
-          const rule = r as LegalRule | null;
-          if (rule && typeof rule.code === 'string') {
-            map[rule.code] = rule;
-          }
-        });
-        setLegalRules(map);
-        setDynamicQuestions(currentList => enrichQuestionsWithLegalRules(currentList, map));
+    getLegalRules()
+      .then((rulesMap) => {
+        setLegalRules(rulesMap as Record<string, LegalRule>);
+        setDynamicQuestions(currentList => enrichQuestionsWithLegalRules(currentList, rulesMap));
       })
       .catch((err) => {
         console.warn('[SURVEY] Dùng trích dẫn DLPL fallback:', err?.message);
@@ -174,6 +161,13 @@ export const SurveyPage: React.FC = () => {
     return defaultDoc;
   };
 
+  // Đồng bộ tổ chức từ Backend nếu chưa có trong store
+  useEffect(() => {
+    if (!activeOrg) {
+      useOrgStore.getState().fetchMyOrganizations();
+    }
+  }, [activeOrg]);
+
   // Sync activeOrg details if available on load
   useEffect(() => {
     if (activeOrg) {
@@ -184,7 +178,9 @@ export const SurveyPage: React.FC = () => {
       setBaseProfile(prev => ({
         ...prev,
         taxCode: activeOrg.taxCode || prev.taxCode,
-        companyName: activeOrg.name || activeOrg.legalName || prev.companyName,
+        companyName: activeOrg.legalName || activeOrg.name || prev.companyName,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        employeeScale: (activeOrg.scale as any) || prev.employeeScale,
       }));
     }
   }, [activeOrg]);
@@ -1094,70 +1090,6 @@ export const SurveyPage: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* REUSABLE STICKY BOTTOM ACTION BAR */}
-      {!isSurveyCompleted && (
-        <StickyBottomActionBar
-          currentStep={activeTabStep}
-          totalSteps={3}
-          title={
-            activeTabStep === 1
-              ? 'Bước 1/3: Hồ sơ nền tảng'
-              : activeTabStep === 2
-              ? 'Bước 2/3: Câu hỏi tình huống'
-              : 'Bước 3/3: Tổng quan & Kích hoạt'
-          }
-          subtitle={
-            activeTabStep === 1
-              ? 'Khai báo thông tin định danh & ngành nghề'
-              : activeTabStep === 2
-              ? `Đã trả lời ${answeredCount}/${totalCount} câu hỏi`
-              : 'Xác nhận để khởi tạo thẻ Bối cảnh tuân thủ'
-          }
-          progressPercent={activeTabStep === 1 ? (baseProfile.taxCode ? 100 : 50) : progressPercent}
-          progressLabel={
-            activeTabStep === 2
-              ? `Đã trả lời ${answeredCount}/${totalCount} câu hỏi`
-              : undefined
-          }
-          secondaryAction={
-            activeTabStep > 1
-              ? {
-                  label: activeTabStep === 2 ? 'Quay lại Bước 1' : 'Quay lại Bước 2',
-                  onClick: () => setActiveTabStep((activeTabStep - 1) as 1 | 2),
-                }
-              : undefined
-          }
-          quickAction={
-            activeTabStep === 2 && answeredCount === totalCount && totalCount > 0
-              ? {
-                  label: 'Kích hoạt Bối cảnh Ngay',
-                  onClick: finishDynamicSurvey,
-                  loading: submitting,
-                }
-              : undefined
-          }
-          primaryAction={
-            activeTabStep === 1
-              ? {
-                  label: 'Tiếp tục sang Bước 2',
-                  onClick: () => setActiveTabStep(2),
-                  disabled: !baseProfile.taxCode || !baseProfile.companyName,
-                }
-              : activeTabStep === 2
-              ? {
-                  label: 'Xem lại & Kích hoạt (Bước 3)',
-                  onClick: () => setActiveTabStep(3),
-                }
-              : {
-                  label: 'Xác nhận & Kích hoạt Bối cảnh Doanh nghiệp',
-                  onClick: finishDynamicSurvey,
-                  loading: submitting,
-                  variant: 'teal',
-                }
-          }
-        />
       )}
 
       {/* REUSABLE UNSAVED CHANGES MODAL */}
