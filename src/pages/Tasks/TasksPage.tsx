@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -79,6 +80,7 @@ export const TasksPage: React.FC = () => {
       await updateTaskStatus(selectedTask.id, newStatus);
       message.success(`Đã chuyển trạng thái sang: ${newStatus}`);
       await fetchTasks(statusFilter === 'ALL' ? undefined : { status: statusFilter });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       message.error(err.message || 'Lỗi cập nhật trạng thái');
     }
@@ -90,6 +92,7 @@ export const TasksPage: React.FC = () => {
       await addComment(selectedTask.id, newCommentText.trim());
       setNewCommentText('');
       message.success('Đã gửi trao đổi');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       message.error('Lỗi khi gửi phản hồi');
     }
@@ -111,6 +114,7 @@ export const TasksPage: React.FC = () => {
       setCreateModalOpen(false);
       createForm.resetFields();
       fetchTasks();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       message.error(err.message || 'Lỗi khi tạo công việc');
     }
@@ -218,10 +222,7 @@ export const TasksPage: React.FC = () => {
           onChange={(key) => setStatusFilter(key)}
           items={[
             { key: 'ALL', label: `Tất cả (${tasks.length})` },
-            { key: 'TODO', label: 'Chờ xử lý' },
             { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
-            { key: 'WAITING_DOCUMENT', label: 'Chờ bổ sung chứng từ' },
-            { key: 'WAITING_VERIFICATION', label: 'Chờ thẩm định chuyên gia' },
             { key: 'COMPLETED', label: 'Đã hoàn thành' },
           ]}
           style={{ marginBottom: 16 }}

@@ -1001,7 +1001,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                     <button
                       onClick={() => {
                         onClose();
-                        navigate('/checklists');
+                        navigate('/tasks');
                       }}
                       className="px-3.5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                     >
@@ -1281,7 +1281,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                 <button
                   onClick={() => {
                     onClose();
-                    navigate('/checklists');
+                    navigate('/tasks');
                   }}
                   className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
