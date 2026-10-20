@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider } from 'antd';
+import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -15,6 +15,8 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   RightOutlined,
+  BankOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
@@ -27,6 +29,17 @@ import celraLogo from '../../assets/logo_celra_tachnen.png';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
+const ROUTE_PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Bảng Điều Khiển',
+  '/context': 'Context Doanh Nghiệp',
+  '/survey': 'Câu Hỏi Tình Huống',
+  '/onboarding': 'Câu Hỏi Tình Huống',
+  '/tasks': 'Check-list & Task',
+  '/checklists': 'Check-list & Task',
+  '/evidence': 'Hồ Sơ & Bằng Chứng',
+  '/wallet': 'Ví & Thanh Toán',
+};
+
 export const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,8 +49,17 @@ export const MainLayout: React.FC = () => {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const { user, logout } = useAuthStore();
-  const { activeOrg, fetchMyOrganizations } = useOrgStore();
+  const { activeOrg, organizations, setActiveOrg, fetchMyOrganizations } = useOrgStore();
   const { wallet, fetchWallet } = useWalletStore();
+
+  const [draftName, setDraftName] = useState<string>(() => {
+    try {
+      const raw = localStorage.getItem('celra_survey_draft_profile');
+      return raw ? JSON.parse(raw)?.companyName || '' : '';
+    } catch {
+      return '';
+    }
+  });
 
   useEffect(() => {
     fetchMyOrganizations();
@@ -49,6 +71,28 @@ export const MainLayout: React.FC = () => {
     }
   }, [activeOrg]);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const raw = localStorage.getItem('celra_survey_draft_profile');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.companyName) {
+            setDraftName(parsed.companyName);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('celra_profile_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('celra_profile_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
     { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
@@ -57,6 +101,60 @@ export const MainLayout: React.FC = () => {
     { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Hồ Sơ & Bằng Chứng' },
     { key: '/wallet', icon: <WalletOutlined />, label: 'Ví & Thanh Toán' },
   ];
+
+  const currentOrgName =
+    activeOrg?.legalName ||
+    activeOrg?.name ||
+    draftName ||
+    'Doanh nghiệp của bạn';
+
+  const currentPageTitle =
+    ROUTE_PAGE_TITLES[location.pathname] ||
+    menuItems.find((item) => location.pathname.startsWith(item.key))?.label ||
+    'Tổng Quan';
+
+  const orgDropdownItems = organizations.map((org) => {
+    const isSelected = org.id === activeOrg?.id;
+    const name = org.legalName || org.name || 'Doanh nghiệp';
+    return {
+      key: org.id,
+      label: (
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                fontWeight: isSelected ? 600 : 400,
+                color: isSelected ? '#1677ff' : '#0f172a',
+                fontSize: 13,
+              }}
+            >
+              {name}
+            </span>
+            {isSelected && (
+              <span
+                style={{
+                  fontSize: 10,
+                  background: '#e6f4ff',
+                  color: '#1677ff',
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontWeight: 600,
+                }}
+              >
+                Đang chọn
+              </span>
+            )}
+          </div>
+          {org.taxCode && (
+            <span style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>MST: {org.taxCode}</span>
+          )}
+        </div>
+      ),
+      onClick: () => {
+        setActiveOrg(org);
+      },
+    };
+  });
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -230,7 +328,7 @@ export const MainLayout: React.FC = () => {
             zIndex: 99,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1, marginRight: 16 }}>
             <Button
               type="text"
               icon={
@@ -249,8 +347,112 @@ export const MainLayout: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 6,
+                flexShrink: 0,
               }}
             />
+
+            {/* Vạch ngăn cách dọc tinh tế */}
+            <div style={{ width: 1, height: 20, backgroundColor: '#e2e8f0', flexShrink: 0 }} />
+
+            {/* Cụm phẳng Breadcrumb: [Tên Doanh Nghiệp] / [Trang đang ở] */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+              {organizations.length > 1 ? (
+                <Dropdown menu={{ items: orgDropdownItems }} trigger={['click']} placement="bottomLeft">
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      maxWidth: 320,
+                      color: '#0f172a',
+                      transition: 'color 0.2s',
+                    }}
+                    title={`${currentOrgName} (Nhấn để chuyển đổi doanh nghiệp)`}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#1677ff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#0f172a';
+                    }}
+                  >
+                    <BankOutlined style={{ color: '#1677ff', fontSize: 15, flexShrink: 0 }} />
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 13.5,
+                        color: 'inherit',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {currentOrgName}
+                    </span>
+                    <DownOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 2 }} />
+                  </div>
+                </Dropdown>
+              ) : (
+                <Tooltip title={activeOrg?.taxCode ? `${currentOrgName} (MST: ${activeOrg.taxCode})` : currentOrgName}>
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'transparent',
+                      border: 'none',
+                      flexShrink: 0,
+                      maxWidth: 340,
+                    }}
+                  >
+                    <BankOutlined style={{ color: '#1677ff', fontSize: 15, flexShrink: 0 }} />
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 13.5,
+                        color: '#0f172a',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {currentOrgName}
+                    </span>
+                  </div>
+                </Tooltip>
+              )}
+
+              {/* Dấu gạch chéo phân cách */}
+              <span
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 14,
+                  fontWeight: 300,
+                  flexShrink: 0,
+                  userSelect: 'none',
+                  margin: '0 2px',
+                }}
+              >
+                /
+              </span>
+
+              {/* Tên trang hiện tại */}
+              <span
+                style={{
+                  fontWeight: 500,
+                  fontSize: 13.5,
+                  color: '#475569',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {currentPageTitle}
+              </span>
+            </div>
           </div>
 
           <Space size="middle">

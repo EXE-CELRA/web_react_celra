@@ -229,6 +229,9 @@ export const SurveyPage: React.FC = () => {
       });
       try {
         localStorage.setItem('celra_survey_draft_profile', JSON.stringify(next));
+        if (updates.companyName) {
+          window.dispatchEvent(new Event('celra_profile_updated'));
+        }
       } catch {
         // Ignore
       }
@@ -292,11 +295,24 @@ export const SurveyPage: React.FC = () => {
         note: `[${q.branchCode}] ${q.title}`,
       }));
 
-      await apiClient.post('/surveys/submit', { 
-        baseProfile, 
-        questions: dynamicQuestions, 
-        answers 
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res: any = await apiClient.post(
+        '/surveys/submit',
+        { 
+          baseProfile, 
+          questions: dynamicQuestions, 
+          answers 
+        },
+        {
+          headers: activeOrg?.id ? { 'x-organization-id': activeOrg.id } : {},
+        }
+      );
+
+      if (res?.organizationId) {
+        localStorage.setItem('celra_active_org_id', res.organizationId);
+      }
+      await useOrgStore.getState().fetchMyOrganizations();
+
       localStorage.setItem('celra_survey_completed', 'true');
       localStorage.removeItem('celra_survey_draft_answers');
       localStorage.removeItem('celra_survey_draft_profile');
@@ -1316,7 +1332,7 @@ export const SurveyPage: React.FC = () => {
           )}
 
           {/* Navigation Bottom Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => setActiveTabStep(1)}
