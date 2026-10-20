@@ -237,7 +237,7 @@ export const DashboardPage: React.FC = () => {
               <strong style={{ color: '#fff' }}>{activeOrg?.scale || 'MICRO'}</strong>
             </Paragraph>
           </Col>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-explicit-any
+          
           <Col xs={24} md={8} style={{ textAlign: 'right', marginTop: 16 }}>
             <Space wrap>
               <Button

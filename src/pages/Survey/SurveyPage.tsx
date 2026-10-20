@@ -8,7 +8,8 @@ import {
   COMPANY_TYPE_TAGS, 
   INDUSTRY_TAGS, 
   DEFAULT_BASE_PROFILE,
-  generateDynamicQuestions 
+  generateDynamicQuestions,
+  detectEnterpriseLegalType
 } from '../../data/surveySchema';
 import { 
   CheckCircle2, 
@@ -35,6 +36,8 @@ import {
   ChevronRight,
   Briefcase,
   Lock,
+  Search,
+  Loader2,
 } from 'lucide-react';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -91,8 +94,8 @@ export const SurveyPage: React.FC = () => {
       // Fallback
     }
     return {
-      taxCode: activeOrg?.taxCode || DEFAULT_BASE_PROFILE.taxCode,
-      companyName: activeOrg?.name || activeOrg?.legalName || DEFAULT_BASE_PROFILE.companyName,
+      taxCode: '',
+      companyName: '',
       employeeScale: DEFAULT_BASE_PROFILE.employeeScale,
       requiresLaborRuleBook: DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
       companyTypeTag: DEFAULT_BASE_PROFILE.companyTypeTag,
@@ -121,6 +124,18 @@ export const SurveyPage: React.FC = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [isLookingUpTax, setIsLookingUpTax] = useState(false);
+  const [taxLookupDetails, setTaxLookupDetails] = useState<{
+    taxCode: string;
+    name: string;
+    address?: string;
+    status?: string;
+    shortName?: string;
+    internationalName?: string;
+    legalType?: string;
+    isOperating?: boolean;
+  } | null>(null);
+  const [unsupportedError, setUnsupportedError] = useState<string | null>(null);
   const [legalRules, setLegalRules] = useState<Record<string, LegalRule>>({});
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
@@ -153,8 +168,10 @@ export const SurveyPage: React.FC = () => {
       if (ruleCode && rules[ruleCode]) {
         const rule = rules[ruleCode];
         const primaryCitation = rule?.conditionsJson?.citations?.[0];
+        const dynamicOptions = rule?.conditionsJson?.options || rule?.options;
         return {
           ...q,
+          options: Array.isArray(dynamicOptions) && dynamicOptions.length > 0 ? dynamicOptions : q.options,
           legalBasis: rule.legalReference ? `${rule.legalReference}. ${rule.conditionSummary || ''}` : q.legalBasis,
           verificationUrl: primaryCitation?.sourceUrl || q.verificationUrl,
         };
@@ -205,8 +222,6 @@ export const SurveyPage: React.FC = () => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBaseProfile(prev => ({
         ...prev,
-        taxCode: activeOrg.taxCode || prev.taxCode,
-        companyName: activeOrg.legalName || activeOrg.name || prev.companyName,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         employeeScale: (activeOrg.scale as any) || prev.employeeScale,
       }));
@@ -239,6 +254,90 @@ export const SurveyPage: React.FC = () => {
     });
   };
 
+  const handleLookupTax = async (codeToLookup?: string) => {
+    const code = (codeToLookup || baseProfile.taxCode || '').trim();
+    if (!code) {
+      message.warning('Vui lòng nhập Mã số thuế trước khi tra cứu');
+      return;
+    }
+    if (code.length < 10) {
+      message.warning('Mã số thuế doanh nghiệp phải có từ 10 đến 13 chữ số');
+      return;
+    }
+
+    try {
+      setIsLookingUpTax(true);
+      setUnsupportedError(null);
+      let res: any;
+
+      try {
+        // Ưu tiên 1: Tra cứu qua máy chủ Backend CELRA nội bộ
+        res = await apiClient.get(`/tax-lookup/${encodeURIComponent(code)}`);
+      } catch (backendErr) {
+        // Ưu tiên 2: Tự động Fallback gọi trực tiếp Cổng VietQR công khai nếu backend offline
+        try {
+          const directResp = await fetch(`https://api.vietqr.io/v2/business/${encodeURIComponent(code)}`);
+          const json = await directResp.json();
+          if (json && (json.code === '00' || json.data) && json.data?.name) {
+            res = {
+              taxCode: json.data?.id || code,
+              name: json.data?.name,
+              address: json.data?.address || '',
+              shortName: json.data?.shortName || '',
+              internationalName: json.data?.internationalName || '',
+              status: json.data?.status || 'NNT đang hoạt động',
+              isOperating: true,
+            };
+          } else {
+            throw backendErr;
+          }
+        } catch {
+          throw backendErr;
+        }
+      }
+
+      if (res && res.name) {
+        const detected = detectEnterpriseLegalType(res.name);
+
+        if (!detected.isSupported) {
+          const errorMsg = detected.unsupportedReason || `Hiện tại hệ thống chỉ hỗ trợ loại hình doanh nghiệp Cty 1 thành viên và 2 thành viên trở lên, chưa hỗ trợ loại hình ${detected.label} của bạn.`;
+          setUnsupportedError(errorMsg);
+          message.error(errorMsg, 6);
+          setTaxLookupDetails(null);
+          updateBaseProfile({ companyName: '', taxCode: code });
+          return;
+        }
+
+        setUnsupportedError(null);
+        updateBaseProfile({
+          companyName: res.name,
+          taxCode: res.taxCode || code,
+          companyTypeTag: detected.tagId as any,
+        });
+
+        setTaxLookupDetails({
+          taxCode: res.taxCode || code,
+          name: res.name,
+          address: res.address || '',
+          status: res.status || 'NNT đang hoạt động',
+          shortName: res.shortName || '',
+          internationalName: res.internationalName || '',
+          legalType: detected.label,
+          isOperating: res.isOperating !== false,
+        });
+
+        message.success(`Đã tự động nhận diện: ${res.name} (${detected.label})`);
+      } else {
+        message.warning('Không tìm thấy thông tin công ty với mã số thuế này.');
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || err?.error || 'Không tìm thấy dữ liệu hoặc mã số thuế không hợp lệ.';
+      message.error(errMsg);
+    } finally {
+      setIsLookingUpTax(false);
+    }
+  };
+
   const handleToggleIndustryTag = (tag: IndustryTag) => {
     const exists = baseProfile.industryTags.includes(tag);
     if (exists) {
@@ -253,6 +352,10 @@ export const SurveyPage: React.FC = () => {
   };
 
   const handleProceedToStep2 = () => {
+    if (!baseProfile.taxCode || !baseProfile.companyName) {
+      message.warning('Vui lòng nhập Mã số thuế và thực hiện Tra cứu để xác thực doanh nghiệp trước khi tiếp tục.');
+      return;
+    }
     if (!baseProfile.industryTags || baseProfile.industryTags.length === 0) {
       message.warning('Vui lòng chọn ít nhất 1 Ngành nghề & Hoạt động thực tế để tiếp tục.');
       return;
@@ -773,34 +876,191 @@ export const SurveyPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Input 1 & 2: Mã số thuế & Tên Doanh Nghiệp */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Khối Nhập Mã Số Thuế & Tra Cứu */}
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  Mã số thuế (MST) <span className="text-rose-500">*</span>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                  <span>Mã số thuế doanh nghiệp (MST) <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-teal-600 font-semibold flex items-center gap-1">
+                    <Building2 className="w-3 h-3" />
+                    Cơ sở dữ liệu Thuế Quốc gia
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  value={baseProfile.taxCode}
-                  onChange={(e) => updateBaseProfile({ taxCode: e.target.value.trim() })}
-                  placeholder="VD: 0109988776"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                />
+                <div className="flex gap-2 max-w-xl">
+                  <input
+                    type="text"
+                    value={baseProfile.taxCode}
+                    onChange={(e) => {
+                      const newCode = e.target.value.trim();
+                      updateBaseProfile({ taxCode: newCode, companyName: '' });
+                      setTaxLookupDetails(null);
+                      setUnsupportedError(null);
+                      try {
+                        localStorage.removeItem('celra_tax_lookup_details');
+                      } catch {
+                        // Ignore
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleLookupTax();
+                      }
+                    }}
+                    placeholder="Nhập mã số thuế (VD: 0101248141, 0303217354...)"
+                    className="flex-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleLookupTax()}
+                    disabled={isLookingUpTax || !baseProfile.taxCode}
+                    className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-semibold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
+                    title="Tra cứu thông tin công ty theo mã số thuế"
+                  >
+                    {isLookingUpTax ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang tra cứu...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Tra cứu</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  Tên doanh nghiệp <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={baseProfile.companyName}
-                  onChange={(e) => updateBaseProfile({ companyName: e.target.value })}
-                  placeholder="Nhập tên doanh nghiệp theo ĐKKD"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                />
-              </div>
+              {/* Khi loại hình doanh nghiệp chưa được hỗ trợ */}
+              {unsupportedError && (
+                <div className="p-4 bg-rose-50 border border-rose-300 rounded-2xl flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-rose-900">
+                      Chưa hỗ trợ loại hình doanh nghiệp này
+                    </h4>
+                    <p className="text-xs text-rose-700 leading-relaxed font-semibold">
+                      {unsupportedError}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      💡 <em>Giai đoạn hiện tại của hệ thống CELRA tập trung phục vụ tối ưu cho <strong>Công ty TNHH 1 thành viên</strong> và <strong>Công ty TNHH 2 thành viên trở lên</strong>. Phiên bản dành cho Công ty Cổ phần và Hộ kinh doanh sẽ sớm ra mắt ở đợt cập nhật tiếp theo.</em>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Khi chưa tra cứu và không có lỗi: Hiển thị gợi ý */}
+              {!taxLookupDetails && !unsupportedError && (
+                <div className="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-xs text-slate-500 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span>
+                    Vui lòng nhập Mã số thuế và nhấn <strong>"Tra cứu"</strong> để hệ thống tự động tải và khóa thông tin pháp nhân chính thức từ Tổng cục Thuế.
+                  </span>
+                </div>
+              )}
+
+              {/* Khi tra cứu thành công: Hiển thị các thẻ thông tin CHÍNH THỨC VÀ KHÓA (DISABLE) KHÔNG CHO SỬA */}
+              {taxLookupDetails && (
+                <div className="p-4 bg-emerald-50/70 border border-emerald-300 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                        Thông tin Pháp nhân đã xác thực từ CSDL Quốc gia
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      <span>Đã khóa chỉnh sửa</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    {/* Tên doanh nghiệp (Disabled) */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                        <span>Tên pháp lý doanh nghiệp (theo ĐKKD)</span>
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </label>
+                      <input
+                        type="text"
+                        value={taxLookupDetails.name}
+                        disabled
+                        readOnly
+                        className="w-full p-2.5 bg-slate-100/90 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 cursor-not-allowed select-none focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Hình thức kinh doanh (Đã tự động bóc tách & Khóa cứng) */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          {getCompanyTypeIcon(taxLookupDetails.legalType?.includes('1 thành viên') ? 'Building2' : 'Users')}
+                          <span>Hình thức kinh doanh (Loại hình doanh nghiệp)</span>
+                          <Lock className="w-2.5 h-2.5 text-slate-400" />
+                        </span>
+                        <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-100 px-2 py-0.5 rounded">
+                          ✔ Tự động bóc tách theo Luật Doanh nghiệp 2020
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={taxLookupDetails.legalType || 'Công ty TNHH'}
+                        disabled
+                        readOnly
+                        className="w-full p-2.5 bg-slate-100/90 border border-slate-300 rounded-xl text-xs font-bold text-teal-900 cursor-not-allowed select-none focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Địa chỉ trụ sở ĐKKD (Disabled) */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                        <span>Địa chỉ trụ sở chính</span>
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </label>
+                      <input
+                        type="text"
+                        value={taxLookupDetails.address || 'Chưa cập nhật trên cổng thuế'}
+                        disabled
+                        readOnly
+                        className="w-full p-2.5 bg-slate-100/90 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 cursor-not-allowed select-none focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Tên viết tắt (Disabled) */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                        <span>Tên viết tắt / Tên quốc tế</span>
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </label>
+                      <input
+                        type="text"
+                        value={taxLookupDetails.shortName || taxLookupDetails.internationalName || 'Không có'}
+                        disabled
+                        readOnly
+                        className="w-full p-2.5 bg-slate-100/90 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 cursor-not-allowed select-none focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Trạng thái nộp thuế (Disabled) */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                        <span>Trạng thái hoạt động tại Cục Thuế</span>
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </label>
+                      <div className="p-2.5 bg-slate-100/90 border border-slate-300 rounded-xl flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="font-bold text-emerald-800 text-xs">
+                          {taxLookupDetails.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
 
             {/* Thông số Tài chính & Doanh thu thực tế */}
             <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/90 space-y-4">
@@ -1054,51 +1314,6 @@ export const SurveyPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Input 4: Chọn Loại hình doanh nghiệp */}
-            <div className="pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  Chọn Loại hình doanh nghiệp:
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {COMPANY_TYPE_TAGS.map((tag) => {
-                  const isSelected = baseProfile.companyTypeTag === tag.id;
-                  return (
-                    <div
-                      key={tag.id}
-                      onClick={() => updateBaseProfile({ companyTypeTag: tag.id })}
-                      className={`p-4 rounded-xl border text-xs cursor-pointer transition-all flex items-start justify-between ${
-                        isSelected
-                          ? 'bg-teal-50/80 border-teal-500 shadow-sm ring-1 ring-teal-500'
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-slate-100 shrink-0 mt-0.5">
-                          {getCompanyTypeIcon(tag.iconName)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900">{tag.label}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                            {tag.description}
-                          </p>
-                        </div>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ml-2 mt-0.5 ${
-                        isSelected ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 bg-white'
-                      }`}>
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Input 5: Chọn Ngành nghề & Hoạt động thực tế */}
             <div className="pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between mb-2">
@@ -1186,19 +1401,13 @@ export const SurveyPage: React.FC = () => {
             </div>
           </div>
 
-          {/* MODULE 1: TUÂN THỦ THUẾ DOANH NGHIỆP */}
+          {/* NHÓM 1: TUÂN THỦ THUẾ DOANH NGHIỆP */}
           {taxModuleQuestions.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-mono font-bold text-[10px]">
-                    MODULE 1
-                  </span>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
                     Tuân thủ Thuế Doanh Nghiệp ({taxModuleQuestions.length} tình huống)
-                    <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold normal-case">
-                      🟢 Đang kích hoạt (MVP)
-                    </span>
                   </h3>
                 </div>
               </div>
@@ -1216,19 +1425,13 @@ export const SurveyPage: React.FC = () => {
             </div>
           )}
 
-          {/* MODULE 2: HÓA ĐƠN & DÒNG TIỀN THỰC TẾ */}
+          {/* NHÓM 2: HÓA ĐƠN & DÒNG TIỀN THỰC TẾ */}
           {invoiceModuleQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-teal-600 text-white font-mono font-bold text-[10px]">
-                    MODULE 2
-                  </span>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
                     Hóa Đơn &amp; Dòng Tiền Thực Tế ({invoiceModuleQuestions.length} tình huống)
-                    <span className="text-[10px] text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full font-semibold normal-case">
-                      🟢 Đang kích hoạt (MVP)
-                    </span>
                   </h3>
                 </div>
               </div>
@@ -1246,19 +1449,13 @@ export const SurveyPage: React.FC = () => {
             </div>
           )}
 
-          {/* MODULE 3: LAO ĐỘNG, TIỀN LƯƠNG & BHXH */}
+          {/* NHÓM 3: LAO ĐỘNG, TIỀN LƯƠNG & BHXH */}
           {laborModuleQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-mono font-bold text-[10px]">
-                    MODULE 3
-                  </span>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
                     Lao Động, Tiền Lương &amp; BHXH ({laborModuleQuestions.length} tình huống)
-                    <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-semibold normal-case">
-                      🟢 Đang kích hoạt (MVP)
-                    </span>
                   </h3>
                 </div>
               </div>
@@ -1276,19 +1473,13 @@ export const SurveyPage: React.FC = () => {
             </div>
           )}
 
-          {/* MODULE 4: GIẤY PHÉP CON & PHÁP CHẾ CHUYÊN NGÀNH */}
+          {/* NHÓM 4: GIẤY PHÉP CON & PHÁP CHẾ CHUYÊN NGÀNH */}
           {licensingModuleQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-600 text-white font-mono font-bold text-[10px]">
-                    MODULE 4
-                  </span>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
                     Giấy Phép Con &amp; Pháp Chế Chuyên Ngành ({licensingModuleQuestions.length} tình huống)
-                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold normal-case">
-                      🟢 Đang kích hoạt (MVP)
-                    </span>
                   </h3>
                 </div>
               </div>
@@ -1310,9 +1501,6 @@ export const SurveyPage: React.FC = () => {
           {otherQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-2 px-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-600 text-white font-mono font-bold text-[10px]">
-                  BỔ TRỢ
-                </span>
                 <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
                   Các câu hỏi bổ trợ ({otherQuestions.length} tình huống)
                 </h3>
@@ -1518,37 +1706,51 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, onSelect }
         </p>
       </div>
 
-      {/* 4 Standard Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+      {/* 4 Contextual Options theo Quy định Pháp luật */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
         {question.options.map((option, idx) => {
           const isSelected = question.selectedOption === option;
-          const isFullCompliance = option.includes('Đã hoàn thành');
-          const isNonCompliance = option.includes('Chưa thực hiện');
-          const isInProgress = option.includes('Đang chuẩn bị');
+
+          // Phân loại trực quan 4 trạng thái pháp lý
+          const isFullCompliance = idx === 0;
+          const isExemptOrSafe = idx === 1;
+          const isNonCompliance = idx === 2;
+
+          let badgeColor = 'bg-slate-400';
+          let borderSelectColor = 'border-amber-500 bg-amber-50/90 text-amber-950 ring-amber-500';
+          let dotColor = 'bg-amber-600';
+
+          if (isFullCompliance) {
+            badgeColor = 'bg-teal-500';
+            borderSelectColor = 'border-teal-500 bg-teal-50/90 text-teal-950 ring-teal-500';
+            dotColor = 'bg-teal-600';
+          } else if (isExemptOrSafe) {
+            badgeColor = 'bg-blue-500';
+            borderSelectColor = 'border-blue-500 bg-blue-50/90 text-blue-950 ring-blue-500';
+            dotColor = 'bg-blue-600';
+          } else if (isNonCompliance) {
+            badgeColor = 'bg-rose-500';
+            borderSelectColor = 'border-rose-500 bg-rose-50/90 text-rose-950 ring-rose-500';
+            dotColor = 'bg-rose-600';
+          }
 
           return (
             <div
               key={idx}
               onClick={() => onSelect(option)}
-              className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${
+              className={`p-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-start justify-between gap-2.5 select-none ${
                 isSelected
-                  ? isFullCompliance
-                    ? 'bg-teal-50 border-teal-500 text-teal-950 shadow-sm ring-1 ring-teal-500'
-                    : isNonCompliance
-                    ? 'bg-rose-50 border-rose-500 text-rose-950 shadow-sm ring-1 ring-rose-500'
-                    : 'bg-amber-50 border-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-500'
+                  ? `${borderSelectColor} shadow-sm ring-1`
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${
-                  isFullCompliance ? 'bg-teal-500' : isNonCompliance ? 'bg-rose-500' : isInProgress ? 'bg-amber-500' : 'bg-slate-400'
-                }`} />
-                <span className="truncate">{option}</span>
+              <div className="flex items-start gap-2.5">
+                <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${badgeColor}`} />
+                <span className="leading-relaxed text-xs">{option}</span>
               </div>
-              <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ml-1.5 ${
+              <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                 isSelected 
-                  ? isFullCompliance ? 'bg-teal-600 border-teal-600 text-white' : isNonCompliance ? 'bg-rose-600 border-rose-600 text-white' : 'bg-amber-600 border-amber-600 text-white'
+                  ? `${dotColor} border-transparent text-white` 
                   : 'border-slate-300 bg-white'
               }`}>
                 {isSelected && <Check className="w-3 h-3" />}
