@@ -32,6 +32,10 @@ export interface BaseProfile {
   taxCode: string;
   companyName: string;
   employeeScale: EmployeeScale;
+  employeeCount?: number;
+  annualRevenue?: number;
+  charterCapital?: number;
+  isNewlyEstablished?: boolean;
   requiresLaborRuleBook: boolean;
   companyTypeTag: CompanyTypeTag;
   industryTags: IndustryTag[];
@@ -219,6 +223,8 @@ export interface TaskItem {
   title: string;
   description?: string;
   category: string;
+  periodCycle?: string;
+  periodLabel?: string;
   priority: TaskPriority;
   status: TaskStatus;
   assigneeRole: RoleType;

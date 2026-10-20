@@ -31,6 +31,8 @@ import {
   UserOutlined,
   AppstoreOutlined,
   BarsOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +41,7 @@ import type { TaskItem, TaskStatus, TaskPriority, RoleType } from '../../types';
 import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
+import { formatVNCalendarDate, getRemainingDaysInfo, STATUTORY_PERIOD_METAS, type StatutoryCycleType } from '../../utils/taxCalendar';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -60,6 +63,7 @@ export const TasksPage: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<'TABLE' | 'KANBAN'>('TABLE');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [periodFilter, setPeriodFilter] = useState<string>('ALL');
   const [newCommentText, setNewCommentText] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -68,6 +72,48 @@ export const TasksPage: React.FC = () => {
   useEffect(() => {
     fetchTasks(statusFilter === 'ALL' ? undefined : { status: statusFilter });
   }, [statusFilter]);
+
+  const displayedTasks = tasks
+    .filter((t: TaskItem) => {
+      // 1. Lọc theo trạng thái công việc
+      if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
+
+      // 2. Lọc theo Đợt Luật Định cụ thể (11 đợt độc lập)
+      if (periodFilter !== 'ALL') {
+        if (periodFilter === 'MONTHLY') {
+          if (t.periodCycle !== 'MONTHLY' && !t.category?.includes('Tháng') && !t.title?.toLowerCase().includes('hàng tháng')) return false;
+        } else if (periodFilter === 'QUARTERLY') {
+          if (t.periodCycle !== 'QUARTERLY' && !t.category?.includes('Quý') && !t.title?.toLowerCase().includes('quý')) return false;
+        } else if (periodFilter === 'BIANNUAL_6M') {
+          if (t.periodCycle !== 'BIANNUAL_6M' && !t.category?.includes('6 Tháng') && !t.category?.includes('bán niên') && !t.title?.toLowerCase().includes('6 tháng')) return false;
+        } else if (periodFilter === 'ANNUAL') {
+          if (t.periodCycle !== 'ANNUAL' && !t.category?.includes('Năm') && !t.title?.toLowerCase().includes('môn bài') && !t.title?.toLowerCase().includes('bctc') && !t.title?.toLowerCase().includes('quyết toán năm')) return false;
+        } else if (periodFilter === 'EVENT_3D') {
+          if (t.periodCycle !== 'EVENT_3D' && !t.category?.includes('03 Ngày') && !t.title?.toLowerCase().includes('03 ngày') && !t.title?.toLowerCase().includes('tạm ngừng')) return false;
+        } else if (periodFilter === 'EVENT_10D') {
+          if (t.periodCycle !== 'EVENT_10D' && !t.title?.toLowerCase().includes('nhà thầu') && !t.title?.toLowerCase().includes('nội quy')) return false;
+        } else if (periodFilter === 'EVENT_10D_BIZ') {
+          if (t.periodCycle !== 'EVENT_10D_BIZ' && !t.category?.includes('10 Ngày Làm Việc') && !t.title?.toLowerCase().includes('đkkd') && !t.title?.toLowerCase().includes('ngân hàng')) return false;
+        } else if (periodFilter === 'EVENT_20D') {
+          if (t.periodCycle !== 'EVENT_20D' && !t.category?.includes('20 Ngày') && !t.title?.toLowerCase().includes('20 ngày') && !t.title?.toLowerCase().includes('chuyển đổi kỳ')) return false;
+        } else if (periodFilter === 'EVENT_30D_CAPITAL') {
+          if (t.periodCycle !== 'EVENT_30D_CAPITAL' && !t.category?.includes('Giảm Vốn') && !t.title?.toLowerCase().includes('giảm vốn')) return false;
+        } else if (periodFilter === 'EVENT_45D') {
+          if (t.periodCycle !== 'EVENT_45D' && !t.category?.includes('45 Ngày') && !t.title?.toLowerCase().includes('45 ngày') && !t.title?.toLowerCase().includes('giải thể')) return false;
+        } else if (periodFilter === 'EVENT_90D') {
+          if (t.periodCycle !== 'EVENT_90D' && !t.category?.includes('Góp Vốn') && !t.title?.toLowerCase().includes('góp đủ') && !t.title?.toLowerCase().includes('90 ngày')) return false;
+        }
+      }
+
+
+      return true;
+    })
+    // 4. LUÔN SẮP XẾP VIỆC GẤP LÊN TRÊN CÙNG (Sort by Due Date Ascending)
+    .sort((a: TaskItem, b: TaskItem) => {
+      const timeA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const timeB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return timeA - timeB;
+    });
 
   const handleOpenTask = async (task: TaskItem) => {
     setSelectedTask(task);
@@ -190,11 +236,31 @@ export const TasksPage: React.FC = () => {
       render: (role: string) => (role ? <Tag color="orange">Đợi: {role}</Tag> : <Text type="secondary">---</Text>),
     },
     {
-      title: 'Hạn chót',
+      title: 'Kỳ hạn & Hạn chót pháp lý',
       dataIndex: 'dueDate',
       key: 'dueDate',
-      width: 120,
-      render: (date: string) => (date ? new Date(date).toLocaleDateString('vi-VN') : 'Định kỳ'),
+      width: 220,
+      render: (date: string, record: TaskItem) => {
+        const remaining = getRemainingDaysInfo(date);
+        return (
+          <Space direction="vertical" size={2}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CalendarOutlined style={{ color: '#1677ff', fontSize: 12 }} />
+              <Text strong style={{ fontSize: 13 }}>{formatVNCalendarDate(date)}</Text>
+            </div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <Tag color={remaining.tagColor} style={{ margin: 0, fontSize: 11, fontWeight: 500 }}>
+                <ClockCircleOutlined /> {remaining.label}
+              </Tag>
+              {record.periodCycle && (
+                <Tag color="cyan" style={{ margin: 0, fontSize: 10 }}>
+                  {STATUTORY_PERIOD_METAS[record.periodCycle as StatutoryCycleType]?.badge || record.periodCycle}
+                </Tag>
+              )}
+            </div>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -233,16 +299,100 @@ export const TasksPage: React.FC = () => {
         }
         style={{ borderRadius: 10 }}
       >
-        <Tabs
-          activeKey={statusFilter}
-          onChange={(key) => setStatusFilter(key)}
-          items={[
-            { key: 'ALL', label: `Tất cả (${tasks.length})` },
-            { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
-            { key: 'COMPLETED', label: 'Đã hoàn thành' },
-          ]}
-          style={{ marginBottom: 16 }}
-        />
+        {/* Bộ lọc trạng thái */}
+        <div style={{ marginBottom: 12 }}>
+          <Tabs
+            activeKey={statusFilter}
+            onChange={(key) => setStatusFilter(key)}
+            items={[
+              { key: 'ALL', label: `Tất cả trạng thái (${tasks.length})` },
+              { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
+              { key: 'COMPLETED', label: 'Đã hoàn thành' },
+            ]}
+            style={{ marginBottom: 0 }}
+          />
+        </div>
+
+        {/* THANH LỌC 11 ĐỢT LUẬT ĐỊNH (2 HÀNG X 6 ĐỢT) */}
+        <Card
+          size="small"
+          style={{
+            marginBottom: 16,
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: 10,
+            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CalendarOutlined style={{ color: '#0ea5e9', fontSize: 13 }} />
+              <Text strong style={{ fontSize: 12, color: '#0f172a' }}>
+                Đợt Luật Định:
+              </Text>
+            </div>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Sắp xếp: <strong>Hạn gần nhất lên đầu</strong>
+            </Text>
+          </div>
+
+          {/* Dãy 12 nút bấm dàn thành 2 hàng (mỗi hàng 6 đợt bằng CSS Grid) */}
+          <div style={{ overflowX: 'auto', paddingBottom: 2 }}>
+            <Radio.Group
+              size="small"
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              buttonStyle="solid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 6,
+                minWidth: 880,
+                width: '100%',
+              }}
+            >
+              {/* HÀNG 1: 6 ĐỢT ĐẦU */}
+              <Radio.Button value="ALL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Tất cả các đợt
+              </Radio.Button>
+              <Radio.Button value="MONTHLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Hàng Tháng (Ngày 20)
+              </Radio.Button>
+              <Radio.Button value="QUARTERLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Hàng Quý (30/04, 31/07, 31/10, 31/01)
+              </Radio.Button>
+              <Radio.Button value="BIANNUAL_6M" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                6 Tháng (05/06 &amp; 05/12)
+              </Radio.Button>
+              <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Cả Năm (Môn bài 30/01 &amp; 31/03)
+              </Radio.Button>
+              <Radio.Button value="EVENT_10D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 10 Ngày (Thuế Ads &amp; NQLĐ)
+              </Radio.Button>
+
+              {/* HÀNG 2: 6 ĐỢT SAU */}
+              <Radio.Button value="EVENT_20D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 20 Ngày (Chuyển kỳ thuế)
+              </Radio.Button>
+              <Radio.Button value="EVENT_45D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 45 Ngày (Quyết toán giải thể)
+              </Radio.Button>
+              <Radio.Button value="EVENT_3D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 03 Ngày (Tạm ngừng / HĐĐT)
+              </Radio.Button>
+              <Radio.Button value="EVENT_10D_BIZ" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 10 Ngày (Đổi ĐKKD &amp; Thuế)
+              </Radio.Button>
+              <Radio.Button value="EVENT_30D_CAPITAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 30 Ngày (ĐK Giảm vốn)
+              </Radio.Button>
+              <Radio.Button value="EVENT_90D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                Đợt 90 Ngày (Góp đủ vốn ĐL)
+              </Radio.Button>
+            </Radio.Group>
+          </div>
+        </Card>
 
         {tasks.length === 0 && !isLoading ? (
           <Card
@@ -283,7 +433,7 @@ export const TasksPage: React.FC = () => {
           </Card>
         ) : viewMode === 'TABLE' ? (
           <Table
-            dataSource={tasks}
+            dataSource={displayedTasks}
             columns={columns}
             rowKey="id"
             loading={isLoading}
@@ -292,7 +442,7 @@ export const TasksPage: React.FC = () => {
         ) : (
           <Row gutter={[16, 16]}>
             {kanbanColumns.map((col) => {
-              const colTasks = tasks.filter((t) => t.status === col.status);
+              const colTasks = displayedTasks.filter((t: TaskItem) => t.status === col.status);
               return (
                 <Col xs={24} sm={12} md={8} lg={4.8 as any} key={col.status}>
                   <div
