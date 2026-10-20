@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Card,
-  Table,
-  Button,
+    Button,
   Space,
   Tag,
   Drawer,
@@ -15,8 +14,7 @@ import {
   List,
   Avatar,
   message,
-  Tabs,
-  Modal,
+    Modal,
   Form,
   Radio,
   Empty,
@@ -40,10 +38,44 @@ import { useTaskStore } from '../../store/useTaskStore';
 import type { TaskItem, TaskStatus, TaskPriority, RoleType } from '../../types';
 import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
+import { CelraFilterBar } from '../../components/common/CelraFilterBar';
+import { CelraTable } from '../../components/common/CelraTable';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { formatVNCalendarDate, getRemainingDaysInfo, STATUTORY_PERIOD_METAS, type StatutoryCycleType } from '../../utils/taxCalendar';
 
 const { Title, Text, Paragraph } = Typography;
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'Tất cả trạng thái' },
+  { value: 'TODO', label: 'Chờ Xử Lý' },
+  { value: 'IN_PROGRESS', label: 'Đang Thực Hiện' },
+  { value: 'WAITING_DOCUMENT', label: 'Chờ Chứng Từ' },
+  { value: 'WAITING_VERIFICATION', label: 'Chờ Thẩm Định' },
+  { value: 'COMPLETED', label: 'Đã Hoàn Thành' },
+];
+
+const PERIOD_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'Tất cả đợt luật định' },
+  { value: 'MONTHLY', label: 'Hàng Tháng (Ngày 20)' },
+  { value: 'QUARTERLY', label: 'Hàng Quý (30/04, 31/07, 31/10, 31/01)' },
+  { value: 'BIANNUAL_6M', label: '6 Tháng (05/06 & 05/12)' },
+  { value: 'ANNUAL', label: 'Cả Năm (Môn bài 30/01 & 31/03)' },
+  { value: 'EVENT_10D', label: 'Đợt 10 Ngày (Thuế Ads & NQLĐ)' },
+  { value: 'EVENT_20D', label: 'Đợt 20 Ngày (Chuyển kỳ thuế)' },
+  { value: 'EVENT_45D', label: 'Đợt 45 Ngày (Quyết toán giải thể)' },
+  { value: 'EVENT_3D', label: 'Đợt 03 Ngày (Tạm ngừng / HĐĐT)' },
+  { value: 'EVENT_10D_BIZ', label: 'Đợt 10 Ngày (Đổi ĐKKD & Thuế)' },
+  { value: 'EVENT_30D_CAPITAL', label: 'Đợt 30 Ngày (ĐK Giảm vốn)' },
+  { value: 'EVENT_90D', label: 'Đợt 90 Ngày (Góp đủ vốn ĐL)' },
+];
+
+const PRIORITY_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'Tất cả mức độ ưu tiên' },
+  { value: 'URGENT', label: 'Khẩn cấp (Hạn chót)' },
+  { value: 'HIGH', label: 'Ưu tiên cao' },
+  { value: 'MEDIUM', label: 'Trung bình' },
+  { value: 'LOW', label: 'Thấp' },
+];
 
 export const TasksPage: React.FC = () => {
   const navigate = useNavigate();
@@ -62,21 +94,39 @@ export const TasksPage: React.FC = () => {
   } = useTaskStore();
 
   const [viewMode, setViewMode] = useState<'TABLE' | 'KANBAN'>('TABLE');
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [periodFilter, setPeriodFilter] = useState<string>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [newCommentText, setNewCommentText] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [createForm] = Form.useForm();
 
   useEffect(() => {
-    fetchTasks(statusFilter === 'ALL' ? undefined : { status: statusFilter });
-  }, [statusFilter]);
+    fetchTasks();
+  }, []);
 
   const displayedTasks = tasks
     .filter((t: TaskItem) => {
-      // 1. Lọc theo trạng thái công việc
+      // 1. Tìm kiếm theo từ khóa
+      if (searchKeyword.trim()) {
+        const query = searchKeyword.toLowerCase().trim();
+        const matchTitle = t.title?.toLowerCase().includes(query);
+        const matchDesc = t.description?.toLowerCase().includes(query);
+        const matchCitation = t.legalCitation?.toLowerCase().includes(query);
+        const matchCategory = t.category?.toLowerCase().includes(query);
+        const matchAssignee = t.assigneeRole?.toLowerCase().includes(query);
+        if (!matchTitle && !matchDesc && !matchCitation && !matchCategory && !matchAssignee) {
+          return false;
+        }
+      }
+
+      // 2. Lọc theo trạng thái công việc
       if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
+
+      // 3. Lọc theo mức độ ưu tiên
+      if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) return false;
 
       // 2. Lọc theo Đợt Luật Định cụ thể (11 đợt độc lập)
       if (periodFilter !== 'ALL') {
@@ -172,23 +222,44 @@ export const TasksPage: React.FC = () => {
       title: 'Tên nghĩa vụ / Công việc',
       dataIndex: 'title',
       key: 'title',
+      width: 280,
       render: (text: string, record: TaskItem) => (
-        <div>
-          <Text strong style={{ color: '#1677ff', cursor: 'pointer' }} onClick={() => handleOpenTask(record)}>
+        <div style={{ maxWidth: 280, wordBreak: 'break-word', whiteSpace: 'normal', lineHeight: 1.5 }}>
+          <Text
+            strong
+            style={{
+              color: '#1677ff',
+              cursor: 'pointer',
+              display: 'inline-block',
+              wordBreak: 'break-word',
+              whiteSpace: 'normal',
+              lineHeight: 1.45,
+            }}
+            onClick={() => handleOpenTask(record)}
+          >
             {text}
           </Text>
           {record.legalCitation && (() => {
             const clean = cleanDLPLUrl(record.legalCitation);
             const directUrl = (clean.startsWith('http') ? clean : null) || matchCoreLegalDocUrl(record.legalCitation);
             return (
-              <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: '#8c8c8c',
+                  marginTop: 4,
+                  wordBreak: 'break-word',
+                  whiteSpace: 'normal',
+                  lineHeight: 1.35,
+                }}
+              >
                 <AuditOutlined /> {clean}
                 {directUrl && (
                   <a
                     href={directUrl}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ marginLeft: 6, color: '#0958d9', fontWeight: 500 }}
+                    style={{ marginLeft: 6, color: '#0958d9', fontWeight: 500, whiteSpace: 'nowrap' }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     [Xem DLPL ↗]
@@ -299,100 +370,54 @@ export const TasksPage: React.FC = () => {
         }
         style={{ borderRadius: 10 }}
       >
-        {/* Bộ lọc trạng thái */}
-        <div style={{ marginBottom: 12 }}>
-          <Tabs
-            activeKey={statusFilter}
-            onChange={(key) => setStatusFilter(key)}
-            items={[
-              { key: 'ALL', label: `Tất cả trạng thái (${tasks.length})` },
-              { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
-              { key: 'COMPLETED', label: 'Đã hoàn thành' },
+        {/* Bộ lọc chuẩn hóa với CelraFilterBar */}
+        <div style={{ marginBottom: 16 }}>
+          <CelraFilterBar
+            borderedCard={false}
+            searchValue={searchKeyword}
+            onSearchChange={setSearchKeyword}
+            searchPlaceholder="Tìm theo tên công việc, căn cứ pháp lý, phân loại, vai trò..."
+            searchWidth={320}
+            selectFilters={[
+              {
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: STATUS_FILTER_OPTIONS,
+                placeholder: 'Trạng thái',
+                width: 170,
+              },
+              {
+                value: periodFilter,
+                onChange: setPeriodFilter,
+                options: PERIOD_FILTER_OPTIONS,
+                placeholder: 'Đợt luật định',
+                width: 260,
+              },
+              {
+                value: priorityFilter,
+                onChange: setPriorityFilter,
+                options: PRIORITY_FILTER_OPTIONS,
+                placeholder: 'Mức độ',
+                width: 160,
+              },
             ]}
-            style={{ marginBottom: 0 }}
+            onRefresh={() => {
+              setSearchKeyword('');
+              setStatusFilter('ALL');
+              setPeriodFilter('ALL');
+              setPriorityFilter('ALL');
+              fetchTasks();
+            }}
+            refreshText="Đặt Lại"
+            extraActions={
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Tag color="blue" style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6 }}>
+                  Hiển thị: <strong>{displayedTasks.length}</strong> / {tasks.length} nghĩa vụ
+                </Tag>
+              </div>
+            }
           />
         </div>
-
-        {/* THANH LỌC 11 ĐỢT LUẬT ĐỊNH (2 HÀNG X 6 ĐỢT) */}
-        <Card
-          size="small"
-          style={{
-            marginBottom: 16,
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: 10,
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <CalendarOutlined style={{ color: '#0ea5e9', fontSize: 13 }} />
-              <Text strong style={{ fontSize: 12, color: '#0f172a' }}>
-                Đợt Luật Định:
-              </Text>
-            </div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              Sắp xếp: <strong>Hạn gần nhất lên đầu</strong>
-            </Text>
-          </div>
-
-          {/* Dãy 12 nút bấm dàn thành 2 hàng (mỗi hàng 6 đợt bằng CSS Grid) */}
-          <div style={{ overflowX: 'auto', paddingBottom: 2 }}>
-            <Radio.Group
-              size="small"
-              value={periodFilter}
-              onChange={(e) => setPeriodFilter(e.target.value)}
-              buttonStyle="solid"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(6, 1fr)',
-                gap: 6,
-                minWidth: 880,
-                width: '100%',
-              }}
-            >
-              {/* HÀNG 1: 6 ĐỢT ĐẦU */}
-              <Radio.Button value="ALL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Tất cả các đợt
-              </Radio.Button>
-              <Radio.Button value="MONTHLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Hàng Tháng (Ngày 20)
-              </Radio.Button>
-              <Radio.Button value="QUARTERLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Hàng Quý (30/04, 31/07, 31/10, 31/01)
-              </Radio.Button>
-              <Radio.Button value="BIANNUAL_6M" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                6 Tháng (05/06 &amp; 05/12)
-              </Radio.Button>
-              <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Cả Năm (Môn bài 30/01 &amp; 31/03)
-              </Radio.Button>
-              <Radio.Button value="EVENT_10D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 10 Ngày (Thuế Ads &amp; NQLĐ)
-              </Radio.Button>
-
-              {/* HÀNG 2: 6 ĐỢT SAU */}
-              <Radio.Button value="EVENT_20D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 20 Ngày (Chuyển kỳ thuế)
-              </Radio.Button>
-              <Radio.Button value="EVENT_45D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 45 Ngày (Quyết toán giải thể)
-              </Radio.Button>
-              <Radio.Button value="EVENT_3D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 03 Ngày (Tạm ngừng / HĐĐT)
-              </Radio.Button>
-              <Radio.Button value="EVENT_10D_BIZ" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 10 Ngày (Đổi ĐKKD &amp; Thuế)
-              </Radio.Button>
-              <Radio.Button value="EVENT_30D_CAPITAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 30 Ngày (ĐK Giảm vốn)
-              </Radio.Button>
-              <Radio.Button value="EVENT_90D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                Đợt 90 Ngày (Góp đủ vốn ĐL)
-              </Radio.Button>
-            </Radio.Group>
-          </div>
-        </Card>
 
         {tasks.length === 0 && !isLoading ? (
           <Card
@@ -432,12 +457,12 @@ export const TasksPage: React.FC = () => {
             </Empty>
           </Card>
         ) : viewMode === 'TABLE' ? (
-          <Table
+          <CelraTable
             dataSource={displayedTasks}
             columns={columns}
             rowKey="id"
             loading={isLoading}
-            pagination={{ pageSize: 12 }}
+            pagination={{ pageSize: 10 }}
           />
         ) : (
           <Row gutter={[16, 16]}>

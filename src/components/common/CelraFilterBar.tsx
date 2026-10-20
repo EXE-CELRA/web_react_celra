@@ -8,6 +8,7 @@ export interface SelectFilterConfig {
   options: { value: any; label: string }[];
   placeholder?: string;
   width?: number | string;
+  allowClear?: boolean;
 }
 
 export interface CelraFilterBarProps {
@@ -93,6 +94,7 @@ export const CelraFilterBar: React.FC<CelraFilterBarProps> = ({
           onChange={filter.onChange}
           options={filter.options}
           placeholder={filter.placeholder}
+          allowClear={filter.allowClear}
           style={{ width: filter.width || 180, height: 38 }}
         />
       ))}
