@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, ConfigProvider } from 'antd';
+import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -14,6 +14,7 @@ import {
   PlusOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
@@ -176,6 +177,42 @@ export const MainLayout: React.FC = () => {
               fontWeight: 500,
             }}
           />
+
+          {/* Nút Đăng Xuất ở đáy Sidebar */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 20,
+              left: 0,
+              right: 0,
+              padding: '0 16px',
+            }}
+          >
+            <Button
+              type="text"
+              danger
+              icon={<LogoutOutlined />}
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                color: '#f87171',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                height: 40,
+                borderRadius: 8,
+                background: 'rgba(239, 68, 68, 0.12)',
+                fontWeight: 500,
+                fontSize: 13.5,
+              }}
+            >
+              {!collapsed && 'Đăng Xuất'}
+            </Button>
+          </div>
         </Sider>
       </ConfigProvider>
 
@@ -251,41 +288,73 @@ export const MainLayout: React.FC = () => {
               AI Copilot
             </Button>
 
-            <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: 'profile-modal-btn',
-                    icon: <UserOutlined style={{ color: '#1677ff' }} />,
-                    label: <span style={{ fontWeight: 500 }}>Hồ sơ cá nhân</span>,
-                    onClick: () => setProfileModalOpen(true),
-                  },
-                  { type: 'divider' },
-                  {
-                    key: 'logout',
-                    icon: <LogoutOutlined />,
-                    label: 'Đăng xuất',
-                    danger: true,
-                    onClick: () => {
-                      logout();
-                      navigate('/login');
-                    },
-                  },
-                ],
-              }}
-              placement="bottomRight"
-            >
-              <Space style={{ cursor: 'pointer' }}>
-                <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1677ff' }} />
-                <span style={{ fontWeight: 500 }}>{user?.name || user?.fullName || 'Tài khoản'}</span>
-              </Space>
-            </Dropdown>
+            {/* Thẻ Hồ Sơ Doanh Nghiệp (User Profile Card) */}
+            <Tooltip title="Xem & chỉnh sửa hồ sơ cá nhân">
+              <div
+                onClick={() => setProfileModalOpen(true)}
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '4px 12px 4px 6px',
+                  borderRadius: 10,
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  height: 40,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#93c5fd';
+                  e.currentTarget.style.boxShadow = '0 3px 10px rgba(22, 119, 255, 0.12)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <Avatar
+                  size={30}
+                  icon={<UserOutlined />}
+                  style={{
+                    background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
+                    boxShadow: '0 2px 4px rgba(22, 119, 255, 0.25)',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.2 }}>
+                  <span style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>
+                    {user?.name || user?.fullName || 'Người dùng'}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 500 }}>
+                    {user?.roleTitle || 'Chủ doanh nghiệp'}
+                  </span>
+                </div>
+                <RightOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />
+              </div>
+            </Tooltip>
           </Space>
         </Header>
 
-        <Content style={{ margin: '24px 24px 24px', overflow: 'initial' }}>
+        <Content style={{ margin: '24px 24px 0', overflow: 'initial', flex: 1 }}>
           <Outlet />
         </Content>
+
+        {/* Dòng bản quyền CELRA EXE101 */}
+        <footer
+          style={{
+            textAlign: 'center',
+            padding: '16px 24px 24px',
+            color: '#64748b',
+            fontSize: 12,
+            background: 'transparent',
+          }}
+        >
+          © {new Date().getFullYear()} <strong>CELRA</strong> - Compliance Evaluation, Legal Recovery & Assistance. Bản quyền thuộc về dự án liên ngành <strong>EXE101</strong>.
+        </footer>
       </Layout>
 
       <AIChatDrawer visible={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />

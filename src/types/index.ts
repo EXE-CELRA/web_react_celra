@@ -149,6 +149,7 @@ export interface User {
   roleTitle?: string;
   twoFactorEnabled?: boolean;
   isTwoFactorEnabled?: boolean;
+  isSuperAdmin?: boolean;
   createdAt: string;
 }
 

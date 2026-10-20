@@ -11,8 +11,16 @@ import { ContextPage } from './pages/Context/ContextPage';
 import { TasksPage } from './pages/Tasks/TasksPage';
 import { EvidencePage } from './pages/Evidence/EvidencePage';
 import { WalletPage } from './pages/Wallet/WalletPage';
+import { MobileSandboxPaymentPage } from './pages/Payment/MobileSandboxPaymentPage';
 import { MainLayout } from './components/layout/MainLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { AdminLayout } from './components/layout/AdminLayout';
+import { AdminRoute } from './components/layout/AdminRoute';
+import { AdminDashboardPage } from './pages/Admin/AdminDashboardPage';
+import { AdminEnterprisesPage } from './pages/Admin/AdminEnterprisesPage';
+import { AdminDLPLQuotaPage } from './pages/Admin/AdminDLPLQuotaPage';
+import { AdminFinancePage } from './pages/Admin/AdminFinancePage';
+import { AdminSettingsPage } from './pages/Admin/AdminSettingsPage';
 
 export const App: React.FC = () => {
   return (
@@ -36,7 +44,10 @@ export const App: React.FC = () => {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Protected Routes (Require Login) */}
+          {/* Public Mobile Sandbox Payment Route - For scanning from smartphone */}
+          <Route path="/sandbox-pay" element={<MobileSandboxPaymentPage />} />
+
+          {/* Protected Routes (Require Login for Enterprises) */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -46,6 +57,18 @@ export const App: React.FC = () => {
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/evidence" element={<EvidencePage />} />
               <Route path="/wallet" element={<WalletPage />} />
+            </Route>
+          </Route>
+
+          {/* Super Admin Protected Routes */}
+          <Route element={<AdminRoute />}>
+            <Route element={<AdminLayout />}>
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/enterprises" element={<AdminEnterprisesPage />} />
+              <Route path="/admin/dlpl-quota" element={<AdminDLPLQuotaPage />} />
+              <Route path="/admin/finance" element={<AdminFinancePage />} />
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
             </Route>
           </Route>
 

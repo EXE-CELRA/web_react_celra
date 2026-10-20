@@ -4,19 +4,29 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
 
 export const ProtectedRoute: React.FC = () => {
-  const { isAuthenticated, loadUserProfile } = useAuthStore();
+  const { isAuthenticated, user, loadUserProfile } = useAuthStore();
   const { fetchMyOrganizations } = useOrgStore();
+
+  const role = user?.role || localStorage.getItem('celra_active_role');
+  const isSuperAdmin = role === 'admin' || user?.isSuperAdmin;
 
   useEffect(() => {
     if (isAuthenticated) {
       loadUserProfile();
-      fetchMyOrganizations();
+      if (!isSuperAdmin) {
+        fetchMyOrganizations();
+      }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isSuperAdmin, loadUserProfile, fetchMyOrganizations]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
+  if (isSuperAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   return <Outlet />;
 };
+

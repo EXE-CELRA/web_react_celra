@@ -27,7 +27,11 @@ export const LoginPage: React.FC = () => {
       }
 
       message.success('Đăng nhập thành công!');
-      navigate('/dashboard');
+      if (res.user?.role === 'admin' || res.user?.isSuperAdmin) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       message.error(err.message || 'Email hoặc mật khẩu không chính xác');
     }

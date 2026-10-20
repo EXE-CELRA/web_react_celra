@@ -206,6 +206,20 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           </Row>
         </div>
       </section>
+
+      {/* Dòng bản quyền CELRA EXE101 */}
+      <footer
+        style={{
+          textAlign: 'center',
+          padding: '16px 24px',
+          fontSize: 12,
+          color: 'rgba(15, 23, 42, 0.6)',
+          position: 'relative',
+          zIndex: 10,
+        }}
+      >
+        © {new Date().getFullYear()} <strong>CELRA</strong> - Compliance Evaluation, Legal Recovery & Assistance. Bản quyền thuộc về dự án liên ngành <strong>EXE101</strong>.
+      </footer>
     </div>
   );
 };
