@@ -4,7 +4,7 @@ import type { TaskStatus, TaskPriority, RiskSeverity, VerificationStatus } from 
 
 export const TaskStatusTag: React.FC<{ status: TaskStatus }> = ({ status }) => {
   const map: Record<TaskStatus, { color: string; text: string }> = {
-    TODO: { color: 'default', text: 'Chờ xử lý' },
+    TODO: { color: 'default', text: 'Task mới' },
     IN_PROGRESS: { color: 'processing', text: 'Đang thực hiện' },
     WAITING_DOCUMENT: { color: 'warning', text: 'Chờ chứng từ' },
     WAITING_VERIFICATION: { color: 'purple', text: 'Chờ thẩm định' },
@@ -15,7 +15,7 @@ export const TaskStatusTag: React.FC<{ status: TaskStatus }> = ({ status }) => {
   };
 
   const item = map[status] || { color: 'default', text: status };
-  return <Tag color={item.color}>{item.text}</Tag>;
+  return <Tag color={item.color} style={{ margin: 0, whiteSpace: 'nowrap' }}>{item.text}</Tag>;
 };
 
 export const PriorityTag: React.FC<{ priority: TaskPriority }> = ({ priority }) => {
@@ -27,7 +27,7 @@ export const PriorityTag: React.FC<{ priority: TaskPriority }> = ({ priority }) 
   };
 
   const item = map[priority] || { color: 'default', text: priority };
-  return <Tag color={item.color}>{item.text}</Tag>;
+  return <Tag color={item.color} style={{ margin: 0, whiteSpace: 'nowrap' }}>{item.text}</Tag>;
 };
 
 export const SeverityTag: React.FC<{ severity: RiskSeverity }> = ({ severity }) => {

@@ -22,10 +22,11 @@ import {
   Check, 
   PlusCircle, 
   Building2,
-  ExternalLink
+  ExternalLink,
+  Lock
 } from 'lucide-react';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
-import { CONTEXT_GROUPS } from '../../pages/Context/ContextPage';
+import { CONTEXT_GROUPS, isContextGroupEnabled } from '../../pages/Context/ContextPage';
 
 interface ContextComplianceAuditModalProps {
   isOpen: boolean;
@@ -123,21 +124,24 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const isBalanceSufficient = currentBalance >= totalCost;
 
   const toggleSelectFact = (id: string) => {
+    const fact = facts.find((f) => f.id === id);
+    if (!fact || !isContextGroupEnabled(fact.group)) return;
     setSelectedFactIds((prev) =>
       prev.includes(id) ? prev.filter((fId) => fId !== id) : [...prev, id]
     );
   };
 
+  const selectableFactsInCurrentTab = displayedFacts.filter((f) => isContextGroupEnabled(f.group));
   const isAllCurrentTabSelected = 
-    displayedFacts.length > 0 && displayedFacts.every((f) => selectedFactIds.includes(f.id));
+    selectableFactsInCurrentTab.length > 0 && selectableFactsInCurrentTab.every((f) => selectedFactIds.includes(f.id));
 
   const handleToggleSelectCurrentTab = () => {
     if (isAllCurrentTabSelected) {
       // Bỏ chọn các thẻ trong tab đang xem
-      setSelectedFactIds((prev) => prev.filter((id) => !displayedFacts.some((f) => f.id === id)));
+      setSelectedFactIds((prev) => prev.filter((id) => !selectableFactsInCurrentTab.some((f) => f.id === id)));
     } else {
-      // Chọn tất cả thẻ trong tab đang xem (giữ nguyên các thẻ đã chọn ở tab khác)
-      const newSelected = new Set([...selectedFactIds, ...displayedFacts.map((f) => f.id)]);
+      // Chọn tất cả thẻ hợp lệ trong tab đang xem (giữ nguyên các thẻ đã chọn ở tab khác)
+      const newSelected = new Set([...selectedFactIds, ...selectableFactsInCurrentTab.map((f) => f.id)]);
       setSelectedFactIds(Array.from(newSelected));
     }
   };
@@ -704,6 +708,25 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                   const count = facts.filter((f) => f.group === g.key).length;
                   const isSelected = activeTab === g.key;
                   const IconComp = g.icon;
+                  const isEnabled = isContextGroupEnabled(g.key);
+
+                  if (!isEnabled) {
+                    return (
+                      <button
+                        key={g.key}
+                        type="button"
+                        disabled
+                        title={`${g.label} đang tạm khóa`}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-200/50 text-slate-400 cursor-not-allowed opacity-50 select-none"
+                      >
+                        <IconComp className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{g.shortLabel}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-300 text-slate-500 flex items-center gap-0.5">
+                          <Lock className="w-2.5 h-2.5" />
+                        </span>
+                      </button>
+                    );
+                  }
 
                   return (
                     <button
@@ -767,6 +790,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {displayedFacts.map((fact) => {
+                    const isFactEnabled = isContextGroupEnabled(fact.group);
                     const isSelected = selectedFactIds.includes(fact.id);
                     const getFactGroupBadge = (group?: string) => {
                       if (group === 'tax_accounting') return { text: 'Module 1: Thuế', cls: 'text-blue-700 bg-blue-50 border border-blue-200' };
@@ -778,11 +802,13 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                     return (
                       <div
                         key={fact.id}
-                        onClick={() => toggleSelectFact(fact.id)}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer select-none space-y-2.5 relative ${
-                          isSelected 
-                            ? 'bg-teal-50/40 border-teal-500 shadow-xs ring-2 ring-teal-500/20' 
-                            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                        onClick={() => isFactEnabled && toggleSelectFact(fact.id)}
+                        className={`p-4 rounded-2xl border transition-all select-none space-y-2.5 relative ${
+                          !isFactEnabled
+                            ? 'bg-slate-50 border-dashed border-slate-200 opacity-60 cursor-not-allowed'
+                            : isSelected 
+                            ? 'bg-teal-50/40 border-teal-500 shadow-xs ring-2 ring-teal-500/20 cursor-pointer' 
+                            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -790,6 +816,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                             <input
                               type="checkbox"
                               checked={isSelected}
+                              disabled={!isFactEnabled}
                               onChange={() => {}}
                               className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 pointer-events-none"
                             />
@@ -798,7 +825,11 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                             </span>
                           </div>
 
-                          {fact.conflictDetails ? (
+                          {!isFactEnabled ? (
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded flex items-center gap-1">
+                              <Lock className="w-3 h-3 text-slate-400" /> Tạm khóa
+                            </span>
+                          ) : fact.conflictDetails ? (
                             <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3 text-rose-600" /> Cần đối chiếu
                             </span>

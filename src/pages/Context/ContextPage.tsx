@@ -20,7 +20,8 @@ import {
   Award,
   Briefcase,
   HardDrive,
-  Plus
+  Plus,
+  Lock
 } from 'lucide-react';
 import { message, Modal, Form, Input, Select } from 'antd';
 
@@ -32,6 +33,17 @@ export interface ContextGroupConfig {
   icon: any;
   badgeClass: string;
 }
+
+/**
+ * Danh sách các nhóm bối cảnh được phép thao tác:
+ * Chỉ có "Thuế Doanh Nghiệp" và "Hồ Sơ Pháp Lý & Vốn" được kích hoạt;
+ * Tất cả các nhóm còn lại đều ở trạng thái disabled (tạm khóa).
+ */
+export const ENABLED_CONTEXT_GROUPS = ['tax_accounting', 'legal'];
+export const isContextGroupEnabled = (groupKey?: string | null): boolean => {
+  if (!groupKey) return false;
+  return ENABLED_CONTEXT_GROUPS.includes(groupKey);
+};
 
 export const CONTEXT_GROUPS: ContextGroupConfig[] = [
   {
@@ -310,7 +322,8 @@ export const ContextPage: React.FC = () => {
           <button
             onClick={() => {
               createForm.resetFields();
-              createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'tax_accounting' });
+              const defaultGroup = isContextGroupEnabled(selectedTab) ? selectedTab : 'tax_accounting';
+              createForm.setFieldsValue({ group: defaultGroup });
               setIsCreateModalOpen(true);
             }}
             className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-300 shadow-xs"
@@ -331,7 +344,7 @@ export const ContextPage: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
             <span>Rà soát tuân thủ</span>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-              {facts.length} thẻ
+              {facts.filter((f) => isContextGroupEnabled(f.group)).length} thẻ khả dụng
             </span>
           </button>
         </div>
@@ -365,6 +378,27 @@ export const ContextPage: React.FC = () => {
           const count = facts.filter((f) => f.group === g.key).length;
           const isSelected = selectedTab === g.key;
           const IconComponent = g.icon;
+          const isEnabled = isContextGroupEnabled(g.key);
+
+          // Nếu không thuộc Thuế Doanh Nghiệp hoặc Hồ Sơ Pháp Lý & Vốn -> Khóa không cho người dùng thao tác
+          if (!isEnabled) {
+            return (
+              <button
+                key={g.key}
+                type="button"
+                disabled
+                title={`${g.label} hiện đang tạm khóa, chưa cho phép thao tác.`}
+                className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100/80 text-slate-400 border border-slate-200/80 cursor-not-allowed opacity-60 select-none"
+              >
+                <IconComponent className="w-3.5 h-3.5 text-slate-400" />
+                <span>{g.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-200 text-slate-500 flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                  {count}
+                </span>
+              </button>
+            );
+          }
 
           return (
             <button
@@ -437,6 +471,7 @@ export const ContextPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredFacts.map((fact) => {
+            const isFactEnabled = isContextGroupEnabled(fact.group || fact.category || '');
             const compInfo = getFactComplianceInfo(fact);
             const groupMeta = getGroupMeta(fact.group || fact.category || '');
             const GroupIcon = groupMeta.icon;
@@ -445,7 +480,11 @@ export const ContextPage: React.FC = () => {
             return (
               <div
                 key={fact.id}
-                className={`bg-white p-5 rounded-2xl border ${compInfo.borderClass} shadow-xs transition-all space-y-3.5 flex flex-col justify-between`}
+                className={`p-5 rounded-2xl border transition-all space-y-3.5 flex flex-col justify-between ${
+                  isFactEnabled
+                    ? `bg-white ${compInfo.borderClass} shadow-xs`
+                    : 'bg-slate-50/70 border-dashed border-slate-300 opacity-75 shadow-none'
+                }`}
               >
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -460,14 +499,20 @@ export const ContextPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    {compInfo.badge}
+                    {isFactEnabled ? (
+                      compInfo.badge
+                    ) : (
+                      <span className="bg-slate-200/80 text-slate-500 text-[11px] font-bold px-2 py-0.5 rounded flex items-center gap-1 border border-slate-300/80">
+                        <Lock className="w-3 h-3 text-slate-400" /> Tạm khóa thao tác
+                      </span>
+                    )}
                   </div>
 
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                  <h4 className={`text-xs sm:text-sm font-bold ${isFactEnabled ? 'text-slate-900' : 'text-slate-700'}`}>
                     {fact.label}
                   </h4>
 
-                  <div className={`p-3 rounded-xl border text-xs leading-relaxed font-semibold ${compInfo.valueBoxClass}`}>
+                  <div className={`p-3 rounded-xl border text-xs leading-relaxed font-semibold ${isFactEnabled ? compInfo.valueBoxClass : 'bg-slate-100/70 border-slate-200 text-slate-600'}`}>
                     {fact.currentValue || '⚪ Chưa trả lời'}
                   </div>
 
@@ -479,15 +524,24 @@ export const ContextPage: React.FC = () => {
                         Cảnh báo mâu thuẫn thông tin:
                       </div>
                       <p className="text-[11px] leading-relaxed">{fact.conflictDetails}</p>
-                      <button
-                        onClick={() => {
-                          setConflictFact(fact);
-                          setAgreedValue(fact.currentValue || '');
-                        }}
-                        className="mt-1 px-2.5 py-1 bg-rose-600 text-white rounded text-[11px] font-bold hover:bg-rose-700 cursor-pointer"
-                      >
-                        Đối chiếu &amp; Thống nhất dữ liệu
-                      </button>
+                      {isFactEnabled ? (
+                        <button
+                          onClick={() => {
+                            setConflictFact(fact);
+                            setAgreedValue(fact.currentValue || '');
+                          }}
+                          className="mt-1 px-2.5 py-1 bg-rose-600 text-white rounded text-[11px] font-bold hover:bg-rose-700 cursor-pointer"
+                        >
+                          Đối chiếu &amp; Thống nhất dữ liệu
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          className="mt-1 px-2.5 py-1 bg-slate-300 text-slate-500 rounded text-[11px] font-bold cursor-not-allowed"
+                        >
+                          <Lock className="w-3 h-3 inline mr-1" /> Đang khóa
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -527,27 +581,45 @@ export const ContextPage: React.FC = () => {
                     </button>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setAuditTargetFactId(fact.id);
-                          setShowAuditModal(true);
-                        }}
-                        className="text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
-                        title="Rà soát tuân thủ riêng cho thẻ này"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Rà soát thẻ
-                      </button>
+                      {isFactEnabled ? (
+                        <button
+                          onClick={() => {
+                            setAuditTargetFactId(fact.id);
+                            setShowAuditModal(true);
+                          }}
+                          className="text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                          title="Rà soát tuân thủ riêng cho thẻ này"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Rà soát thẻ
+                        </button>
+                      ) : (
+                        <span
+                          className="text-slate-400 flex items-center gap-1 font-medium text-xs bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 cursor-not-allowed select-none"
+                          title="Nhóm dữ kiện tạm khóa, không thể rà soát"
+                        >
+                          <Lock className="w-3 h-3 text-slate-400" /> Khóa rà soát
+                        </span>
+                      )}
 
-                      <button
-                        onClick={() => {
-                          setEditingFact(fact);
-                          setNewFactValue(fact.currentValue || '');
-                          setFactEditNote('');
-                        }}
-                        className="text-teal-700 hover:text-teal-900 flex items-center gap-1 font-bold text-xs transition-colors cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" /> Cập nhật
-                      </button>
+                      {isFactEnabled ? (
+                        <button
+                          onClick={() => {
+                            setEditingFact(fact);
+                            setNewFactValue(fact.currentValue || '');
+                            setFactEditNote('');
+                          }}
+                          className="text-teal-700 hover:text-teal-900 flex items-center gap-1 font-bold text-xs transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Cập nhật
+                        </button>
+                      ) : (
+                        <span
+                          className="text-slate-400 flex items-center gap-1 font-medium text-xs bg-slate-100/70 px-2 py-1 rounded-lg border border-slate-200/80 cursor-not-allowed select-none"
+                          title="Nhóm dữ kiện tạm khóa, không thể cập nhật"
+                        >
+                          <Lock className="w-3 h-3 text-slate-400" /> Khóa cập nhật
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -754,8 +826,9 @@ export const ContextPage: React.FC = () => {
           >
             <Select
               options={CONTEXT_GROUPS.map((g) => ({
-                label: g.label,
+                label: isContextGroupEnabled(g.key) ? g.label : `${g.label} (Tạm khóa)`,
                 value: g.key,
+                disabled: !isContextGroupEnabled(g.key),
               }))}
             />
           </Form.Item>

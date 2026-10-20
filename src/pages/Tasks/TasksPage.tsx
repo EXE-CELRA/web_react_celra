@@ -47,11 +47,9 @@ const { Title, Text, Paragraph } = Typography;
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'Tất cả trạng thái' },
-  { value: 'TODO', label: 'Chờ Xử Lý' },
-  { value: 'IN_PROGRESS', label: 'Đang Thực Hiện' },
-  { value: 'WAITING_DOCUMENT', label: 'Chờ Chứng Từ' },
-  { value: 'WAITING_VERIFICATION', label: 'Chờ Thẩm Định' },
-  { value: 'COMPLETED', label: 'Đã Hoàn Thành' },
+  { value: 'TODO', label: 'Task mới' },
+  { value: 'IN_PROGRESS', label: 'Đang thực hiện' },
+  { value: 'COMPLETED', label: 'Hoàn thành' },
 ];
 
 const PERIOD_FILTER_OPTIONS = [
@@ -122,8 +120,23 @@ export const TasksPage: React.FC = () => {
         }
       }
 
-      // 2. Lọc theo trạng thái công việc
-      if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
+      // 2. Lọc theo trạng thái công việc (4 loại: Tất cả, Task mới, Đang thực hiện, Hoàn thành)
+      if (statusFilter !== 'ALL') {
+        if (statusFilter === 'TODO') {
+          if (t.status !== 'TODO') return false;
+        } else if (statusFilter === 'IN_PROGRESS') {
+          if (
+            t.status !== 'IN_PROGRESS' &&
+            t.status !== 'WAITING_DOCUMENT' &&
+            t.status !== 'WAITING_VERIFICATION' &&
+            t.status !== 'VERIFIED'
+          ) {
+            return false;
+          }
+        } else if (statusFilter === 'COMPLETED') {
+          if (t.status !== 'COMPLETED') return false;
+        }
+      }
 
       // 3. Lọc theo mức độ ưu tiên
       if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) return false;
@@ -222,9 +235,9 @@ export const TasksPage: React.FC = () => {
       title: 'Tên nghĩa vụ / Công việc',
       dataIndex: 'title',
       key: 'title',
-      width: 280,
+      minWidth: 240,
       render: (text: string, record: TaskItem) => (
-        <div style={{ maxWidth: 280, wordBreak: 'break-word', whiteSpace: 'normal', lineHeight: 1.5 }}>
+        <div style={{ wordBreak: 'break-word', whiteSpace: 'normal', lineHeight: 1.5 }}>
           <Text
             strong
             style={{
@@ -275,72 +288,98 @@ export const TasksPage: React.FC = () => {
       title: 'Phân loại',
       dataIndex: 'category',
       key: 'category',
-      width: 120,
-      render: (cat: string) => <Tag color="blue">{cat}</Tag>,
+      width: 110,
+      render: (cat: string) => <Tag color="blue" style={{ margin: 0, whiteSpace: 'nowrap' }}>{cat}</Tag>,
     },
     {
       title: 'Mức độ',
       dataIndex: 'priority',
       key: 'priority',
-      width: 110,
+      width: 95,
       render: (priority: TaskPriority) => <PriorityTag priority={priority} />,
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      width: 150,
+      width: 130,
       render: (status: TaskStatus) => <TaskStatusTag status={status} />,
     },
     {
       title: 'Vai trò thực hiện',
       dataIndex: 'assigneeRole',
       key: 'assigneeRole',
-      width: 150,
-      render: (role: string) => <Tag color="cyan">{role}</Tag>,
+      width: 130,
+      render: (role: string) => <Tag color="cyan" style={{ margin: 0, whiteSpace: 'nowrap' }}>{role}</Tag>,
     },
     {
       title: 'Đang đợi',
       dataIndex: 'waitingOnRole',
       key: 'waitingOnRole',
-      width: 140,
-      render: (role: string) => (role ? <Tag color="orange">Đợi: {role}</Tag> : <Text type="secondary">---</Text>),
+      width: 115,
+      render: (role: string) => (role ? <Tag color="orange" style={{ margin: 0, whiteSpace: 'nowrap' }}>Đợi: {role}</Tag> : <Text type="secondary">---</Text>),
     },
     {
-      title: 'Kỳ hạn & Hạn chót pháp lý',
+      title: 'Kỳ hạn & Hạn chót',
       dataIndex: 'dueDate',
       key: 'dueDate',
-      width: 220,
+      width: 180,
       render: (date: string, record: TaskItem) => {
         const remaining = getRemainingDaysInfo(date);
         return (
-          <Space direction="vertical" size={2}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
               <CalendarOutlined style={{ color: '#1677ff', fontSize: 12 }} />
               <Text strong style={{ fontSize: 13 }}>{formatVNCalendarDate(date)}</Text>
             </div>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <Tag color={remaining.tagColor} style={{ margin: 0, fontSize: 11, fontWeight: 500 }}>
+              <Tag color={remaining.tagColor} style={{ margin: 0, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>
                 <ClockCircleOutlined /> {remaining.label}
               </Tag>
               {record.periodCycle && (
-                <Tag color="cyan" style={{ margin: 0, fontSize: 10 }}>
+                <Tag color="cyan" style={{ margin: 0, fontSize: 10, whiteSpace: 'nowrap' }}>
                   {STATUTORY_PERIOD_METAS[record.periodCycle as StatutoryCycleType]?.badge || record.periodCycle}
                 </Tag>
               )}
             </div>
-          </Space>
+          </div>
         );
       },
     },
   ];
 
-  const kanbanColumns: Array<{ status: TaskStatus; label: string; color: string }> = [
-    { status: 'TODO', label: 'Chờ Xử Lý', color: '#d9d9d9' },
-    { status: 'IN_PROGRESS', label: 'Đang Thực Hiện', color: '#1677ff' },
-    { status: 'WAITING_DOCUMENT', label: 'Chờ Chứng Từ', color: '#fa8c16' },
-    { status: 'WAITING_VERIFICATION', label: 'Chờ Thẩm Định', color: '#722ed1' },
-    { status: 'COMPLETED', label: 'Hoàn Thành', color: '#52c41a' },
+  const kanbanColumns: Array<{
+    key: string;
+    statuses: TaskStatus[];
+    label: string;
+    color: string;
+    badgeBg: string;
+    badgeText: string;
+  }> = [
+    {
+      key: 'TODO',
+      statuses: ['TODO'],
+      label: 'Task Mới',
+      color: '#64748b',
+      badgeBg: '#f1f5f9',
+      badgeText: '#475569',
+    },
+    {
+      key: 'IN_PROGRESS',
+      statuses: ['IN_PROGRESS', 'WAITING_DOCUMENT', 'WAITING_VERIFICATION', 'VERIFIED'],
+      label: 'Đang Thực Hiện',
+      color: '#0284c7',
+      badgeBg: '#e0f2fe',
+      badgeText: '#0369a1',
+    },
+    {
+      key: 'COMPLETED',
+      statuses: ['COMPLETED'],
+      label: 'Hoàn Thành',
+      color: '#16a34a',
+      badgeBg: '#dcfce7',
+      badgeText: '#15803d',
+    },
   ];
 
   return (
@@ -463,60 +502,227 @@ export const TasksPage: React.FC = () => {
             rowKey="id"
             loading={isLoading}
             pagination={{ pageSize: 10 }}
+            scroll={{ x: 1000 }}
           />
         ) : (
-          <Row gutter={[16, 16]}>
-            {kanbanColumns.map((col) => {
-              const colTasks = displayedTasks.filter((t: TaskItem) => t.status === col.status);
-              return (
-                <Col xs={24} sm={12} md={8} lg={4.8 as any} key={col.status}>
+          <div
+            style={{
+              overflowX: 'auto',
+              paddingBottom: 16,
+              margin: '0 -4px',
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: 16,
+                minWidth: '100%',
+              }}
+            >
+              {kanbanColumns.map((col) => {
+                const colTasks = displayedTasks.filter((t: TaskItem) => col.statuses.includes(t.status));
+                return (
                   <div
+                    key={col.key}
                     style={{
-                      background: '#f8f9fa',
-                      borderRadius: 8,
+                      background: '#f8fafc',
+                      borderRadius: 12,
                       padding: 12,
-                      minHeight: 450,
-                      borderTop: `3px solid ${col.color}`,
+                      minHeight: 520,
+                      border: '1px solid #e2e8f0',
+                      display: 'flex',
+                      flexDirection: 'column',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <Text strong>{col.label}</Text>
-                      <Tag>{colTasks.length}</Tag>
+                    {/* Header Cột */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingBottom: 10,
+                        marginBottom: 12,
+                        borderBottom: `2px solid ${col.color}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor: col.color,
+                            display: 'inline-block',
+                          }}
+                        />
+                        <Text strong style={{ fontSize: 13.5, color: '#0f172a' }}>
+                          {col.label}
+                        </Text>
+                      </div>
+                      <Tag
+                        style={{
+                          margin: 0,
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          backgroundColor: col.badgeBg,
+                          borderColor: 'transparent',
+                          color: col.color,
+                        }}
+                      >
+                        {colTasks.length}
+                      </Tag>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {colTasks.map((t) => (
-                        <Card
-                          key={t.id}
-                          size="small"
-                          hoverable
-                          onClick={() => handleOpenTask(t)}
-                          style={{ borderRadius: 6, cursor: 'pointer' }}
+                    {/* Danh sách thẻ nhiệm vụ trong cột */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                      {colTasks.length === 0 ? (
+                        <div
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#94a3b8',
+                            fontSize: 12,
+                            fontStyle: 'italic',
+                            padding: '32px 0',
+                            border: '1px dashed #e2e8f0',
+                            borderRadius: 8,
+                          }}
                         >
-                          <div style={{ marginBottom: 6 }}>
-                            <PriorityTag priority={t.priority} />
-                          </div>
-                          <Text strong style={{ fontSize: 13 }}>
-                            {t.title}
-                          </Text>
-                          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-                            <Tag color="blue" style={{ fontSize: 10 }}>
-                              {t.assigneeRole}
-                            </Tag>
-                            {t.waitingOnRole && (
-                              <Tag color="orange" style={{ fontSize: 10 }}>
-                                {t.waitingOnRole}
-                              </Tag>
+                          Không có công việc
+                        </div>
+                      ) : (
+                        colTasks.map((t) => (
+                          <div
+                            key={t.id}
+                            onClick={() => handleOpenTask(t)}
+                            style={{
+                              background: '#ffffff',
+                              borderRadius: 10,
+                              padding: '12px 14px',
+                              border: '1px solid #e2e8f0',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 8,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = '#93c5fd';
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = '0 6px 16px rgba(22, 119, 255, 0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+                            }}
+                          >
+                            {/* Priority, Category & Sub-status Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <PriorityTag priority={t.priority} />
+                                {t.status === 'WAITING_DOCUMENT' && (
+                                  <Tag color="warning" style={{ margin: 0, fontSize: 10, borderRadius: 4 }}>
+                                    Chờ chứng từ
+                                  </Tag>
+                                )}
+                                {t.status === 'WAITING_VERIFICATION' && (
+                                  <Tag color="purple" style={{ margin: 0, fontSize: 10, borderRadius: 4 }}>
+                                    Chờ thẩm định
+                                  </Tag>
+                                )}
+                              </div>
+                              {t.category && (
+                                <Tag color="blue" style={{ margin: 0, fontSize: 10, borderRadius: 4 }}>
+                                  {t.category}
+                                </Tag>
+                              )}
+                            </div>
+
+                            {/* Title (Text-wrap chuẩn chỉnh không bị tràn) */}
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#0f172a',
+                                lineHeight: 1.45,
+                                wordBreak: 'break-word',
+                                whiteSpace: 'normal',
+                              }}
+                            >
+                              {t.title}
+                            </div>
+
+                            {/* Legal Citation nếu có */}
+                            {t.legalCitation && (
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: '#64748b',
+                                  lineHeight: 1.35,
+                                  wordBreak: 'break-word',
+                                  whiteSpace: 'normal',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                }}
+                              >
+                                <AuditOutlined style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {cleanDLPLUrl(t.legalCitation)}
+                                </span>
+                              </div>
                             )}
+
+                            {/* Phân cách nhẹ */}
+                            <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '2px 0' }} />
+
+                            {/* Bottom: Hạn chót & Vai trò */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 6,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              {t.dueDate ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <ClockCircleOutlined style={{ fontSize: 11, color: '#64748b' }} />
+                                  <span style={{ fontSize: 11, fontWeight: 500, color: '#475569' }}>
+                                    {formatVNCalendarDate(t.dueDate)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>Chưa có hạn</span>
+                              )}
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Tag color="cyan" style={{ margin: 0, fontSize: 10, borderRadius: 4 }}>
+                                  {t.assigneeRole}
+                                </Tag>
+                                {t.waitingOnRole && (
+                                  <Tag color="orange" style={{ margin: 0, fontSize: 10, borderRadius: 4 }}>
+                                    Đợi: {t.waitingOnRole}
+                                  </Tag>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </Card>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
-                </Col>
-              );
-            })}
-          </Row>
+                );
+              })}
+            </div>
+          </div>
         )}
       </Card>
 
