@@ -17,6 +17,14 @@ import celraLogo from '../../assets/logo_celra_tachnen.png';
 
 const { Header, Sider, Content } = Layout;
 
+const ADMIN_PAGE_TITLES: Record<string, string> = {
+  '/admin/dashboard': 'Tổng Quan Hệ Thống',
+  '/admin/enterprises': 'Quản Lý Doanh Nghiệp',
+  '/admin/dlpl-quota': 'Tri Thức Luật & Quota AI',
+  '/admin/finance': 'Doanh Thu & Sổ Cái Sàn',
+  '/admin/settings': 'Cấu Hình Nền Tảng',
+};
+
 export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,6 +63,8 @@ export const AdminLayout: React.FC = () => {
     logout();
     navigate('/login');
   };
+
+  const currentAdminPageTitle = ADMIN_PAGE_TITLES[location.pathname] || 'Quản Trị Hệ Thống';
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f8fafc' }}>
@@ -115,17 +125,32 @@ export const AdminLayout: React.FC = () => {
             />
             {!collapsed && (
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <span
-                  style={{
-                    color: '#fff',
-                    fontWeight: 900,
-                    fontSize: 18,
-                    letterSpacing: 1.2,
-                    lineHeight: 1.1,
-                  }}
-                >
-                  CELRA
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      color: '#fff',
+                      fontWeight: 900,
+                      fontSize: 18,
+                      letterSpacing: 1.2,
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    CELRA
+                  </span>
+                  <span
+                    style={{
+                      background: '#7c3aed',
+                      color: '#fff',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: 4,
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    ADMIN
+                  </span>
+                </div>
                 <span
                   style={{
                     color: 'rgba(255,255,255,0.75)',
@@ -220,7 +245,7 @@ export const AdminLayout: React.FC = () => {
             borderBottom: '1px solid #e2e8f0',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Button
               type="text"
               icon={collapsed ? <MenuUnfoldOutlined style={{ fontSize: 16 }} /> : <MenuFoldOutlined style={{ fontSize: 16 }} />}
@@ -233,13 +258,39 @@ export const AdminLayout: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 6,
+                flexShrink: 0,
               }}
             />
+
+            <div style={{ width: 1, height: 20, backgroundColor: '#e2e8f0', flexShrink: 0 }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  fontWeight: 600,
+                  fontSize: 12.5,
+                  color: '#6366f1',
+                  background: '#eef2ff',
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  border: '1px solid #c7d2fe',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <CrownOutlined style={{ fontSize: 12 }} />
+                Admin Portal
+              </span>
+              <span style={{ color: '#94a3b8', fontSize: 14, fontWeight: 300, userSelect: 'none' }}>/</span>
+              <span style={{ fontWeight: 600, fontSize: 13.5, color: '#0f172a' }}>
+                {currentAdminPageTitle}
+              </span>
+            </div>
           </div>
 
           {/* Right Header: Admin profile card */}
           <Space size={16}>
-
             <div
               style={{
                 display: 'flex',
