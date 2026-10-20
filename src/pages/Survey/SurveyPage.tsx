@@ -38,7 +38,22 @@ import {
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
+import { getLegalRules } from '../../api/legalApi';
 import { useOrgStore } from '../../store/useOrgStore';
+import { UnsavedChangesModal } from '../../components/common/UnsavedChangesModal';
+
+type LegalRule = {
+  code?: string;
+  legalReference?: string;
+  conditionSummary?: string;
+  conditionsJson?: {
+    citations?: Array<{
+      title?: string;
+      sourceUrl?: string;
+      articleNumber?: string;
+    }>;
+  };
+};
 
 export const SurveyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -49,6 +64,14 @@ export const SurveyPage: React.FC = () => {
   });
 
   const [baseProfile, setBaseProfile] = useState<BaseProfile>(() => {
+    try {
+      const savedDraft = localStorage.getItem('celra_survey_draft_profile');
+      if (savedDraft) {
+        return JSON.parse(savedDraft);
+      }
+    } catch {
+      // Fallback
+    }
     return {
       taxCode: activeOrg?.taxCode || DEFAULT_BASE_PROFILE.taxCode,
       companyName: activeOrg?.name || activeOrg?.legalName || DEFAULT_BASE_PROFILE.companyName,
@@ -63,11 +86,26 @@ export const SurveyPage: React.FC = () => {
   const [activeTabStep, setActiveTabStep] = useState<1 | 2 | 3>(1);
 
   const [dynamicQuestions, setDynamicQuestions] = useState<DynamicSituationQuestion[]>(() => {
-    return generateDynamicQuestions(baseProfile);
+    const baseList = generateDynamicQuestions(baseProfile);
+    try {
+      const savedAnswers = localStorage.getItem('celra_survey_draft_answers');
+      if (savedAnswers) {
+        const answersMap = JSON.parse(savedAnswers);
+        return baseList.map(q => ({
+          ...q,
+          selectedOption: answersMap[q.id] !== undefined ? answersMap[q.id] : q.selectedOption,
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+    return baseList;
   });
 
   const [submitting, setSubmitting] = useState(false);
-  const [legalRules, setLegalRules] = useState<Record<string, any>>({});
+  const [legalRules, setLegalRules] = useState<Record<string, LegalRule>>({});
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
 
   // Ánh xạ câu hỏi với mã quy tắc pháp luật trong Database (được đồng bộ từ API Dữ Liệu Pháp Luật - DLPL)
   const QUESTION_RULE_MAP: Record<string, string> = {
@@ -79,6 +117,7 @@ export const SurveyPage: React.FC = () => {
     q_tax_salary_2: 'RULE-LABOR-10TO50',
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const enrichQuestionsWithLegalRules = (questions: DynamicSituationQuestion[], rules: Record<string, any>) => {
     if (!rules || Object.keys(rules).length === 0) return questions;
     return questions.map(q => {
@@ -96,17 +135,12 @@ export const SurveyPage: React.FC = () => {
     });
   };
 
-  // Tải danh sách quy định pháp luật động từ API backend (đồng bộ từ DLPL) để cập nhật căn cứ và link chính xác
+  // Tải danh sách quy định pháp luật cốt lõi (có bộ đệm Cache chống gọi liên tục)
   useEffect(() => {
-    apiClient.get('/ai-assistant/legal-rules')
-      .then((res: any) => {
-        const rulesList = Array.isArray(res) ? res : res?.data || [];
-        const map: Record<string, any> = {};
-        rulesList.forEach((r: any) => {
-          map[r.code] = r;
-        });
-        setLegalRules(map);
-        setDynamicQuestions(currentList => enrichQuestionsWithLegalRules(currentList, map));
+    getLegalRules()
+      .then((rulesMap) => {
+        setLegalRules(rulesMap as Record<string, LegalRule>);
+        setDynamicQuestions(currentList => enrichQuestionsWithLegalRules(currentList, rulesMap));
       })
       .catch((err) => {
         console.warn('[SURVEY] Dùng trích dẫn DLPL fallback:', err?.message);
@@ -127,16 +161,26 @@ export const SurveyPage: React.FC = () => {
     return defaultDoc;
   };
 
+  // Đồng bộ tổ chức từ Backend nếu chưa có trong store
+  useEffect(() => {
+    if (!activeOrg) {
+      useOrgStore.getState().fetchMyOrganizations();
+    }
+  }, [activeOrg]);
+
   // Sync activeOrg details if available on load
   useEffect(() => {
     if (activeOrg) {
       if (activeOrg.id) {
         localStorage.setItem('celra_active_org_id', activeOrg.id);
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBaseProfile(prev => ({
         ...prev,
         taxCode: activeOrg.taxCode || prev.taxCode,
-        companyName: activeOrg.name || activeOrg.legalName || prev.companyName,
+        companyName: activeOrg.legalName || activeOrg.name || prev.companyName,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        employeeScale: (activeOrg.scale as any) || prev.employeeScale,
       }));
     }
   }, [activeOrg]);
@@ -155,6 +199,11 @@ export const SurveyPage: React.FC = () => {
           return existing ? { ...nq, selectedOption: existing.selectedOption } : nq;
         });
       });
+      try {
+        localStorage.setItem('celra_survey_draft_profile', JSON.stringify(next));
+      } catch {
+        // Ignore
+      }
       return next;
     });
   };
@@ -177,13 +226,25 @@ export const SurveyPage: React.FC = () => {
   };
 
   const answerDynamicQuestion = (questionId: string, option: string) => {
-    setDynamicQuestions(prev =>
-      prev.map(q => q.id === questionId ? { ...q, selectedOption: option } : q)
-    );
+    setDynamicQuestions(prev => {
+      const updated = prev.map(q => q.id === questionId ? { ...q, selectedOption: option } : q);
+      try {
+        const answersMap: Record<string, string> = {};
+        updated.forEach(q => {
+          if (q.selectedOption) answersMap[q.id] = q.selectedOption;
+        });
+        localStorage.setItem('celra_survey_draft_answers', JSON.stringify(answersMap));
+      } catch {
+        // Ignore
+      }
+      return updated;
+    });
   };
 
   const resetSurveyStatus = () => {
     localStorage.removeItem('celra_survey_completed');
+    localStorage.removeItem('celra_survey_draft_answers');
+    localStorage.removeItem('celra_survey_draft_profile');
     setIsSurveyCompleted(false);
     setActiveTabStep(1);
     setDynamicQuestions(generateDynamicQuestions(baseProfile));
@@ -205,16 +266,35 @@ export const SurveyPage: React.FC = () => {
         answers 
       });
       localStorage.setItem('celra_survey_completed', 'true');
+      localStorage.removeItem('celra_survey_draft_answers');
+      localStorage.removeItem('celra_survey_draft_profile');
       setIsSurveyCompleted(true);
 
       message.success('🎉 Đã kích hoạt hệ thống! Thiết lập thành công các thẻ Bối cảnh tuân thủ.');
       navigate('/context');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       message.error(err.message || 'Lỗi khi lưu khảo sát bối cảnh');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const answeredCount = dynamicQuestions.filter(q => q.selectedOption !== undefined).length;
+  const totalCount = dynamicQuestions.length;
+  const progressPercent = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
+
+  // Cảnh báo người dùng nếu đóng tab hoặc tải lại trang khi đang trả lời dở dang
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isSurveyCompleted && answeredCount > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isSurveyCompleted, answeredCount]);
 
   const getCompanyTypeIcon = (iconName: string) => {
     switch (iconName) {
@@ -243,12 +323,8 @@ export const SurveyPage: React.FC = () => {
   const invoiceModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_INVOICE_CASHFLOW');
   const otherQuestions = dynamicQuestions.filter(q => !q.moduleId || (q.moduleId !== 'MODULE_TAX_CORE' && q.moduleId !== 'MODULE_INVOICE_CASHFLOW'));
 
-  const answeredCount = dynamicQuestions.filter(q => q.selectedOption !== undefined).length;
-  const totalCount = dynamicQuestions.length;
-  const progressPercent = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
-
   return (
-    <div className="w-full space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-28">
       {/* Top Banner when survey is completed */}
       {isSurveyCompleted && (
         <div className="bg-teal-50 border border-teal-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
@@ -1008,13 +1084,34 @@ export const SurveyPage: React.FC = () => {
                 onClick={finishDynamicSurvey}
                 className="w-full sm:w-auto px-6 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <span>{submitting ? 'Đang lưu...' : 'Xác nhận'}</span>
+                <span>{submitting ? 'Đang kích hoạt...' : 'Xác nhận & Kích hoạt Bối cảnh'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* REUSABLE UNSAVED CHANGES MODAL */}
+      <UnsavedChangesModal
+        open={showUnsavedModal}
+        title="Bạn có dữ liệu khảo sát chưa được kích hoạt!"
+        description={`Bạn đã trả lời ${answeredCount}/${totalCount} câu hỏi nhưng chưa kích hoạt hệ thống. Nếu rời đi bây giờ, các Thẻ bối cảnh tuân thủ sẽ chưa được lưu vào cơ sở dữ liệu.`}
+        warningDetail="Khuyến nghị: Bạn có thể chọn 'Kích hoạt Bối cảnh & Tiếp tục' để hệ thống tự động lưu các câu hỏi đã trả lời ngay lập tức."
+        saveText="Kích hoạt Bối cảnh & Tiếp tục"
+        discardText="Rời đi không lưu"
+        cancelText="Ở lại tiếp tục"
+        isSaving={submitting}
+        onSaveAndProceed={finishDynamicSurvey}
+        onDiscard={() => {
+          setShowUnsavedModal(false);
+          if (pendingLeaveAction) pendingLeaveAction();
+        }}
+        onCancel={() => {
+          setShowUnsavedModal(false);
+          setPendingLeaveAction(null);
+        }}
+      />
     </div>
   );
 };

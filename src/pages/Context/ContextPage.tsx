@@ -16,22 +16,113 @@ import {
   FileText,
   Layers,
   Users,
-  Lock
+  Building2,
+  Award,
+  Briefcase,
+  HardDrive,
+  Plus
 } from 'lucide-react';
-import { message } from 'antd';
+import { message, Modal, Form, Input, Select } from 'antd';
 
-type FilterTab = 'all' | 'tax_accounting';
+export interface ContextGroupConfig {
+  key: string;
+  label: string;
+  shortLabel: string;
+  tag: string;
+  icon: any;
+  badgeClass: string;
+}
+
+export const CONTEXT_GROUPS: ContextGroupConfig[] = [
+  {
+    key: 'tax_accounting',
+    label: 'Thuế Doanh Nghiệp',
+    shortLabel: 'Thuế',
+    tag: 'THUẾ DOANH NGHIỆP',
+    icon: Receipt,
+    badgeClass: 'text-blue-700 bg-blue-50 border border-blue-200',
+  },
+  {
+    key: 'legal',
+    label: 'Hồ Sơ Pháp Lý & Vốn',
+    shortLabel: 'Pháp Lý',
+    tag: 'HỒ SƠ PHÁP LÝ & VỐN',
+    icon: ShieldCheck,
+    badgeClass: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
+  },
+  {
+    key: 'operations',
+    label: 'Ngành Nghề & Vận Hành',
+    shortLabel: 'Vận Hành',
+    tag: 'HOẠT ĐỘNG THỰC TẾ',
+    icon: Layers,
+    badgeClass: 'text-amber-700 bg-amber-50 border border-amber-200',
+  },
+  {
+    key: 'revenue_invoices',
+    label: 'Hóa Đơn & Dòng Tiền',
+    shortLabel: 'Hóa Đơn',
+    tag: 'HÓA ĐƠN & DÒNG TIỀN',
+    icon: FileText,
+    badgeClass: 'text-purple-700 bg-purple-50 border border-purple-200',
+  },
+  {
+    key: 'hr_labor',
+    label: 'Lao Động & BHXH',
+    shortLabel: 'Lao Động',
+    tag: 'LAO ĐỘNG & BHXH',
+    icon: Users,
+    badgeClass: 'text-teal-700 bg-teal-50 border border-teal-200',
+  },
+  {
+    key: 'premises',
+    label: 'Địa Điểm & PCCC',
+    shortLabel: 'PCCC',
+    tag: 'ĐỊA ĐIỂM & PCCC',
+    icon: Building2,
+    badgeClass: 'text-rose-700 bg-rose-50 border border-rose-200',
+  },
+  {
+    key: 'conditional_licensing',
+    label: 'Giấy Phép Con',
+    shortLabel: 'Giấy Phép',
+    tag: 'GIẤY PHÉP CON',
+    icon: Award,
+    badgeClass: 'text-indigo-700 bg-indigo-50 border border-indigo-200',
+  },
+  {
+    key: 'contracts',
+    label: 'Hợp Đồng & Giao Kết',
+    shortLabel: 'Hợp Đồng',
+    tag: 'HỢP ĐỒNG & GIAO KẾT',
+    icon: Briefcase,
+    badgeClass: 'text-cyan-700 bg-cyan-50 border border-cyan-200',
+  },
+  {
+    key: 'tech_data',
+    label: 'Dữ Liệu & Sở Hữu Trí Tuệ',
+    shortLabel: 'Dữ Liệu',
+    tag: 'DỮ LIỆU & SHTT',
+    icon: HardDrive,
+    badgeClass: 'text-violet-700 bg-violet-50 border border-violet-200',
+  },
+];
 
 export const ContextPage: React.FC = () => {
-  const { facts, fetchFacts, updateFact } = useContextStore();
+  const { facts, fetchFacts, updateFact, createFact } = useContextStore();
 
-  const [selectedTab, setSelectedTab] = useState<FilterTab>('all');
+  const [selectedTab, setSelectedTab] = useState<string>('all');
   const [activeFactForHistory, setActiveFactForHistory] = useState<ContextFact | null>(null);
 
   // Edit value modal
   const [editingFact, setEditingFact] = useState<ContextFact | null>(null);
   const [newFactValue, setNewFactValue] = useState('');
   const [factEditNote, setFactEditNote] = useState('');
+
+  // Create fact modal
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createForm] = Form.useForm();
+  const [creating, setCreating] = useState(false);
 
   // Conflict resolution modal
   const [conflictFact, setConflictFact] = useState<ContextFact | null>(null);
@@ -45,66 +136,26 @@ export const ContextPage: React.FC = () => {
     fetchFacts();
   }, []);
 
-  // Thẻ Thuế Doanh Nghiệp (dùng cho rà soát nghĩa vụ thuế)
-  const taxFacts = facts.filter((f) => f.group === 'tax_accounting');
-  const taxCount = taxFacts.length;
-
-  // 4 thẻ Hồ sơ nền tảng (MST, Loại hình, Quy mô nhân sự, Ngành nghề - để user xem/sửa)
-  const baseFacts = facts.filter((f) => f.group === 'legal' || f.group === 'operations');
-
-  // Tab Tất cả = 4 thẻ Nền tảng + các thẻ Thuế (để user xem tổng thể và bấm Cập nhật)
-  const allDisplayFacts = [...baseFacts, ...taxFacts];
-  const allCount = allDisplayFacts.length;
-
-  // Khi chọn Tab 'all': hiển thị tất cả (để xem/sửa thông tin). Khi chọn Tab 'tax_accounting': chỉ hiển thị Thuế (để rà soát)
-  const filteredFacts = selectedTab === 'all' ? allDisplayFacts : taxFacts;
+  // Lọc động toàn bộ các thẻ theo tab được chọn (hoặc tất cả các thẻ trong DB)
+  const filteredFacts = selectedTab === 'all' ? facts : facts.filter((f) => f.group === selectedTab);
 
   // Group metadata helper for module classification
   const getGroupMeta = (group: string) => {
-    switch (group) {
-      case 'tax_accounting':
-        return {
-          title: 'Thuế Doanh Nghiệp',
-          tag: 'THUẾ DOANH NGHIỆP',
-          badgeClass: 'text-blue-700 bg-blue-50 border border-blue-200',
-          icon: Receipt,
-        };
-      case 'revenue_invoices':
-        return {
-          title: 'Hóa Đơn & Dòng Tiền',
-          tag: 'HÓA ĐƠN & DÒNG TIỀN',
-          badgeClass: 'text-purple-700 bg-purple-50 border border-purple-200',
-          icon: FileText,
-        };
-      case 'legal':
-        return {
-          title: 'Pháp Lý & Vốn',
-          tag: 'TẦNG 1: HỒ SƠ PHÁP LÝ',
-          badgeClass: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
-          icon: ShieldCheck,
-        };
-      case 'operations':
-        return {
-          title: 'Ngành Nghề & Vận Hành',
-          tag: 'TẦNG 1: HOẠT ĐỘNG THỰC TẾ',
-          badgeClass: 'text-amber-700 bg-amber-50 border border-amber-200',
-          icon: Layers,
-        };
-      case 'hr_labor':
-        return {
-          title: 'Lao Động & BHXH',
-          tag: 'LAO ĐỘNG & BHXH',
-          badgeClass: 'text-teal-700 bg-teal-50 border border-teal-200',
-          icon: Users,
-        };
-      default:
-        return {
-          title: group || 'Quy định',
-          tag: 'QUY ĐỊNH CHUNG',
-          badgeClass: 'text-slate-700 bg-slate-50 border border-slate-200',
-          icon: Database,
-        };
+    const found = CONTEXT_GROUPS.find((g) => g.key === group);
+    if (found) {
+      return {
+        title: found.label,
+        tag: found.tag,
+        badgeClass: found.badgeClass,
+        icon: found.icon,
+      };
     }
+    return {
+      title: group || 'Quy định',
+      tag: 'QUY ĐỊNH CHUNG',
+      badgeClass: 'text-slate-700 bg-slate-50 border border-slate-200',
+      icon: Database,
+    };
   };
 
   // Nhận diện trạng thái hiển thị thông minh: Khảo sát ban đầu vs Chủ DN tự bấm Cập nhật
@@ -254,8 +305,21 @@ export const ContextPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* Nút tính năng: Rà soát tuân thủ */}
-        <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+        {/* Nút tính năng: Thêm dữ kiện mới & Rà soát tuân thủ */}
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+          <button
+            onClick={() => {
+              createForm.resetFields();
+              createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'tax_accounting' });
+              setIsCreateModalOpen(true);
+            }}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-300 shadow-xs"
+            title="Thêm thẻ dữ kiện bối cảnh mới vào hệ thống"
+          >
+            <Plus className="w-4 h-4 text-teal-600" />
+            <span>Thêm dữ kiện mới</span>
+          </button>
+
           <button
             onClick={() => {
               setAuditTargetFactId(null);
@@ -267,125 +331,68 @@ export const ContextPage: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
             <span>Rà soát tuân thủ</span>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-              {taxCount} thẻ
+              {facts.length} thẻ
             </span>
           </button>
         </div>
       </div>
 
-      {/* TABS PHÂN LOẠI MODULE TUÂN THỦ - CHUYÊN BIỆT THUẾ */}
+      {/* TABS PHÂN LOẠI 9 NHÓM BỐI CẢNH DOANH NGHIỆP ĐỘNG */}
       <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-2 overflow-x-auto">
-        {/* TAB TẤT CẢ DỮ KIỆN - GỒM 4 THẺ NỀN TẢNG + CÁC THẺ THUẾ ĐỂ USER CẬP NHẬT */}
+        {/* TAB TẤT CẢ DỮ KIỆN */}
         <button
           type="button"
           onClick={() => setSelectedTab('all')}
           className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             selectedTab === 'all'
               ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-blue-700 hover:bg-blue-50'
+              : 'text-slate-700 hover:bg-slate-100 bg-slate-50 border border-slate-200'
           }`}
         >
+          <Database className="w-3.5 h-3.5" />
           <span>Tất cả dữ kiện</span>
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
               selectedTab === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
             }`}
           >
-            {allCount}
+            {facts.length}
           </span>
         </button>
 
-        {/* TAB THUẾ DOANH NGHIỆP - ĐANG KÍCH HOẠT */}
-        <button
-          type="button"
-          onClick={() => setSelectedTab('tax_accounting')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            selectedTab === 'tax_accounting'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-blue-700 hover:bg-blue-50'
-          }`}
-        >
-          <Receipt className="w-3.5 h-3.5" />
-          <span>Thuế Doanh Nghiệp</span>
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-              selectedTab === 'tax_accounting' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
-            }`}
-          >
-            {taxCount}
-          </span>
-        </button>
+        {/* 9 NHÓM CONTEXT DYNAMIC TỪ DATABASE */}
+        {CONTEXT_GROUPS.map((g) => {
+          const count = facts.filter((f) => f.group === g.key).length;
+          const isSelected = selectedTab === g.key;
+          const IconComponent = g.icon;
 
-        {/* --- CÁC THẺ KHÓA DẠNG DISABLE HOÀN TOÀN, CẤM CLICK, KHÔNG CÓ SỐ LƯỢNG --- */}
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-          title="Hóa đơn đang khóa trong MVP (chỉ kích hoạt Core Thuế)"
-        >
-          <Lock className="w-3 h-3 text-slate-400" />
-          <span>Hóa Đơn & Dòng Tiền</span>
-          <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-            Chưa mở
-          </span>
-        </button>
-
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-          title="Hồ sơ nền tảng đang khóa trong MVP (chỉ kích hoạt Core Thuế)"
-        >
-          <Lock className="w-3 h-3 text-slate-400" />
-          <span>Hồ Sơ Nền Tảng (Pháp lý)</span>
-          <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-            Chưa mở
-          </span>
-        </button>
-
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-          title="Lĩnh vực Lao động & BHXH đang khóa trong MVP"
-        >
-          <Lock className="w-3 h-3 text-slate-400" />
-          <span>Lao Động & BHXH</span>
-          <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-            Chưa mở
-          </span>
-        </button>
-
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-          title="Lĩnh vực Giấy phép con & PCCC đang khóa trong MVP"
-        >
-          <Lock className="w-3 h-3 text-slate-400" />
-          <span>Giấy Phép Con & PCCC</span>
-          <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-            Chưa mở
-          </span>
-        </button>
-
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-50 select-none pointer-events-none"
-          title="Lĩnh vực An toàn dữ liệu & Thương mại điện tử đang khóa trong MVP"
-        >
-          <Lock className="w-3 h-3 text-slate-400" />
-          <span>Dữ Liệu & TMĐT</span>
-          <span className="text-[10px] text-slate-400 bg-slate-200/60 px-1.5 py-0.2 rounded font-mono">
-            Chưa mở
-          </span>
-        </button>
+          return (
+            <button
+              key={g.key}
+              type="button"
+              onClick={() => setSelectedTab(g.key)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                isSelected
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:text-blue-700 hover:bg-slate-100 bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <IconComponent className="w-3.5 h-3.5" />
+              <span>{g.label}</span>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                  isSelected
+                    ? 'bg-white/20 text-white'
+                    : count > 0
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
 
@@ -396,17 +403,36 @@ export const ContextPage: React.FC = () => {
             <Database className="w-7 h-7" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-800">Không có dữ kiện nào trong mục này</h3>
+            <h3 className="text-base font-bold text-slate-800">
+              {selectedTab === 'all'
+                ? 'Chưa có dữ kiện bối cảnh nào'
+                : `Chưa có dữ kiện nào thuộc nhóm "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab}"`}
+            </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Chưa có dữ kiện bối cảnh nào thuộc nhóm được chọn. Bạn có thể xem tất cả dữ kiện của doanh nghiệp.
+              Doanh nghiệp có thể thêm dữ kiện mới cho nhóm này hoặc hoàn tất Khảo sát doanh nghiệp để đồng bộ dữ liệu tự động.
             </p>
           </div>
-          <button
-            onClick={() => setSelectedTab('all')}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
-          >
-            Xem tất cả nhóm dữ kiện
-          </button>
+          <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+            <button
+              onClick={() => {
+                createForm.resetFields();
+                createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'tax_accounting' });
+                setIsCreateModalOpen(true);
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              Thêm dữ kiện cho nhóm này
+            </button>
+            {selectedTab !== 'all' && (
+              <button
+                onClick={() => setSelectedTab('all')}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+              >
+                Xem tất cả ({facts.length})
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -683,6 +709,81 @@ export const ContextPage: React.FC = () => {
         initialSelectedFactId={auditTargetFactId}
         onSuccess={() => fetchFacts()}
       />
+
+      {/* CREATE NEW CONTEXT FACT MODAL */}
+      <Modal
+        title="Thêm Thẻ Dữ Kiện Bối Cảnh Mới"
+        open={isCreateModalOpen}
+        onCancel={() => setIsCreateModalOpen(false)}
+        onOk={() => createForm.submit()}
+        confirmLoading={creating}
+        okText="Lưu Thẻ Dữ Kiện"
+        cancelText="Hủy"
+        destroyOnClose
+      >
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            setCreating(true);
+            try {
+              const generatedKey = `fact_${values.group}_${Date.now().toString().slice(-4)}`;
+              await createFact({
+                key: generatedKey,
+                label: values.label,
+                group: values.group,
+                currentValue: values.currentValue,
+                source: values.source || 'Chủ DN tự khai báo',
+              });
+              message.success(`Đã thêm thành công thẻ bối cảnh: "${values.label}"!`);
+              setIsCreateModalOpen(false);
+              createForm.resetFields();
+              await fetchFacts();
+            } catch (err: any) {
+              message.error(err.message || 'Lỗi khi thêm thẻ dữ kiện');
+            } finally {
+              setCreating(false);
+            }
+          }}
+        >
+          <Form.Item
+            name="group"
+            label="Nhóm Bối Cảnh"
+            rules={[{ required: true, message: 'Vui lòng chọn nhóm bối cảnh' }]}
+            initialValue="tax_accounting"
+          >
+            <Select
+              options={CONTEXT_GROUPS.map((g) => ({
+                label: g.label,
+                value: g.key,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="label"
+            label="Tên nghĩa vụ / Tiêu đề dữ kiện"
+            rules={[{ required: true, message: 'Vui lòng nhập tên dữ kiện' }]}
+          >
+            <Input placeholder="Ví dụ: Giấy chứng nhận cơ sở đủ điều kiện ATTP, Hợp đồng thuê mặt bằng..." />
+          </Form.Item>
+
+          <Form.Item
+            name="currentValue"
+            label="Tình trạng / Giá trị thực tế của Doanh nghiệp"
+            rules={[{ required: true, message: 'Vui lòng nhập giá trị thực tế' }]}
+          >
+            <Input.TextArea
+              rows={3}
+              placeholder="Ví dụ: Đã hoàn tất và được cấp chứng nhận ngày 15/01/2026..."
+            />
+          </Form.Item>
+
+          <Form.Item name="source" label="Nguồn thông tin minh chứng" initialValue="Chủ DN tự khai báo">
+            <Input placeholder="Ví dụ: Hồ sơ lưu trữ nội bộ, Khảo sát doanh nghiệp..." />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
