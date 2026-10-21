@@ -28,7 +28,17 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
 export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const { user, logout } = useAuthStore();
 
   const menuItems = [
@@ -68,9 +78,22 @@ export const AdminLayout: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      {isMobile && !collapsed && (
+        <div
+          onClick={() => setCollapsed(true)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            zIndex: 999,
+            backdropFilter: 'blur(2px)',
+            transition: 'opacity 0.2s',
+          }}
+        />
+      )}
       <Sider
         collapsible
-        collapsed={collapsed}
+        collapsed={isMobile ? false : collapsed}
         trigger={null}
         theme="dark"
         width={250}
@@ -81,7 +104,9 @@ export const AdminLayout: React.FC = () => {
           left: 0,
           top: 0,
           bottom: 0,
-          zIndex: 100,
+          zIndex: 1000,
+          transform: isMobile && collapsed ? 'translateX(-100%)' : 'translateX(0)',
+          transition: 'transform 0.25s ease-in-out, width 0.2s',
           background: '#0d2b59',
           boxShadow: '2px 0 10px rgba(13, 43, 89, 0.15)',
         }}
@@ -176,7 +201,10 @@ export const AdminLayout: React.FC = () => {
           mode="inline"
           selectedKeys={[location.pathname]}
           items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          onClick={({ key }) => {
+            navigate(key);
+            if (isMobile) setCollapsed(true);
+          }}
           style={{
             background: 'transparent',
             marginTop: 12,
@@ -221,7 +249,7 @@ export const AdminLayout: React.FC = () => {
       {/* Main Content Layout */}
       <Layout
         style={{
-          marginLeft: collapsed ? 80 : 250,
+          marginLeft: isMobile ? 0 : (collapsed ? 80 : 250), minWidth: 0,
           transition: 'all 0.2s',
           minHeight: '100vh',
           display: 'flex',
@@ -233,7 +261,7 @@ export const AdminLayout: React.FC = () => {
         <Header
           style={{
             background: '#ffffff',
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -327,7 +355,7 @@ export const AdminLayout: React.FC = () => {
         {/* Sub-view Content */}
         <Content
           style={{
-            margin: '24px 24px 0',
+            margin: isMobile ? '12px 12px 0' : '24px 24px 0',
             minHeight: 'calc(100vh - 180px)',
             background: 'transparent',
             flex: 1,
