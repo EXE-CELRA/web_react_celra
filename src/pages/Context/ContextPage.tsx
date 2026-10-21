@@ -136,9 +136,17 @@ export const ContextPage: React.FC = () => {
     fetchFacts();
   }, []);
 
-  // Lọc động toàn bộ các thẻ theo tab được chọn (hoặc tất cả các thẻ trong DB)
-  const filteredFacts = selectedTab === 'all' ? facts : facts.filter((f) => f.group === selectedTab);
+  // Danh mục Thẻ Thuế & Hóa Đơn Dòng Tiền (Bao gồm đầy đủ q_tax_corp_1, q_tax_corp_2, q_tax_corp_3, q_tax_salary_1, v.v...)
+  const taxFacts = facts.filter((f) => f.group === 'tax_accounting' || f.group === 'revenue_invoices');
 
+  // 4 thẻ Hồ sơ nền tảng (MST, Loại hình, Quy mô nhân sự, Ngành nghề)
+  const baseFacts = facts.filter((f) => f.group === 'legal' || f.group === 'operations');
+
+  // Tab Tất cả = Toàn bộ các thẻ thực tế từ DB của doanh nghiệp
+  const allDisplayFacts = facts.length > 0 ? facts : [...baseFacts, ...taxFacts];
+
+  // Khi chọn Tab 'all': hiển thị tất cả thẻ; Khi chọn 'tax_accounting': hiển thị các thẻ thuộc Thuế & Hóa đơn
+  const filteredFacts = selectedTab === 'all' ? allDisplayFacts : taxFacts;
   // Group metadata helper for module classification
   const getGroupMeta = (group: string) => {
     const found = CONTEXT_GROUPS.find((g) => g.key === group);
