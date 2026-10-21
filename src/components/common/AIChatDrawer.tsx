@@ -276,7 +276,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     <Drawer
       title={null}
       placement="right"
-      width={520}
+      width={typeof window !== 'undefined' && window.innerWidth < 560 ? '100%' : 520}
       onClose={onClose}
       open={visible}
       styles={{
