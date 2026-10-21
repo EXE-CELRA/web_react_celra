@@ -17,6 +17,8 @@ import {
   RightOutlined,
   BankOutlined,
   DownOutlined,
+  CalendarOutlined,
+  OrderedListOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
@@ -34,8 +36,9 @@ const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/context': 'Context Doanh Nghiệp',
   '/survey': 'Câu Hỏi Tình Huống',
   '/onboarding': 'Câu Hỏi Tình Huống',
-  '/tasks': 'Check-list & Task',
-  '/checklists': 'Check-list & Task',
+  '/tasks': 'Danh Sách Tác Vụ Tuân Thủ',
+  '/tasks/calendar': 'Lịch Tuân Thủ & Ghi Chú',
+  '/checklists': 'Danh Sách Tác Vụ Tuân Thủ',
   '/evidence': 'Hồ Sơ & Bằng Chứng',
   '/wallet': 'Ví & Thanh Toán',
 };
@@ -43,10 +46,20 @@ const ROUTE_PAGE_TITLES: Record<string, string> = {
 export const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { user, logout } = useAuthStore();
   const { activeOrg, organizations, setActiveOrg, fetchMyOrganizations } = useOrgStore();
@@ -97,7 +110,15 @@ export const MainLayout: React.FC = () => {
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
     { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
     { key: '/survey', icon: <FormOutlined />, label: 'Câu Hỏi Tình Huống' },
-    { key: '/tasks', icon: <CheckSquareOutlined />, label: 'Check-list & Task' },
+    {
+      key: '/tasks-parent',
+      icon: <CheckSquareOutlined />,
+      label: 'Check-list & Task',
+      children: [
+        { key: '/tasks', icon: <OrderedListOutlined />, label: 'Danh sách tác vụ' },
+        { key: '/tasks/calendar', icon: <CalendarOutlined />, label: 'Lịch tuân thủ & Note' },
+      ],
+    },
     { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Hồ Sơ & Bằng Chứng' },
     { key: '/wallet', icon: <WalletOutlined />, label: 'Ví & Thanh Toán' },
   ];
@@ -176,9 +197,23 @@ export const MainLayout: React.FC = () => {
           },
         }}
       >
+        {isMobile && !collapsed && (
+          <div
+            onClick={() => setCollapsed(true)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              zIndex: 999,
+              backdropFilter: 'blur(2px)',
+              transition: 'opacity 0.2s',
+            }}
+          />
+        )}
+
         <Sider
           collapsible
-          collapsed={collapsed}
+          collapsed={isMobile ? false : collapsed}
           trigger={null}
           theme="dark"
           width={250}
@@ -189,9 +224,11 @@ export const MainLayout: React.FC = () => {
             left: 0,
             top: 0,
             bottom: 0,
-            zIndex: 100,
+            zIndex: 1000,
             background: '#0d2b59',
             boxShadow: '2px 0 10px rgba(13, 43, 89, 0.15)',
+            transform: isMobile && collapsed ? 'translateX(-100%)' : 'translateX(0)',
+            transition: 'transform 0.25s ease-in-out, width 0.2s',
           }}
         >
           <div
@@ -200,7 +237,7 @@ export const MainLayout: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: collapsed ? 0 : '0 16px',
+              padding: (!isMobile && collapsed) ? 0 : '0 16px',
               backgroundColor: '#0d2b59',
               borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
               position: 'relative',
@@ -211,13 +248,16 @@ export const MainLayout: React.FC = () => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                gap: collapsed ? 0 : 10,
+                justifyContent: (!isMobile && collapsed) ? 'center' : 'flex-start',
+                gap: (!isMobile && collapsed) ? 0 : 10,
                 cursor: 'pointer',
                 overflow: 'hidden',
                 width: '100%',
               }}
-              onClick={() => navigate('/')}
+              onClick={() => {
+                navigate('/');
+                if (isMobile) setCollapsed(true);
+              }}
             >
               <img
                 src={celraLogo}
@@ -230,7 +270,7 @@ export const MainLayout: React.FC = () => {
                   display: 'block',
                 }}
               />
-              {!collapsed && (
+              {(isMobile || !collapsed) && (
                 <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <span
                     style={{
@@ -265,9 +305,17 @@ export const MainLayout: React.FC = () => {
           <Menu
             theme="dark"
             selectedKeys={[location.pathname]}
+            defaultOpenKeys={location.pathname.startsWith('/tasks') ? ['/tasks-parent'] : ['/tasks-parent']}
             mode="inline"
             items={menuItems}
-            onClick={({ key }) => navigate(key)}
+            onClick={({ key }) => {
+              if (key !== '/tasks-parent') {
+                navigate(key);
+                if (isMobile) {
+                  setCollapsed(true);
+                }
+              }
+            }}
             style={{
               marginTop: 8,
               background: 'transparent',
@@ -300,7 +348,7 @@ export const MainLayout: React.FC = () => {
                 color: '#f87171',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: collapsed ? 'center' : 'flex-start',
+                justifyContent: (!isMobile && collapsed) ? 'center' : 'flex-start',
                 height: 40,
                 borderRadius: 8,
                 background: 'rgba(239, 68, 68, 0.12)',
@@ -308,17 +356,17 @@ export const MainLayout: React.FC = () => {
                 fontSize: 13.5,
               }}
             >
-              {!collapsed && 'Đăng Xuất'}
+              {(isMobile || !collapsed) && 'Đăng Xuất'}
             </Button>
           </div>
         </Sider>
       </ConfigProvider>
 
-      <Layout style={{ marginLeft: collapsed ? 80 : 250, transition: 'all 0.2s' }}>
+      <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 250), transition: 'all 0.2s', minWidth: 0 }}>
         <Header
           style={{
             background: '#fff',
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -328,18 +376,18 @@ export const MainLayout: React.FC = () => {
             zIndex: 99,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1, marginRight: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12, minWidth: 0, flex: 1, marginRight: isMobile ? 8 : 16 }}>
             <Button
               type="text"
               icon={
-                collapsed ? (
+                (isMobile ? !collapsed : collapsed) ? (
                   <MenuUnfoldOutlined style={{ fontSize: 16 }} />
                 ) : (
                   <MenuFoldOutlined style={{ fontSize: 16 }} />
                 )
               }
               onClick={() => setCollapsed(!collapsed)}
-              title={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
+              title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
               style={{
                 width: 36,
                 height: 36,
@@ -355,19 +403,19 @@ export const MainLayout: React.FC = () => {
             <div style={{ width: 1, height: 20, backgroundColor: '#e2e8f0', flexShrink: 0 }} />
 
             {/* Cụm phẳng Breadcrumb: [Tên Doanh Nghiệp] / [Trang đang ở] */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
               {organizations.length > 1 ? (
                 <Dropdown menu={{ items: orgDropdownItems }} trigger={['click']} placement="bottomLeft">
                   <div
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 6,
+                      gap: 4,
                       background: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                       flexShrink: 0,
-                      maxWidth: 320,
+                      maxWidth: isMobile ? 120 : 320,
                       color: '#0f172a',
                       transition: 'color 0.2s',
                     }}
@@ -379,11 +427,11 @@ export const MainLayout: React.FC = () => {
                       e.currentTarget.style.color = '#0f172a';
                     }}
                   >
-                    <BankOutlined style={{ color: '#1677ff', fontSize: 15, flexShrink: 0 }} />
+                    <BankOutlined style={{ color: '#1677ff', fontSize: 14, flexShrink: 0 }} />
                     <span
                       style={{
                         fontWeight: 600,
-                        fontSize: 13.5,
+                        fontSize: isMobile ? 12.5 : 13.5,
                         color: 'inherit',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -392,7 +440,7 @@ export const MainLayout: React.FC = () => {
                     >
                       {currentOrgName}
                     </span>
-                    <DownOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 2 }} />
+                    <DownOutlined style={{ fontSize: 9, color: '#94a3b8', marginLeft: 1 }} />
                   </div>
                 </Dropdown>
               ) : (
@@ -401,18 +449,18 @@ export const MainLayout: React.FC = () => {
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 6,
+                      gap: 4,
                       background: 'transparent',
                       border: 'none',
                       flexShrink: 0,
-                      maxWidth: 340,
+                      maxWidth: isMobile ? 120 : 340,
                     }}
                   >
-                    <BankOutlined style={{ color: '#1677ff', fontSize: 15, flexShrink: 0 }} />
+                    <BankOutlined style={{ color: '#1677ff', fontSize: 14, flexShrink: 0 }} />
                     <span
                       style={{
                         fontWeight: 600,
-                        fontSize: 13.5,
+                        fontSize: isMobile ? 12.5 : 13.5,
                         color: '#0f172a',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -429,11 +477,11 @@ export const MainLayout: React.FC = () => {
               <span
                 style={{
                   color: '#94a3b8',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: 300,
                   flexShrink: 0,
                   userSelect: 'none',
-                  margin: '0 2px',
+                  margin: '0 1px',
                 }}
               >
                 /
@@ -443,11 +491,12 @@ export const MainLayout: React.FC = () => {
               <span
                 style={{
                   fontWeight: 500,
-                  fontSize: 13.5,
+                  fontSize: isMobile ? 12.5 : 13.5,
                   color: '#475569',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  maxWidth: isMobile ? 110 : 'none',
                 }}
               >
                 {currentPageTitle}
@@ -455,7 +504,7 @@ export const MainLayout: React.FC = () => {
             </div>
           </div>
 
-          <Space size="middle">
+          <Space size={isMobile ? 6 : 'middle'}>
             <div
               onClick={() => navigate('/wallet')}
               title="Nhấn để xem Ví & Thanh toán"
@@ -463,31 +512,35 @@ export const MainLayout: React.FC = () => {
                 cursor: 'pointer',
                 background: location.pathname === '/wallet' ? '#e6f7ff' : '#f6ffed',
                 border: location.pathname === '/wallet' ? '1px solid #91caff' : '1px solid #b7eb8f',
-                padding: '4px 12px',
+                padding: isMobile ? '3px 8px' : '4px 12px',
                 borderRadius: 20,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 4,
                 transition: 'all 0.2s',
               }}
             >
-              <WalletOutlined style={{ color: location.pathname === '/wallet' ? '#1677ff' : '#0d9488', fontSize: 14 }} />
-              <Text strong style={{ color: location.pathname === '/wallet' ? '#0958d9' : '#0f766e', fontSize: 13 }}>
-                {wallet ? `${wallet.balance.toLocaleString()} Credit` : '0 Credit'}
+              <WalletOutlined style={{ color: location.pathname === '/wallet' ? '#1677ff' : '#0d9488', fontSize: 13 }} />
+              <Text strong style={{ color: location.pathname === '/wallet' ? '#0958d9' : '#0f766e', fontSize: isMobile ? 11.5 : 13 }}>
+                {wallet ? `${wallet.balance.toLocaleString()}${isMobile ? ' Cr' : ' Credit'}` : `0${isMobile ? ' Cr' : ' Credit'}`}
               </Text>
-              <PlusOutlined style={{ fontSize: 11, color: location.pathname === '/wallet' ? '#1677ff' : '#0d9488' }} />
+              {!isMobile && (
+                <PlusOutlined style={{ fontSize: 11, color: location.pathname === '/wallet' ? '#1677ff' : '#0d9488' }} />
+              )}
             </div>
 
             <Button
               type="primary"
               icon={<RobotOutlined />}
               onClick={() => setAiDrawerOpen(true)}
+              title="AI Copilot"
               style={{
                 background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)',
                 border: 'none',
+                padding: isMobile ? '4px 10px' : '4px 15px',
               }}
             >
-              AI Copilot
+              {!isMobile && 'AI Copilot'}
             </Button>
 
             {/* Thẻ Hồ Sơ Doanh Nghiệp (User Profile Card) */}
@@ -498,8 +551,8 @@ export const MainLayout: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 10,
-                  padding: '4px 12px 4px 6px',
+                  gap: isMobile ? 0 : 10,
+                  padding: isMobile ? '4px' : '4px 12px 4px 6px',
                   borderRadius: 10,
                   background: '#ffffff',
                   border: '1px solid #e2e8f0',
@@ -527,21 +580,25 @@ export const MainLayout: React.FC = () => {
                     flexShrink: 0,
                   }}
                 />
-                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.2 }}>
-                  <span style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>
-                    {user?.name || user?.fullName || 'Người dùng'}
-                  </span>
-                  <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 500 }}>
-                    {user?.roleTitle || 'Chủ doanh nghiệp'}
-                  </span>
-                </div>
-                <RightOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />
+                {!isMobile && (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.2 }}>
+                      <span style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>
+                        {user?.name || user?.fullName || 'Người dùng'}
+                      </span>
+                      <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 500 }}>
+                        {user?.roleTitle || 'Chủ doanh nghiệp'}
+                      </span>
+                    </div>
+                    <RightOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />
+                  </>
+                )}
               </div>
             </Tooltip>
           </Space>
         </Header>
 
-        <Content style={{ margin: '24px 24px 0', overflow: 'initial', flex: 1 }}>
+        <Content style={{ margin: isMobile ? '12px 12px 0' : '24px 24px 0', overflow: 'initial', flex: 1 }}>
           <Outlet />
         </Content>
 
