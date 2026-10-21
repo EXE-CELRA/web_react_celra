@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { ContextComplianceAuditModal } from '../../components/common/ContextComplianceAuditModal';
 import type { ContextFact } from '../../types';
@@ -22,7 +23,9 @@ import {
   HardDrive,
   Plus
 } from 'lucide-react';
-import { message, Modal, Form, Input, Select } from 'antd';
+import { message, Modal, Form, Input, Select, Tooltip } from 'antd';
+
+export const ENABLED_CONTEXT_GROUP_KEYS = ['tax_accounting', 'legal'];
 
 export interface ContextGroupConfig {
   key: string;
@@ -137,7 +140,11 @@ export const ContextPage: React.FC = () => {
   }, []);
 
   // Lọc động toàn bộ các thẻ theo tab được chọn (hoặc tất cả các thẻ trong DB)
-  const filteredFacts = selectedTab === 'all' ? facts : facts.filter((f) => f.group === selectedTab);
+  // Lọc dữ kiện: Chỉ hiển thị dữ kiện thuộc 2 phân hệ đang mở (Thuế & Pháp lý)
+  const enabledFacts = facts.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
+  const filteredFacts = selectedTab === 'all'
+    ? enabledFacts
+    : enabledFacts.filter((f) => f.group === selectedTab);
 
   // Group metadata helper for module classification
   const getGroupMeta = (group: string) => {
@@ -362,9 +369,28 @@ export const ContextPage: React.FC = () => {
 
         {/* 9 NHÓM CONTEXT DYNAMIC TỪ DATABASE */}
         {CONTEXT_GROUPS.map((g) => {
+          const isEnabled = ENABLED_CONTEXT_GROUP_KEYS.includes(g.key);
           const count = facts.filter((f) => f.group === g.key).length;
           const isSelected = selectedTab === g.key;
           const IconComponent = g.icon;
+
+          if (!isEnabled) {
+            return (
+              <Tooltip key={g.key} title="Phân hệ tạm khóa theo lộ trình, hiện tại chỉ mở Thuế & Hồ sơ pháp lý">
+                <button
+                  type="button"
+                  disabled
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100/90 border border-slate-200 text-slate-400 opacity-60 cursor-not-allowed select-none transition-all"
+                >
+                  <IconComponent className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{g.label}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 font-medium">
+                    Tạm khóa
+                  </span>
+                </button>
+              </Tooltip>
+            );
+          }
 
           return (
             <button
@@ -558,8 +584,8 @@ export const ContextPage: React.FC = () => {
       )}
 
       {/* History Modal */}
-      {activeFactForHistory && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+      {activeFactForHistory && createPortal(
+        <div style={{ zIndex: 2000 }} className="fixed inset-0 z-[2000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -599,12 +625,13 @@ export const ContextPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Value Modal */}
-      {editingFact && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+      {editingFact && createPortal(
+        <div style={{ zIndex: 2000 }} className="fixed inset-0 z-[2000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-xs">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900">
@@ -653,12 +680,13 @@ export const ContextPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Conflict Resolution Modal */}
-      {conflictFact && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+      {conflictFact && createPortal(
+        <div style={{ zIndex: 2000 }} className="fixed inset-0 z-[2000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-xs">
             <div className="flex items-center justify-between border-b pb-3 text-rose-900">
               <h3 className="text-sm font-bold flex items-center gap-2">
@@ -696,7 +724,8 @@ export const ContextPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Context Compliance Audit Modal */}
