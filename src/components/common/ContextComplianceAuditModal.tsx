@@ -85,9 +85,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const [isProcessing, setIsProcessing] = useState(false);
   const [auditResults, setAuditResults] = useState<AuditFindingResult[]>([]);
 
-  // Cho phép rà soát toàn bộ các thẻ bối cảnh thực tế trong cơ sở dữ liệu
-  const displayedFacts = activeTab === 'all' ? facts : facts.filter((f) => f.group === activeTab);
+  // 4 thẻ Hồ sơ nền tảng (MST, Loại hình DN, Quy mô nhân sự, Ngành nghề)
+  const baseFacts = facts.filter((f) => f.group === 'legal' || f.group === 'operations');
+  // Các thẻ Thuế & Hóa Đơn Dòng Tiền (Bao gồm q_tax_corp_2, q_tax_corp_3, q_tax_salary_1...)
+  const taxFacts = facts.filter((f) => f.group === 'tax_accounting' || f.group === 'revenue_invoices');
+  // Tab Tất cả = Toàn bộ các thẻ thực tế từ DB của doanh nghiệp
+  const allDisplayFacts = facts.length > 0 ? facts : [...baseFacts, ...taxFacts];
 
+  const displayedFacts = activeTab === 'tax_accounting' ? taxFacts : allDisplayFacts;
   useEffect(() => {
     if (isOpen) {
       setStep('select');
@@ -98,8 +103,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       setAuditResults([]);
       fetchWallet();
 
-      const currentTaxFacts = facts.filter((f) => f.group === 'tax_accounting');
-
+      const currentTaxFacts = facts.filter((f) => f.group === 'tax_accounting' || f.group === 'revenue_invoices');
       if (initialSelectedFactId) {
         setSelectedFactIds([initialSelectedFactId]);
         const target = facts.find((f) => f.id === initialSelectedFactId);
