@@ -3,7 +3,6 @@ import { Drawer, message as antMessage } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
-import { useContextStore } from '../../store/useContextStore';
 import { StructuredAIMessage } from './StructuredAIMessage';
 import { 
   Bot, 
@@ -38,6 +37,22 @@ interface ProposedChecklistItem {
   assigneeRole?: string;
 }
 
+export interface VerificationOption {
+  label: string;
+  value: string;
+  isCompliant?: boolean;
+}
+
+export interface VerificationChecklistItem {
+  id: string;
+  factKey: string;
+  obligationCode: string;
+  obligationName: string;
+  question: string;
+  description: string;
+  options: VerificationOption[];
+}
+
 interface MessageItem {
   id: string;
   sender: 'USER' | 'AI';
@@ -45,6 +60,7 @@ interface MessageItem {
   citations?: CitationItem[];
   actionType?: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit';
   isEnterpriseQuery?: boolean;
+  verificationChecklist?: VerificationChecklistItem[];
   ctaButton?: {
     text: string;
     action: string;
@@ -244,6 +260,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         citations?: CitationItem[];
         actionType?: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit';
         isEnterpriseQuery?: boolean;
+        verificationChecklist?: VerificationChecklistItem[];
         ctaButton?: { text: string; action: string };
         proposedChecklists?: ProposedChecklistItem[];
       };
@@ -269,16 +286,13 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           citations: res.citations || [],
           actionType: validActionType,
           isEnterpriseQuery: isEnterprise,
+          verificationChecklist: res.verificationChecklist || [],
           ctaButton: res.ctaButton,
           proposedChecklists: res.proposedChecklists || [],
           timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
 
-      // Nếu là tin nhắn xác nhận thông tin, tự động làm mới store ContextFact của doanh nghiệp trên FE
-      if (query.toLowerCase().startsWith('xác nhận thông tin:') || query.toLowerCase().startsWith('xac nhan thong tin:')) {
-        useContextStore.getState().fetchFacts();
-      }
     } catch (err: unknown) {
       let backendMsg = 'Rất tiếc, đã có sự cố kết nối tới Engine Trợ lý AI. Vui lòng kiểm tra lại kết nối và thử lại.';
       if (typeof err === 'string') {
@@ -588,6 +602,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                       onOpenAuditModal={handleOpenAudit}
                       resolveCitationUrl={resolveCitationUrl}
                       isEnterpriseQuery={msg.isEnterpriseQuery ?? (msg.actionType === 'enterprise_audit')}
+                      verificationChecklist={msg.verificationChecklist}
                     />
                   )}
 
