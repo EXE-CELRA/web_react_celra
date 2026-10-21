@@ -106,9 +106,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const userRes: any = await apiClient.get('/auth/profile');
-      const membershipsRes: any = await apiClient.get('/organizations/my-workspaces');
-
       localStorage.setItem('celra_user', JSON.stringify(userRes));
+
+      // Xử lý riêng cho Super Admin ảo (không bắt buộc có organization)
+      if (userRes.role === 'admin' || userRes.isSuperAdmin) {
+        localStorage.setItem('celra_active_role', 'admin');
+        set({
+          user: userRes,
+          memberships: [],
+          isAuthenticated: true,
+          isLoading: false,
+          activeRole: 'admin',
+        });
+        return;
+      }
+
+      const membershipsRes: any = await apiClient.get('/organizations/my-workspaces');
       
       const mems = Array.isArray(membershipsRes) ? membershipsRes : [];
       let activeOrgId = localStorage.getItem('celra_active_org_id');

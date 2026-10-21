@@ -23,7 +23,9 @@ import {
   ThunderboltOutlined,
   ArrowRightOutlined,
   ArrowLeftOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
+import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import celraLogo from '../../assets/logo_celra_tachnen.png';
 
@@ -39,7 +41,65 @@ export const MandatoryOnboardingModal: React.FC<MandatoryOnboardingModalProps> =
   const [step1Data, setStep1Data] = useState<any>({});
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
+  const [isLookingUpTax, setIsLookingUpTax] = useState(false);
   const { submitOnboarding } = useOrgStore();
+
+  const handleLookupTax = async () => {
+    const taxCode = form.getFieldValue('taxCode');
+    const clean = (taxCode || '').trim();
+    if (!clean) {
+      message.warning('Vui lòng nhập Mã số thuế trước khi tra cứu');
+      return;
+    }
+    if (clean.length < 10) {
+      message.warning('Mã số thuế doanh nghiệp phải có từ 10 đến 13 chữ số');
+      return;
+    }
+
+    try {
+      setIsLookingUpTax(true);
+      let res: any;
+
+      try {
+        // Ưu tiên 1: Tra cứu qua máy chủ Backend CELRA nội bộ
+        res = await apiClient.get(`/tax-lookup/${encodeURIComponent(clean)}`);
+      } catch (backendErr) {
+        // Ưu tiên 2: Tự động Fallback gọi trực tiếp Cổng VietQR nếu backend offline
+        try {
+          const directResp = await fetch(`https://api.vietqr.io/v2/business/${encodeURIComponent(clean)}`);
+          const json = await directResp.json();
+          if (json && (json.code === '00' || json.data) && json.data?.name) {
+            res = {
+              taxCode: json.data?.id || clean,
+              name: json.data?.name,
+              address: json.data?.address || '',
+              shortName: json.data?.shortName || '',
+              internationalName: json.data?.internationalName || '',
+              status: json.data?.status || 'NNT đang hoạt động',
+              isOperating: true,
+            };
+          } else {
+            throw backendErr;
+          }
+        } catch {
+          throw backendErr;
+        }
+      }
+      if (res && res.name) {
+        form.setFieldsValue({
+          name: res.name,
+          shortName: res.shortName || form.getFieldValue('shortName'),
+          address: res.address || form.getFieldValue('address'),
+        });
+        message.success(`Đã tự động nhận diện: ${res.name}`);
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || err?.error || 'Không tìm thấy dữ liệu hoặc mã số thuế không hợp lệ.';
+      message.error(errMsg);
+    } finally {
+      setIsLookingUpTax(false);
+    }
+  };
 
   const handleNext = async () => {
     try {
@@ -247,7 +307,22 @@ export const MandatoryOnboardingModal: React.FC<MandatoryOnboardingModalProps> =
                   { pattern: /^[0-9-]{10,14}$/, message: 'Mã số thuế gồm 10 đến 13 chữ số' },
                 ]}
               >
-                <Input placeholder="Ví dụ: 0317895621" size="large" />
+                <Input
+                  placeholder="Ví dụ: 0101248141"
+                  size="large"
+                  addonAfter={
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<SearchOutlined />}
+                      loading={isLookingUpTax}
+                      onClick={handleLookupTax}
+                      style={{ padding: '0 4px', height: 'auto', fontWeight: 600, color: '#0d9488' }}
+                    >
+                      Tra cứu tự động
+                    </Button>
+                  }
+                />
               </Form.Item>
             </Col>
 

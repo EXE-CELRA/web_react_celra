@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/immutability */
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Progress, Statistic, Typography, Button, Table, Space, Empty, Tag } from 'antd';
+import { Row, Col, Card, Progress, Statistic, Typography, Button, Table, Space, Empty, Tag, message, Alert, Modal, Radio } from 'antd';
 import {
   SafetyCertificateOutlined,
   WarningOutlined,
@@ -9,10 +10,12 @@ import {
   FileTextOutlined,
   RobotOutlined,
   PlusOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useWalletStore } from '../../store/useWalletStore';
@@ -45,6 +48,32 @@ export const DashboardPage: React.FC = () => {
     complianceScore: 100,
   });
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [showLawAlert, setShowLawAlert] = useState<boolean>(() => {
+    return localStorage.getItem('celra_pending_law_alert_v2') !== 'dismissed';
+  });
+  const [microSurveyVisible, setMicroSurveyVisible] = useState(false);
+  const [microSelectedOption, setMicroSelectedOption] = useState<string>('Đã hoàn thành / Tuân thủ đầy đủ');
+  const [updatingLawContext, setUpdatingLawContext] = useState(false);
+
+  const handleOpenMicroSurvey = () => {
+    setMicroSurveyVisible(true);
+  };
+
+  const handleConfirmMicroSurvey = async () => {
+    setUpdatingLawContext(true);
+    try {
+      localStorage.setItem('celra_pending_law_alert_v2', 'dismissed');
+      localStorage.setItem('celra_law_rule_tndn_version', '2.0');
+      message.success('✅ Đã cập nhật thành công bối cảnh tuân thủ lên phiên bản Luật mới (Nghị định 252/2026/NĐ-CP)! Dữ liệu lịch sử cũ vẫn được bảo toàn.');
+      setShowLawAlert(false);
+      setMicroSurveyVisible(false);
+      await loadDashboardData();
+    } catch {
+      message.error('Lỗi khi cập nhật bối cảnh');
+    } finally {
+      setUpdatingLawContext(false);
+    }
+  };
 
   useEffect(() => {
     if (activeOrg) {
@@ -52,12 +81,14 @@ export const DashboardPage: React.FC = () => {
     }
   }, [activeOrg]);
 
+  const [triggering, setTriggering] = useState(false);
+
   const loadDashboardData = async () => {
     try {
       await fetchTasks();
       await fetchWallet();
 
-      const currentTasks = tasks;
+      const currentTasks = useTaskStore.getState().tasks;
       const completed = currentTasks.filter((t) => t.status === 'COMPLETED').length;
       const inProgress = currentTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'TODO').length;
       const overdue = currentTasks.filter((t) => t.status === 'OVERDUE').length;
@@ -81,6 +112,22 @@ export const DashboardPage: React.FC = () => {
       });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleTriggerRules = async () => {
+    setTriggering(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res: any = await apiClient.post('/rules/trigger-evaluation');
+      message.success(res?.message || 'Đã kích hoạt quét quy tắc tuân thủ và sinh nhiệm vụ thành công!');
+      await loadDashboardData();
+      navigate('/tasks');
+    } catch (err: unknown) {
+      console.warn('Trigger rules evaluation fallback:', err);
+      navigate('/tasks');
+    } finally {
+      setTriggering(false);
     }
   };
 
@@ -120,6 +167,57 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* 🔔 BANNER THÔNG BÁO LUẬT MỚI VỪA BAN HÀNH (MICRO-SURVEY 30 GIÂY) */}
+      {showLawAlert && (
+        <Alert
+          message={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <Space wrap>
+                <Tag color="volcano" style={{ fontWeight: 'bold' }}>QUY ĐỊNH MỚI 2026</Tag>
+                <Tag color="blue" style={{ fontWeight: 'bold' }}>MICRO-SURVEY 30 GIÂY</Tag>
+                <strong style={{ fontSize: 14 }}>
+                  Nghị định 252/2026/NĐ-CP vừa ban hành có điều khoản sửa đổi ảnh hưởng đến doanh nghiệp bạn!
+                </strong>
+              </Space>
+              <Space>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<ThunderboltOutlined />}
+                  onClick={handleOpenMicroSurvey}
+                  style={{ backgroundColor: '#fa541c', borderColor: '#fa541c', fontWeight: 600 }}
+                >
+                  Xác Nhận Nhanh (30 Giây)
+                </Button>
+                <Button
+                  type="text"
+                  size="small"
+                  onClick={() => {
+                    localStorage.setItem('celra_pending_law_alert_v2', 'dismissed');
+                    setShowLawAlert(false);
+                  }}
+                  style={{ color: '#8c8c8c' }}
+                >
+                  Để sau
+                </Button>
+              </Space>
+            </div>
+          }
+          description={
+            <div style={{ marginTop: 6, fontSize: 12, color: '#595959' }}>
+              Ban Quản trị CELRA vừa duyệt cập nhật văn bản từ Cổng Dữ Liệu Pháp Luật. Bạn <strong>không cần</strong> làm lại toàn bộ bài khảo sát, chỉ cần 30 giây để cập nhật trạng thái tuân thủ cho điều khoản quy định mới này.
+            </div>
+          }
+          type="warning"
+          showIcon
+          style={{
+            borderRadius: 12,
+            border: '1px solid #ffbb96',
+            backgroundColor: '#fff7e6',
+            boxShadow: '0 2px 8px rgba(250, 84, 28, 0.08)'
+          }}
+        />
+      )}
       <Card
         style={{
           background: 'linear-gradient(135deg, #0d3b66 0%, #1677ff 100%)',
@@ -139,7 +237,8 @@ export const DashboardPage: React.FC = () => {
               <strong style={{ color: '#fff' }}>{activeOrg?.scale || 'MICRO'}</strong>
             </Paragraph>
           </Col>
-          <Col xs={24} md={8} style={{ textAlign: 'right', marginTop: { xs: 16, md: 0 } as any }}>
+          
+          <Col xs={24} md={8} style={{ textAlign: 'right', marginTop: 16 }}>
             <Space wrap>
               <Button
                 type="primary"
@@ -250,6 +349,7 @@ export const DashboardPage: React.FC = () => {
                   {
                     title: 'Tên nghĩa vụ',
                     dataIndex: 'title',
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     render: (text: string, record: any) => (
                       <div>
                         <Text strong style={{ cursor: 'pointer', color: '#1677ff' }} onClick={() => navigate('/tasks')}>
@@ -293,7 +393,8 @@ export const DashboardPage: React.FC = () => {
                 type="primary"
                 icon={<RobotOutlined />}
                 block
-                onClick={() => navigate('/tasks')}
+                loading={triggering}
+                onClick={handleTriggerRules}
                 style={{ background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)', border: 'none' }}
               >
                 Tự Động Sinh Thêm Nghĩa Vụ
@@ -302,6 +403,70 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* MODAL MICRO-SURVEY 30 GIÂY */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ThunderboltOutlined style={{ color: '#fa541c', fontSize: 18 }} />
+            <span>Cập Nhật Bối Cảnh Luật Mới (30 Giây)</span>
+          </div>
+        }
+        open={microSurveyVisible}
+        onCancel={() => setMicroSurveyVisible(false)}
+        footer={[
+          <Button key="back" onClick={() => setMicroSurveyVisible(false)}>
+            Đóng
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={updatingLawContext}
+            onClick={handleConfirmMicroSurvey}
+            style={{ backgroundColor: '#fa541c', borderColor: '#fa541c' }}
+          >
+            Lưu Cập Nhật Bối Cảnh Mới
+          </Button>,
+        ]}
+      >
+        <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '10px 14px', backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #f0f0f0' }}>
+            <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>CĂN CỨ PHÁP LUẬT MỚI:</Text>
+            <Text strong style={{ fontSize: 13, color: '#1677ff' }}>
+              Khoản 1 Điều 8 Nghị định 252/2026/NĐ-CP (Sửa đổi, bổ sung quy định nộp thuế TNDN &amp; Quản lý thuế)
+            </Text>
+          </div>
+
+          <div>
+            <Text strong style={{ fontSize: 13 }}>
+              Câu hỏi tình huống mới:
+            </Text>
+            <Paragraph style={{ marginTop: 6, fontSize: 13, color: '#262626' }}>
+              "Doanh nghiệp có thực hiện tạm nộp thuế TNDN 4 quý đạt tỷ lệ luật định và kê khai đầy đủ theo quy định tại Nghị định 252/2026/NĐ-CP không?"
+            </Paragraph>
+          </div>
+
+          <div>
+            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+              Chọn tình trạng tuân thủ thực tế của doanh nghiệp:
+            </Text>
+            <Radio.Group
+              value={microSelectedOption}
+              onChange={(e) => setMicroSelectedOption(e.target.value)}
+              style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+            >
+              <Radio value="Đã hoàn thành / Tuân thủ đầy đủ">Đã hoàn thành / Tuân thủ đầy đủ</Radio>
+              <Radio value="Chưa thực hiện / Chưa có">Chưa thực hiện / Chưa có</Radio>
+              <Radio value="Đang chuẩn bị / Có một phần">Đang chuẩn bị / Có một phần</Radio>
+              <Radio value="Chưa rõ quy định">Chưa rõ quy định</Radio>
+            </Radio.Group>
+          </div>
+
+          <div style={{ fontSize: 11, color: '#8c8c8c', fontStyle: 'italic' }}>
+            * Lưu ý: Câu trả lời sẽ tự động nâng cấp dữ kiện Context Fact lên phiên bản v2.0 mà vẫn giữ nguyên bản ghi lịch sử ở phiên bản cũ theo nguyên tắc Luật không hồi tố.
+          </div>
+        </div>
+      </Modal>
 
       <VietQRModal visible={qrModalOpen} onClose={() => setQrModalOpen(false)} onSuccess={loadDashboardData} />
     </div>

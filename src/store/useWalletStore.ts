@@ -27,6 +27,13 @@ interface WalletState {
     accountName?: string;
     bankId?: string;
   }>;
+  processSandboxPayment: (payload: {
+    packageId?: string;
+    amount?: number;
+    outcome: 'SUCCESS' | 'FAILED';
+    failureReason?: string;
+    bankName?: string;
+  }) => Promise<any>;
 }
 
 export const useWalletStore = create<WalletState>((set) => ({
@@ -135,6 +142,20 @@ export const useWalletStore = create<WalletState>((set) => ({
         accountName: res.accountName,
         bankId: res.bankId,
       };
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
+  processSandboxPayment: async (payload) => {
+    try {
+      const res: any = await apiClient.post('/wallets/sandbox-payment', payload);
+      if (res.wallet) {
+        set({ wallet: res.wallet });
+      }
+      const txRes: any = await apiClient.get('/wallets/transactions');
+      if (Array.isArray(txRes)) set({ ledgers: txRes });
+      return res;
     } catch (err: any) {
       throw err;
     }

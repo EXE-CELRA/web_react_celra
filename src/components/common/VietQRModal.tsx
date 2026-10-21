@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, InputNumber, Input, Button, message, Space, Spin, Image, Alert, Tag } from 'antd';
+import { Modal, Form, InputNumber, Input, Button, message, Space, Spin, Image, Alert, Tag, Segmented, QRCode } from 'antd';
 import {
   QrcodeOutlined,
   CopyOutlined,
@@ -7,8 +7,13 @@ import {
   ReloadOutlined,
   BankOutlined,
   InfoCircleOutlined,
+  CreditCardOutlined,
+  MobileOutlined,
 } from '@ant-design/icons';
 import { useWalletStore } from '../../store/useWalletStore';
+import { useOrgStore } from '../../store/useOrgStore';
+import { SandboxBankingModal } from './SandboxBankingModal';
+import apiClient from '../../api/client';
 
 interface VietQRModalProps {
   visible: boolean;
@@ -31,6 +36,8 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sandboxModalOpen, setSandboxModalOpen] = useState(false);
+  const [qrMode, setQrMode] = useState<'mobile_sandbox' | 'vietqr_real'>('mobile_sandbox');
   const [qrData, setQrData] = useState<{
     qrCodeUrl: string;
     checkoutUrl?: string;
@@ -43,6 +50,52 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
   } | null>(null);
 
   const { generateDepositQR, fetchWallet, buyPackage } = useWalletStore();
+  const { activeOrg } = useOrgStore();
+
+  const getMobileSandboxUrl = () => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const host = isLocal ? '10.10.126.1' : window.location.hostname;
+    const port = window.location.port ? `:${window.location.port}` : '';
+    const protocol = window.location.protocol;
+    const code = qrData?.orderCode || `SBX-${Date.now()}`;
+    const pkg = initialPackage?.id || 'PKG_120';
+    const amount = qrData?.amount || initialPackage?.priceVnd || 200000;
+    const org = activeOrg?.id || '';
+    return `${protocol}//${host}${port}/sandbox-pay?code=${encodeURIComponent(code)}&pkg=${encodeURIComponent(pkg)}&amount=${amount}&orgId=${encodeURIComponent(org)}`;
+  };
+
+  // Tự động lắng nghe tín hiệu thanh toán từ điện thoại
+  useEffect(() => {
+    if (!visible || !qrData?.orderCode) return;
+
+    let isPolling = true;
+    const interval = setInterval(async () => {
+      if (!isPolling) return;
+      try {
+        const res: any = await apiClient.get(`/wallets/sandbox-status/${encodeURIComponent(qrData.orderCode)}`);
+        if (res && res.found) {
+          isPolling = false;
+          clearInterval(interval);
+          if (res.status === 'success') {
+            message.success('🎉 Đã nhận diện thanh toán thành công từ điện thoại!');
+            await fetchWallet();
+            onClose();
+            if (onSuccess) onSuccess();
+          } else if (res.status === 'failed') {
+            message.error(`⚠️ Giao dịch từ điện thoại bị từ chối / hủy bỏ`);
+            await fetchWallet();
+          }
+        }
+      } catch (err) {
+        // silent fail during polling
+      }
+    }, 1500);
+
+    return () => {
+      isPolling = false;
+      clearInterval(interval);
+    };
+  }, [visible, qrData?.orderCode]);
 
   useEffect(() => {
     if (visible) {
@@ -228,21 +281,75 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
           {/* QR Code & Transfer Details */}
           {qrData && (
             <div className="space-y-4">
-              {/* QR Image Box */}
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col items-center justify-center">
-                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm inline-block">
-                  <Image
-                    src={qrData.qrCodeUrl}
-                    alt="VietQR Code"
-                    width={220}
-                    preview={{ mask: 'Phóng to mã QR' }}
-                    style={{ borderRadius: 8 }}
-                  />
-                </div>
-                <div className="text-xs text-slate-500 text-center mt-2.5 max-w-xs">
-                  Mở ứng dụng <strong>Ngân hàng</strong> bất kỳ (MB, VCB, Techcombank, ...) quét mã để tự động điền số tiền và nội dung
-                </div>
+              {/* Mode Switcher: Mobile Sandbox vs Real VietQR */}
+              <div className="flex justify-center">
+                <Segmented
+                  value={qrMode}
+                  onChange={(val) => setQrMode(val as any)}
+                  options={[
+                    {
+                      label: (
+                        <div className="flex items-center gap-1.5 px-2 py-1 font-bold text-xs">
+                          <MobileOutlined className="text-indigo-600" />
+                          <span>📱 Quét Bằng Điện Thoại Thật (Sandbox)</span>
+                        </div>
+                      ),
+                      value: 'mobile_sandbox',
+                    },
+                    {
+                      label: (
+                        <div className="flex items-center gap-1.5 px-2 py-1 font-medium text-xs">
+                          <BankOutlined />
+                          <span>Quét VietQR Thật (MB)</span>
+                        </div>
+                      ),
+                      value: 'vietqr_real',
+                    },
+                  ]}
+                />
               </div>
+
+              {/* QR Image Box */}
+              {qrMode === 'mobile_sandbox' ? (
+                <div className="bg-gradient-to-b from-indigo-50/70 to-slate-50 rounded-2xl p-4 border border-indigo-200/80 flex flex-col items-center justify-center space-y-3">
+                  <div className="bg-white p-3 rounded-2xl border-2 border-indigo-500 shadow-md inline-block">
+                    <QRCode
+                      value={getMobileSandboxUrl()}
+                      size={220}
+                      bordered={false}
+                    />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <div className="text-xs font-bold text-indigo-950 flex items-center justify-center gap-1.5">
+                      <MobileOutlined className="text-indigo-600" />
+                      Lấy Điện Thoại Thật (Camera / Zalo) quét mã này
+                    </div>
+                    <div className="text-[11px] text-slate-500 max-w-xs">
+                      Điện thoại sẽ mở giao diện Cổng Ngân Hàng ảo để bạn bấm thanh toán thử nghiệm.
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-300 animate-pulse">
+                    <Spin size="small" />
+                    <span>Đang chờ bạn bấm xác nhận trên điện thoại... (Tự động nhận diện)</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col items-center justify-center">
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm inline-block">
+                    <Image
+                      src={qrData.qrCodeUrl}
+                      alt="VietQR Code"
+                      width={220}
+                      preview={{ mask: 'Phóng to mã QR' }}
+                      style={{ borderRadius: 8 }}
+                    />
+                  </div>
+                  <div className="text-xs text-slate-500 text-center mt-2.5 max-w-xs">
+                    Mở ứng dụng <strong>Ngân hàng</strong> bất kỳ (MB, VCB, Techcombank, ...) quét mã để chuyển tiền thật
+                  </div>
+                </div>
+              )}
 
               {/* Bank Transfer Details Table */}
               <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2 text-xs">
@@ -319,6 +426,22 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
               {/* Action Buttons */}
               <div className="space-y-2 pt-1">
                 <Button
+                  block
+                  size="large"
+                  icon={<CreditCardOutlined />}
+                  onClick={() => setSandboxModalOpen(true)}
+                  style={{
+                    backgroundColor: '#0f172a',
+                    borderColor: '#0f172a',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    height: 42,
+                  }}
+                >
+                  Mở Cổng Thanh Toán Sandbox (Trừ Tiền Ảo)
+                </Button>
+
+                <Button
                   type="primary"
                   block
                   size="large"
@@ -327,7 +450,7 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
                   onClick={handleCompletePaymentCheck}
                   className="bg-teal-600 hover:bg-teal-700 font-bold shadow-md shadow-teal-600/20"
                 >
-                  Tôi Đã Chuyển Khoản Thành Công
+                  Tôi Đã Chuyển Khoản Ngân Hàng Thật
                 </Button>
                 <Button block onClick={onClose}>
                   Đóng cửa sổ
@@ -419,6 +542,19 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
           )}
         </div>
       )}
+
+      {/* Modal Sandbox Banking */}
+      <SandboxBankingModal
+        visible={sandboxModalOpen}
+        onClose={() => setSandboxModalOpen(false)}
+        packageInfo={initialPackage}
+        customAmount={qrData?.amount}
+        onSuccess={() => {
+          setSandboxModalOpen(false);
+          onClose();
+          if (onSuccess) onSuccess();
+        }}
+      />
     </Modal>
   );
 };
