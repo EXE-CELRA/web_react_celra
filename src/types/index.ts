@@ -37,7 +37,12 @@ export type ComplianceModuleId =
   | 'MODULE_INVOICE_CASHFLOW'
   | 'MODULE_LABOR_HR'
   | 'MODULE_LICENSING_ATTP'
-  | 'MODULE_ECOM_DATA_PRIVACY';
+  | 'MODULE_ECOM_DATA_PRIVACY'
+  | 'MODULE_PREMISES_PCCC'
+  | 'MODULE_CONTRACTS'
+  | 'MODULE_DATA_IP'
+  | 'MODULE_LICENSING_CON'
+  | 'MODULE_LEGAL_CORP';
 
 export type EmployeeScale = 'under_10' | '10_to_50' | 'over_50';
 
@@ -222,6 +227,7 @@ export interface Organization {
   taxCode: string;
   industry?: string;
   scale?: string;
+  employeeCount?: number;
   address?: string;
   city?: string;
   status: string;

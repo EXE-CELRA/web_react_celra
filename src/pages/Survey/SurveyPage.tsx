@@ -9,7 +9,8 @@ import {
   INDUSTRY_TAGS, 
   DEFAULT_BASE_PROFILE,
   generateDynamicQuestions,
-  detectEnterpriseLegalType
+  detectEnterpriseLegalType,
+  COMPLIANCE_MODULES
 } from '../../data/surveySchema';
 import { 
   CheckCircle2, 
@@ -158,6 +159,20 @@ export const SurveyPage: React.FC = () => {
     q_corp_amend_10d: 'RULE-CORP-AMEND-10D',
     q_fnb_food_safety: 'RULE-LICENSING-ATTP',
     q_ecom_bct_notification: 'RULE-ECOM-BCT-NOTIFY',
+    q_premises_signboard: 'RULE-CORP-AMEND-10D',
+    q_premises_fire_safety: 'RULE-LICENSING-ATTP',
+    q_contract_authorization: 'RULE-CORP-AMEND-10D',
+    q_data_protection_nd13: 'RULE-ECOM-BCT-NOTIFY',
+    q_ip_trademark_brand: 'RULE-ECOM-BCT-NOTIFY',
+    q_general_conditional_license: 'RULE-LICENSING-ATTP',
+    q_inv_risky_supplier: 'RULE-TAX-EXP-20M',
+    q_labor_health_check: 'RULE-LABOR-10TO50',
+    q_corp_member_register_book: 'RULE-CORP-CAPITAL-90D',
+    q_premises_fire_dossier: 'RULE-LICENSING-ATTP',
+    q_premises_lease_contract: 'RULE-CORP-AMEND-10D',
+    q_contract_penalty_clause: 'RULE-CORP-AMEND-10D',
+    q_contract_acceptance_minutes: 'RULE-CORP-AMEND-10D',
+    q_ip_software_license_assets: 'RULE-ECOM-BCT-NOTIFY',
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -280,7 +295,7 @@ export const SurveyPage: React.FC = () => {
           const json = await directResp.json();
           if (json && (json.code === '00' || json.data) && json.data?.name) {
             res = {
-              taxCode: json.data?.id || code,
+              taxCode: json.data?.id || code, 
               name: json.data?.name,
               address: json.data?.address || '',
               shortName: json.data?.shortName || '',
@@ -469,18 +484,27 @@ export const SurveyPage: React.FC = () => {
     }
   };
 
-  // Group questions by Compliance Module for Step 2
+  // Group questions by Compliance Module for Step 2 (Bao quát 100% 8 nhóm bối cảnh)
   const taxModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_TAX_CORE');
+  const legalModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LEGAL_CORP');
   const invoiceModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_INVOICE_CASHFLOW');
   const laborModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LABOR_HR');
-  const licensingModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LICENSING_ATTP' || q.moduleId === 'MODULE_ECOM_DATA_PRIVACY');
+  const premisesModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_PREMISES_PCCC');
+  const contractModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_CONTRACTS');
+  const dataIpModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_DATA_IP' || q.moduleId === 'MODULE_ECOM_DATA_PRIVACY');
+  const licensingModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LICENSING_ATTP' || q.moduleId === 'MODULE_LICENSING_CON');
   const otherQuestions = dynamicQuestions.filter(q => 
     !q.moduleId || 
     (q.moduleId !== 'MODULE_TAX_CORE' && 
+     q.moduleId !== 'MODULE_LEGAL_CORP' &&
      q.moduleId !== 'MODULE_INVOICE_CASHFLOW' && 
      q.moduleId !== 'MODULE_LABOR_HR' && 
+     q.moduleId !== 'MODULE_PREMISES_PCCC' && 
+     q.moduleId !== 'MODULE_CONTRACTS' && 
+     q.moduleId !== 'MODULE_DATA_IP' && 
+     q.moduleId !== 'MODULE_ECOM_DATA_PRIVACY' && 
      q.moduleId !== 'MODULE_LICENSING_ATTP' && 
-     q.moduleId !== 'MODULE_ECOM_DATA_PRIVACY')
+     q.moduleId !== 'MODULE_LICENSING_CON')
   );
 
   // =========================================================================
@@ -1425,7 +1449,31 @@ export const SurveyPage: React.FC = () => {
             </div>
           )}
 
-          {/* NHÓM 2: HÓA ĐƠN & DÒNG TIỀN THỰC TẾ */}
+          {/* NHÓM 2: HỒ SƠ PHÁP LÝ & QUẢN TRỊ VỐN */}
+          {legalModuleQuestions.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    Hồ Sơ Pháp Lý &amp; Quản Trị Vốn ({legalModuleQuestions.length} tình huống)
+                  </h3>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {legalModuleQuestions.map((q, idx) => (
+                  <QuestionCard
+                    key={q.id}
+                    question={q}
+                    index={taxModuleQuestions.length + idx + 1}
+                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NHÓM 3: HÓA ĐƠN & DÒNG TIỀN THỰC TẾ */}
           {invoiceModuleQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
@@ -1441,7 +1489,7 @@ export const SurveyPage: React.FC = () => {
                   <QuestionCard
                     key={q.id}
                     question={q}
-                    index={taxModuleQuestions.length + idx + 1}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + idx + 1}
                     onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
@@ -1449,7 +1497,7 @@ export const SurveyPage: React.FC = () => {
             </div>
           )}
 
-          {/* NHÓM 3: LAO ĐỘNG, TIỀN LƯƠNG & BHXH */}
+          {/* NHÓM 4: LAO ĐỘNG, TIỀN LƯƠNG & BHXH */}
           {laborModuleQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
@@ -1465,7 +1513,7 @@ export const SurveyPage: React.FC = () => {
                   <QuestionCard
                     key={q.id}
                     question={q}
-                    index={taxModuleQuestions.length + invoiceModuleQuestions.length + idx + 1}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + idx + 1}
                     onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
@@ -1473,7 +1521,79 @@ export const SurveyPage: React.FC = () => {
             </div>
           )}
 
-          {/* NHÓM 4: GIẤY PHÉP CON & PHÁP CHẾ CHUYÊN NGÀNH */}
+          {/* NHÓM 5: ĐỊA ĐIỂM & AN TOÀN PCCC */}
+          {premisesModuleQuestions.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    Địa Điểm &amp; An Toàn PCCC ({premisesModuleQuestions.length} tình huống)
+                  </h3>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {premisesModuleQuestions.map((q, idx) => (
+                  <QuestionCard
+                    key={q.id}
+                    question={q}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + idx + 1}
+                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NHÓM 6: HỢP ĐỒNG & GIAO KẾT KINH DOANH */}
+          {contractModuleQuestions.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    Hợp Đồng &amp; Giao Kết Kinh Doanh ({contractModuleQuestions.length} tình huống)
+                  </h3>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {contractModuleQuestions.map((q, idx) => (
+                  <QuestionCard
+                    key={q.id}
+                    question={q}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + idx + 1}
+                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NHÓM 7: DỮ LIỆU & SỞ HỮU TRÍ TUỆ */}
+          {dataIpModuleQuestions.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    Dữ Liệu &amp; Sở Hữu Trí Tuệ ({dataIpModuleQuestions.length} tình huống)
+                  </h3>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {dataIpModuleQuestions.map((q, idx) => (
+                  <QuestionCard
+                    key={q.id}
+                    question={q}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + idx + 1}
+                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NHÓM 8: GIẤY PHÉP CON & PHÁP CHẾ CHUYÊN NGÀNH */}
           {licensingModuleQuestions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
@@ -1489,7 +1609,7 @@ export const SurveyPage: React.FC = () => {
                   <QuestionCard
                     key={q.id}
                     question={q}
-                    index={taxModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + idx + 1}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + dataIpModuleQuestions.length + idx + 1}
                     onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
@@ -1511,7 +1631,7 @@ export const SurveyPage: React.FC = () => {
                   <QuestionCard
                     key={q.id}
                     question={q}
-                    index={taxModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + licensingModuleQuestions.length + idx + 1}
+                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + dataIpModuleQuestions.length + licensingModuleQuestions.length + idx + 1}
                     onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
@@ -1663,12 +1783,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, onSelect }
             {question.branchLabel}
           </span>
           {question.moduleId && (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono ${
-              question.moduleId === 'MODULE_TAX_CORE'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-teal-50 text-teal-700 border border-teal-200'
-            }`}>
-              {question.moduleId === 'MODULE_TAX_CORE' ? '🟢 Thuế Doanh Nghiệp' : '🟢 Hóa Đơn & Dòng Tiền'}
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full font-mono bg-teal-50 text-teal-700 border border-teal-200">
+              {COMPLIANCE_MODULES[question.moduleId]?.name || 'Tuân thủ pháp lý'}
             </span>
           )}
         </div>

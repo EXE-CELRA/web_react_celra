@@ -57,6 +57,7 @@ export interface AuditFindingItem {
 const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
 // Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành
+// eslint-disable-next-line react-refresh/only-export-components
 export const STATUTORY_PENALTY_RISKS: Record<string, string> = {
   'RULE-TAX-GTGT':
     'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai thuế quá thời hạn quy định.',
@@ -305,16 +306,16 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const [creatingSingleId, setCreatingSingleId] = useState<string | null>(null);
   const [isCreatingAll, setIsCreatingAll] = useState<boolean>(false);
 
-  // Load facts từ backend hoặc chuẩn hóa nếu chưa có
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep('select');
       setScanProgress(0);
       setAuditFindings([]);
       fetchWallet();
       fetchFacts();
     }
-  }, [isOpen]);
+  }, [fetchFacts, fetchWallet, isOpen]);
 
   // Danh sách fact hợp nhất: Ưu tiên facts từ Database, nếu rỗng thì dùng chuẩn 21 thẻ
   const effectiveFacts: ContextFact[] = useMemo(() => {
@@ -328,6 +329,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     if (isOpen && effectiveFacts.length > 0) {
       const taxFacts = effectiveFacts.filter((f) => f.group === 'tax_accounting');
       if (initialSelectedFactId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedFactIds([initialSelectedFactId]);
         const target = effectiveFacts.find((f) => f.id === initialSelectedFactId);
         if (target && target.group === 'tax_accounting') {
@@ -516,7 +518,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-xs overflow-y-auto"
+      className="fixed inset-0 z-2000 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-xs overflow-y-auto"
       style={{ zIndex: 2000 }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isProcessing) {
@@ -530,7 +532,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       >
         
         {/* HEADER MODAL */}
-        <div className="px-6 py-4 bg-gradient-to-r from-teal-950 via-slate-950 to-teal-900 text-white flex items-center justify-between shrink-0 border-b border-teal-800/40">
+        <div className="px-6 py-4 bg-linear-to-r from-teal-950 via-slate-950 to-teal-900 text-white flex items-center justify-between shrink-0 border-b border-teal-800/40">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-teal-500/20 text-teal-300 rounded-lg border border-teal-400/30">
@@ -830,7 +832,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
+                  className="bg-linear-to-r from-teal-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${scanProgress}%` }}
                 />
               </div>

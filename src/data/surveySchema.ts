@@ -588,11 +588,56 @@ export const COMPLIANCE_MODULES: Record<ComplianceModuleId, ComplianceModuleMeta
   MODULE_ECOM_DATA_PRIVACY: {
     id: 'MODULE_ECOM_DATA_PRIVACY',
     name: 'Thương Mại Điện Tử & Bảo Vệ Dữ Liệu',
-    badge: 'Giai đoạn 3',
-    status: 'ROADMAP_PHASE_3',
-    statusLabel: 'Lộ trình Giai đoạn 3',
+    badge: 'Toàn diện',
+    status: 'ACTIVE',
+    statusLabel: 'Hoạt động',
     description: 'Thông báo website Bộ Công Thương, Nghị định 13/2023/NĐ-CP bảo vệ dữ liệu cá nhân khách hàng',
     iconName: 'Globe'
+  },
+  MODULE_PREMISES_PCCC: {
+    id: 'MODULE_PREMISES_PCCC',
+    name: 'Địa Điểm & An Toàn PCCC',
+    badge: 'Toàn diện',
+    status: 'ACTIVE',
+    statusLabel: 'Hoạt động',
+    description: 'Biển hiệu trụ sở chính theo Luật Quảng cáo, Trang bị phương tiện PCCC cơ sở theo NĐ 136/2020',
+    iconName: 'Building2'
+  },
+  MODULE_CONTRACTS: {
+    id: 'MODULE_CONTRACTS',
+    name: 'Hợp Đồng & Giao Kết Kinh Doanh',
+    badge: 'Toàn diện',
+    status: 'ACTIVE',
+    statusLabel: 'Hoạt động',
+    description: 'Thẩm quyền đại diện ký kết hợp đồng, Hợp đồng thuê mặt bằng, Hợp đồng cung ứng dịch vụ',
+    iconName: 'Briefcase'
+  },
+  MODULE_DATA_IP: {
+    id: 'MODULE_DATA_IP',
+    name: 'Dữ Liệu & Sở Hữu Trí Tuệ',
+    badge: 'Toàn diện',
+    status: 'ACTIVE',
+    statusLabel: 'Hoạt động',
+    description: 'Bảo vệ dữ liệu cá nhân theo NĐ 13/2023, Đăng ký bảo hộ nhãn hiệu và thương hiệu theo Luật SHTT',
+    iconName: 'HardDrive'
+  },
+  MODULE_LICENSING_CON: {
+    id: 'MODULE_LICENSING_CON',
+    name: 'Giấy Phép Con & Ngành Nghề Chuyên Ngành',
+    badge: 'Toàn diện',
+    status: 'ACTIVE',
+    statusLabel: 'Hoạt động',
+    description: 'Rà soát danh mục ngành nghề có điều kiện theo Luật Đầu tư 2020 và các giấy phép chuyên ngành',
+    iconName: 'Award'
+  },
+  MODULE_LEGAL_CORP: {
+    id: 'MODULE_LEGAL_CORP',
+    name: 'Hồ Sơ Pháp Lý & Quản Trị Vốn',
+    badge: 'Toàn diện',
+    status: 'ACTIVE',
+    statusLabel: 'Hoạt động',
+    description: 'Tiến độ góp đủ 100% vốn điều lệ 90 ngày, Thủ tục đăng ký thay đổi ĐKKD trong 10 ngày làm việc',
+    iconName: 'ShieldCheck'
   }
 };
 
@@ -970,7 +1015,7 @@ export function generateDynamicQuestions(profile: BaseProfile): DynamicSituation
   questions.push(
     {
       id: 'q_corp_capital_90d',
-      moduleId: 'MODULE_TAX_CORE',
+      moduleId: 'MODULE_LEGAL_CORP',
       branchType: 'company_type',
       branchCode: profile.companyTypeTag,
       branchLabel: `Pháp lý: ${corpTypeLabel}`,
@@ -987,7 +1032,7 @@ export function generateDynamicQuestions(profile: BaseProfile): DynamicSituation
     },
     {
       id: 'q_corp_amend_10d',
-      moduleId: 'MODULE_TAX_CORE',
+      moduleId: 'MODULE_LEGAL_CORP',
       branchType: 'company_type',
       branchCode: profile.companyTypeTag,
       branchLabel: `Pháp lý: ${corpTypeLabel}`,
@@ -1046,6 +1091,296 @@ export function generateDynamicQuestions(profile: BaseProfile): DynamicSituation
       severity: 'high',
     });
   }
+
+  // ----------------------------------------------------
+  // TRỤ CỘT 7: ĐỊA ĐIỂM & AN TOÀN PCCC (PREMISES)
+  // ----------------------------------------------------
+  questions.push(
+    {
+      id: 'q_premises_signboard',
+      moduleId: 'MODULE_PREMISES_PCCC',
+      branchType: 'company_type',
+      branchCode: profile.companyTypeTag,
+      branchLabel: 'Địa điểm & Trụ sở',
+      title: 'Doanh nghiệp đã gắn biển hiệu ghi đúng tên công ty, mã số thuế và địa chỉ tại trụ sở chính/địa điểm kinh doanh chưa?',
+      legalBasis: 'Điều 34 Luật Quảng cáo số 16/2012/QH13 và Điều 37 Luật Doanh nghiệp 2020. Nếu không treo biển, cơ quan thuế có thể khóa mã số thuế với lý do không hoạt động tại địa chỉ đăng ký.',
+      verificationUrl: 'https://dulieuphapluat.vn/van-ban/van-hoa-van-ban/luat-quang-cao-2012-300431.html',
+      options: [
+        'Đã gắn biển hiệu đầy đủ thông tin (Tên công ty, MST, Địa chỉ) tại cửa trụ sở',
+        'Mới thuê địa điểm, đang trong quá trình đặt làm biển hiệu',
+        'Chưa gắn biển hiệu công ty tại địa chỉ đăng ký kinh doanh',
+        'Địa chỉ đăng ký là văn phòng ảo / địa chỉ mượn, chưa có biển hiệu'
+      ],
+      severity: 'high',
+    },
+    {
+      id: 'q_premises_fire_safety',
+      moduleId: 'MODULE_PREMISES_PCCC',
+      branchType: 'company_type',
+      branchCode: profile.companyTypeTag,
+      branchLabel: 'Phòng cháy chữa cháy',
+      title: 'Trụ sở, văn phòng hoặc cơ sở kinh doanh đã trang bị đầy đủ phương tiện PCCC (bình chữa cháy, nội quy, tiêu lệnh) chưa?',
+      legalBasis: 'Điều 5 & Điều 7 Nghị định 136/2020/NĐ-CP quy định chi tiết thi hành Luật Phòng cháy và chữa cháy. Cơ sở phải trang bị tối thiểu bình chữa cháy xách tay và phương tiện cứu nạn cơ bản.',
+      verificationUrl: 'https://dulieuphapluat.vn/van-ban/an-ninh-quoc-phong-van-ban/nghi-dinh-1362020nd-cp-huong-dan-luat-phong-chay-va-chua-chay-24646.html',
+      options: [
+        'Đã trang bị đầy đủ bình chữa cháy còn hạn, tiêu lệnh PCCC và phân công người phụ trách',
+        'Địa điểm nằm trong tòa nhà văn phòng / trung tâm thương mại đã có hệ thống PCCC chung',
+        'Chưa trang bị bình chữa cháy hoặc bình chữa cháy đã hết hạn kiểm định',
+        'Chưa rõ tiêu chuẩn PCCC áp dụng cho diện tích và loại hình cơ sở'
+      ],
+      severity: 'high',
+    }
+  );
+
+  // ----------------------------------------------------
+  // TRỤ CỘT 8: HỢP ĐỒNG & GIAO KẾT KINH DOANH (CONTRACTS)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_contract_authorization',
+    moduleId: 'MODULE_CONTRACTS',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Hợp đồng & Giao kết',
+    title: 'Các hợp đồng kinh tế (mua bán, thuê mặt bằng, dịch vụ) có được ký kết đúng thẩm quyền người đại diện pháp luật hoặc có giấy ủy quyền hợp pháp không?',
+    legalBasis: 'Điều 137, Điều 141, Điều 142 Bộ luật Dân sự 2015. Hợp đồng do người không có thẩm quyền ký kết có nguy cơ bị tòa án tuyên vô hiệu, dẫn đến mất chi phí và không được đòi bồi thường.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/dan-su-van-ban/bo-luat-dan-su-2015-300488.html',
+    options: [
+      '100% hợp đồng do Người đại diện pháp luật trực tiếp ký hoặc có Văn bản ủy quyền hợp pháp',
+      'Đang sử dụng mẫu hợp đồng nội bộ đã được thẩm định pháp lý',
+      'Có một số hợp đồng do quản lý/nhân viên tự ký mà không có giấy ủy quyền của giám đốc',
+      'Chủ yếu thỏa thuận qua tin nhắn, email hoặc trao đổi miệng, không ký hợp đồng văn bản'
+    ],
+    severity: 'high',
+  });
+
+  // ----------------------------------------------------
+  // TRỤ CỘT 9: DỮ LIỆU & SỞ HỮU TRÍ TUỆ (DATA & IP)
+  // ----------------------------------------------------
+  questions.push(
+    {
+      id: 'q_data_protection_nd13',
+      moduleId: 'MODULE_DATA_IP',
+      branchType: 'company_type',
+      branchCode: profile.companyTypeTag,
+      branchLabel: 'Bảo vệ dữ liệu cá nhân',
+      title: 'Doanh nghiệp có thu thập dữ liệu cá nhân (khách hàng, nhân viên) và đã ban hành chính sách/quy trình bảo vệ dữ liệu theo Nghị định 13/2023/NĐ-CP chưa?',
+      legalBasis: 'Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân. Doanh nghiệp xử lý dữ liệu cá nhân phải có biện pháp bảo vệ và lập Hồ sơ đánh giá tác động xử lý dữ liệu cá nhân nộp Bộ Công an.',
+      verificationUrl: 'https://dulieuphapluat.vn/van-ban/cong-nghe-thong-tin-van-ban/nghi-dinh-132023nd-cp-bao-ve-du-lieu-ca-nhan-1149454.html',
+      options: [
+        'Đã ban hành Chính sách bảo mật dữ liệu và có sự đồng ý của khách hàng/người lao động',
+        'Chỉ lưu thông tin liên hệ cơ bản nội bộ, không chia sẻ cho bên thứ ba',
+        'Có thu thập thông tin khách hàng/nhân sự nhưng chưa có quy chế bảo vệ dữ liệu văn bản',
+        'Chưa rõ các nghĩa vụ doanh nghiệp theo Nghị định 13/2023/NĐ-CP'
+      ],
+      severity: 'medium',
+    },
+    {
+      id: 'q_ip_trademark_brand',
+      moduleId: 'MODULE_DATA_IP',
+      branchType: 'company_type',
+      branchCode: profile.companyTypeTag,
+      branchLabel: 'Sở hữu trí tuệ',
+      title: 'Tên thương hiệu, logo hoặc nhãn hiệu của sản phẩm/dịch vụ đã được nộp đơn đăng ký bảo hộ độc quyền tại Cục Sở hữu trí tuệ chưa?',
+      legalBasis: 'Điều 87 Luật Sở hữu trí tuệ số 50/2005/QH11 (sửa đổi 2022). Việt Nam áp dụng nguyên tắc nộp đơn đầu tiên (first-to-file). Ai nộp trước sẽ được cấp quyền sở hữu thương hiệu.',
+      verificationUrl: 'https://dulieuphapluat.vn/van-ban/so-huu-tri-tue-van-ban/luat-so-huu-tri-tue-2005-300645.html',
+      options: [
+        'Đã nộp đơn hoặc đã được Cục Sở hữu trí tuệ cấp Văn bằng bảo hộ nhãn hiệu',
+        'Đang hoàn thiện hồ sơ tra cứu và chuẩn bị nộp đơn đăng ký bảo hộ nhãn hiệu',
+        'Đang kinh doanh theo thương hiệu nhưng chưa đăng ký bảo hộ (nguy cơ bị đối thủ đăng ký trước)',
+        'Chỉ sử dụng tên theo đúng Giấy phép kinh doanh, chưa phát triển nhãn hiệu riêng'
+      ],
+      severity: 'medium',
+    }
+  );
+
+  // ----------------------------------------------------
+  // TRỤ CỘT 10: GIẤY PHÉP CON & NGÀNH NGHỀ CÓ ĐIỀU KIỆN CHUNG
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_general_conditional_license',
+    moduleId: 'MODULE_LICENSING_CON',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Giấy phép con',
+    title: 'Doanh nghiệp đã rà soát và hoàn thiện đầy đủ các Giấy phép con / Chứng chỉ hành nghề đối với các ngành nghề kinh doanh có điều kiện của mình chưa?',
+    legalBasis: 'Điều 7 Luật Đầu tư 2020 và Danh mục 227 ngành, nghề đầu tư kinh doanh có điều kiện. Hoạt động khi chưa có giấy phép đủ điều kiện sẽ bị đình chỉ và xử phạt nặng.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/dau-tu-van-ban/luat-dau-tu-2020-44942.html',
+    options: [
+      'Đã được cấp đầy đủ Giấy phép con / Chứng chỉ hành nghề còn hiệu lực cho mọi ngành có điều kiện',
+      'Ngành nghề hoạt động của doanh nghiệp là kinh doanh thông thường, không yêu cầu giấy phép con',
+      'Đang nộp hồ sơ xin cấp Giấy phép con tại cơ quan quản lý chuyên ngành',
+      'Chưa rà soát hoặc chưa có giấy phép con đối với ngành nghề kinh doanh có điều kiện'
+    ],
+    severity: 'urgent',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 1: HÓA ĐƠN ĐẦU VÀO TỪ DOANH NGHIỆP RỦI RO CAO (INVOICE)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_inv_risky_supplier',
+    moduleId: 'MODULE_INVOICE_CASHFLOW',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Hóa đơn & Nhà cung cấp',
+    title: 'Doanh nghiệp có thực hiện tra cứu định kỳ tình trạng hoạt động của nhà cung cấp trên Cổng Cục Thuế để phòng ngừa rủi ro nhận phải hóa đơn của doanh nghiệp bỏ trốn / ngừng hoạt động không?',
+    legalBasis: 'Công văn 1798/TCT-TTKT của Tổng cục Thuế về rà soát xử lý hóa đơn không hợp pháp. Nếu bên bán đã bỏ trốn hoặc bị khóa MST trước thời điểm xuất hóa đơn, bên mua sẽ bị loại chi phí và truy thu thuế.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-1252020nd-cp-quy-dinh-ve-xu-phat-vi-pham-hanh-chinh-ve-thue-hoa-don-24591.html',
+    options: [
+      '100% nhà cung cấp mới đều được tra cứu trạng thái hoạt động trên cổng Tổng cục Thuế trước khi thanh toán',
+      'Chỉ kiểm tra tính hợp lệ của file XML hóa đơn điện tử nhận được qua email',
+      'Chưa từng tra cứu tình trạng hoạt động của nhà cung cấp trên trang tra cứu thuế',
+      'Chưa rõ công cụ và cách tra cứu danh sách doanh nghiệp có rủi ro cao về hóa đơn'
+    ],
+    severity: 'high',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 2: KHÁM SỨC KHỎE ĐỊNH KỲ CHO NGƯỜI LAO ĐỘNG (LABOR)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_labor_health_check',
+    moduleId: 'MODULE_LABOR_HR',
+    branchType: 'labor_scale',
+    branchCode: 'SCALE_LABOR',
+    branchLabel: `Lao động: ${actualEmpCount} nhân sự`,
+    title: 'Doanh nghiệp có tổ chức khám sức khỏe định kỳ ít nhất 01 lần/năm cho toàn bộ người lao động (hoặc 06 tháng/lần với lao động làm việc nặng nhọc, độc hại) không?',
+    legalBasis: 'Điều 21 Luật An toàn, vệ sinh lao động số 84/2015/QH13. Không tổ chức khám sức khỏe định kỳ cho người lao động bị phạt tiền từ 1.000.000đ đến 3.000.000đ cho mỗi người lao động, tối đa 50 triệu đồng.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/lao-dong-van-ban/luat-an-toan-ve-sinh-lao-dong-2015-300484.html',
+    options: [
+      'Đã tổ chức khám sức khỏe định kỳ hàng năm và có sổ theo dõi sức khỏe cho 100% nhân sự',
+      'Đang liên hệ cơ sở y tế để lên lịch khám sức khỏe cho nhân viên trong năm tài chính',
+      'Chưa từng tổ chức khám sức khỏe định kỳ cho người lao động kể từ khi thành lập',
+      'Chưa nắm rõ nghĩa vụ bắt buộc tổ chức khám sức khỏe định kỳ của người sử dụng lao động'
+    ],
+    severity: 'high',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 3: LẬP VÀ QUẢN LÝ SỔ ĐĂNG KÝ THÀNH VIÊN / CỔ ĐÔNG (LEGAL)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_corp_member_register_book',
+    moduleId: 'MODULE_LEGAL_CORP',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: `Pháp lý: ${corpTypeLabel}`,
+    title: 'Công ty đã lập, cập nhật và lưu trữ Sổ đăng ký thành viên (đối với TNHH) hoặc Sổ đăng ký cổ đông (đối với Cổ phần) kèm Giấy chứng nhận phần vốn góp chưa?',
+    legalBasis: 'Điều 48 Luật Doanh nghiệp 2020. Công ty phải cấp Giấy chứng nhận phần vốn góp và lập Sổ đăng ký thành viên ngay sau khi thành viên góp đủ vốn. Vi phạm bị phạt tiền từ 30 đến 50 triệu đồng theo Nghị định 122/2021/NĐ-CP.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/doanh-nghiep-van-ban/luat-doanh-nghiep-2020-44943.html',
+    options: [
+      'Đã lập Sổ đăng ký thành viên bằng văn bản và cấp Giấy chứng nhận phần vốn góp cho từng thành viên',
+      'Chỉ có Giấy chứng nhận đăng ký doanh nghiệp (ĐKKD), chưa lập Sổ đăng ký thành viên nội bộ',
+      'Chưa cấp Giấy chứng nhận phần vốn góp cho các thành viên đã góp tiền',
+      'Chưa rõ quy định và biểu mẫu Sổ đăng ký thành viên theo Luật Doanh nghiệp 2020'
+    ],
+    severity: 'high',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 4: HỒ SƠ QUẢN LÝ THEO DÕI HOẠT ĐỘNG PCCC CƠ SỞ (PREMISES)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_premises_fire_dossier',
+    moduleId: 'MODULE_PREMISES_PCCC',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Hồ sơ PCCC cơ sở',
+    title: 'Cơ sở kinh doanh đã lập Hồ sơ quản lý, theo dõi hoạt động phòng cháy chữa cháy và có phương án chữa cháy cơ sở được phê duyệt chưa?',
+    legalBasis: 'Điều 9 Thông tư 149/2020/TT-BCA và Nghị định 136/2020/NĐ-CP. Người đứng đầu cơ sở phải lập, cập nhật hồ sơ PCCC gồm bảng thống kê phương tiện, nội quy, sơ đồ thoát nạn và phương án chữa cháy nội bộ.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/an-ninh-quoc-phong-van-ban/thong-tu-1492020tt-bca-huong-dan-luat-phong-chay-va-chua-chay-va-nghi-dinh-1362020nd-cp-do-bo-truong-bo-cong-an-ban-hanh-1002.html',
+    options: [
+      'Đã lập đầy đủ Hồ sơ PCCC cơ sở, có sơ đồ thoát nạn và phương án chữa cháy tại chỗ',
+      'Văn phòng nằm trong tòa nhà cho thuê, sử dụng chung hồ sơ PCCC của Ban quản lý tòa nhà',
+      'Chỉ trang bị bình chữa cháy, chưa lập hồ sơ theo dõi hoạt động PCCC bằng văn bản',
+      'Chưa rõ quy định về các đầu mục giấy tờ trong bộ Hồ sơ quản lý PCCC cơ sở'
+    ],
+    severity: 'medium',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 5: HỢP ĐỒNG THUÊ ĐỊA ĐIỂM KINH DOANH VÀ CHỨNG TỪ TIỀN THUÊ (PREMISES)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_premises_lease_contract',
+    moduleId: 'MODULE_PREMISES_PCCC',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Địa điểm: Hợp đồng thuê mặt bằng',
+    title: 'Hợp đồng thuê trụ sở/địa điểm kinh doanh có đầy đủ Hóa đơn GTGT (nếu thuê của công ty) hoặc Chứng từ nộp thuế thay chủ nhà và Giấy tờ chứng minh quyền sở hữu của bên cho thuê không?',
+    legalBasis: 'Thông tư 96/2015/TT-BTC và Thông tư 40/2021/TT-BTC. Tiền thuê nhà chỉ được tính vào chi phí hợp lý khi có Hợp đồng thuê, chứng từ thanh toán ngân hàng và hóa đơn/chứng từ nộp thuế môn bài, GTGT, TNCN thay chủ nhà (nếu thuê của cá nhân trên 100 triệu/năm).',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/linh-vuc-khac-van-ban/thong-tu-962015tt-btc-huong-dan-ve-thue-thu-nhap-doanh-nghiep-tai-nghi-dinh-122015nd-cp-quy-dinh-chi-tiet-thi-hanh-luat-sua-doi-bo-sung-mot-so-dieu-cua-cac-luat-ve-thue-va-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-782014tt-btc-thong-tu-1192014tt-btc-thong-tu-1512014tt-btc-do-bo-truong-bo-tai-chinh-ban-hanh-285496.html',
+    options: [
+      'Hợp đồng thuê mặt bằng đứng tên công ty, có đầy đủ hóa đơn/chứng từ thuế và thanh toán ngân hàng',
+      'Trụ sở là nhà thuộc sở hữu của thành viên sáng lập / gia đình cho mượn miễn phí',
+      'Thuê mặt bằng của cá nhân trên 100 triệu/năm nhưng chỉ trả tiền mặt và không có chứng từ nộp thuế',
+      'Hợp đồng thuê nhà đứng tên cá nhân của giám đốc, chưa chuyển tên sang pháp nhân công ty'
+    ],
+    severity: 'high',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 6: ĐIỀU KHOẢN PHẠT VI PHẠM TRONG HỢP ĐỒNG THƯƠNG MẠI (CONTRACTS)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_contract_penalty_clause',
+    moduleId: 'MODULE_CONTRACTS',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Hợp đồng: Mức phạt vi phạm',
+    title: 'Các hợp đồng mua bán hàng hóa, cung ứng dịch vụ của công ty có thỏa thuận mức phạt vi phạm hợp đồng tuân thủ giới hạn tối đa 8% giá trị phần nghĩa vụ bị vi phạm không?',
+    legalBasis: 'Điều 301 Luật Thương mại số 36/2005/QH11. Mức phạt đối với vi phạm nghĩa vụ hợp đồng do các bên thoả thuận nhưng không quá 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm (trừ hợp đồng dịch vụ giám định). Phần thỏa thuận vượt quá 8% sẽ bị tòa án tuyên vô hiệu.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/thuong-mai-van-ban/luat-thuong-mai-2005-300439.html',
+    options: [
+      'Mọi hợp đồng kinh tế đều khống chế mức phạt vi phạm không vượt quá 8% theo đúng Luật Thương mại',
+      'Hợp đồng thỏa thuận mức phạt vi phạm cao (15% - 20%) hoặc không giới hạn theo thói quen',
+      'Hợp đồng chỉ ghi bồi thường thiệt hại thực tế phát sinh, không có điều khoản phạt vi phạm',
+      'Chưa rõ quy định mức trần phạt vi phạm 8% trong hợp đồng thương mại'
+    ],
+    severity: 'medium',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 7: NGHIỆM THU VÀ THANH LÝ HỢP ĐỒNG (CONTRACTS)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_contract_acceptance_minutes',
+    moduleId: 'MODULE_CONTRACTS',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'Hợp đồng: Biên bản nghiệm thu',
+    title: 'Khi hoàn thành giao hàng hoặc cung cấp dịch vụ, công ty có lập Biên bản giao nhận / Biên bản nghiệm thu và Biên bản thanh lý hợp đồng làm căn cứ xuất hóa đơn và thanh toán không?',
+    legalBasis: 'Điều 9 Nghị định 123/2020/NĐ-CP và Luật Kế toán 2015. Thời điểm lập hóa đơn đối với dịch vụ là thời điểm hoàn thành việc cung cấp dịch vụ. Biên bản nghiệm thu là chứng từ kế toán bắt buộc để chứng minh dịch vụ đã thực hiện thực tế.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-1232020nd-cp-quy-dinh-ve-hoa-don-chung-tu-24589.html',
+    options: [
+      '100% hợp đồng đều có Biên bản nghiệm thu bàn giao và Biên bản thanh lý có chữ ký của hai bên',
+      'Đang sử dụng phiếu xuất kho kiêm vận chuyển nội bộ hoặc hóa đơn điện tử làm căn cứ giao nhận',
+      'Nhiều giao dịch chỉ xuất hóa đơn và chuyển khoản, không có biên bản nghiệm thu hoặc thanh lý',
+      'Chưa rõ quy trình lập và lưu trữ hồ sơ nghiệm thu thanh lý hợp đồng'
+    ],
+    severity: 'high',
+  });
+
+  // ----------------------------------------------------
+  // CÂU BỔ SUNG 8: BẢN QUYỀN PHẦN MỀM & QUẢN TRỊ TÀI SẢN SỐ (DATA & IP)
+  // ----------------------------------------------------
+  questions.push({
+    id: 'q_ip_software_license_assets',
+    moduleId: 'MODULE_DATA_IP',
+    branchType: 'company_type',
+    branchCode: profile.companyTypeTag,
+    branchLabel: 'SHTT: Bản quyền phần mềm & Tài sản số',
+    title: 'Hệ thống máy tính, phần mềm kế toán, hệ điều hành (Windows, Office) và hình ảnh thiết kế quảng cáo của doanh nghiệp có bản quyền hợp pháp (tránh vi phạm quyền tác giả) không?',
+    legalBasis: 'Điều 20 & Điều 28 Luật Sở hữu trí tuệ 2005 (sửa đổi 2022) và Nghị định 131/2013/NĐ-CP. Hành vi sao chép, sử dụng phần mềm máy tính không có bản quyền phục vụ hoạt động kinh doanh bị phạt tiền từ 15 đến 35 triệu đồng và buộc gỡ bỏ.',
+    verificationUrl: 'https://dulieuphapluat.vn/van-ban/so-huu-tri-tue-van-ban/luat-so-huu-tri-tue-2005-300645.html',
+    options: [
+      'Toàn bộ phần mềm kế toán, văn phòng và hình ảnh quảng cáo đều có bản quyền/hóa đơn mua hợp pháp',
+      'Sử dụng các giải pháp phần mềm mã nguồn mở miễn phí hoặc gói dịch vụ thuê bao chính hãng',
+      'Có một số máy tính dùng phần mềm crack hoặc lấy hình ảnh trên mạng chưa xin phép bản quyền',
+      'Chưa rà soát bản quyền phần mềm và tài sản số trong doanh nghiệp'
+    ],
+    severity: 'medium',
+  });
 
   return questions;
 }
@@ -1154,12 +1489,22 @@ export function generateComplianceArtifacts(
       factGroup = 'revenue_invoices';
     } else if (q.moduleId === 'MODULE_LABOR_HR') {
       factGroup = 'hr_labor';
-    } else if (q.moduleId === 'MODULE_LICENSING_ATTP' || q.moduleId === 'MODULE_ECOM_DATA_PRIVACY') {
-      factGroup = 'operations';
-    } else if (q.branchLabel?.includes('Pháp lý')) {
+    } else if (q.moduleId === 'MODULE_PREMISES_PCCC') {
+      factGroup = 'premises';
+    } else if (q.moduleId === 'MODULE_CONTRACTS') {
+      factGroup = 'contracts';
+    } else if (q.moduleId === 'MODULE_DATA_IP' || q.moduleId === 'MODULE_ECOM_DATA_PRIVACY') {
+      factGroup = 'tech_data';
+    } else if (q.moduleId === 'MODULE_LICENSING_ATTP' || q.moduleId === 'MODULE_LICENSING_CON') {
+      factGroup = 'conditional_licensing';
+    } else if (q.moduleId === 'MODULE_LEGAL_CORP' || q.id === 'q_corp_capital_90d' || q.id === 'q_corp_amend_10d' || q.id === 'q_corp_member_register_book') {
       factGroup = 'legal';
     } else if (q.branchType === 'labor_scale') {
       factGroup = 'hr_labor';
+    } else if (q.branchType === 'company_type') {
+      factGroup = 'legal';
+    } else {
+      factGroup = 'operations';
     }
 
     contextFacts.push({

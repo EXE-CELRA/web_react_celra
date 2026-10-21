@@ -125,11 +125,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       const mems = Array.isArray(membershipsRes) ? membershipsRes : [];
       let activeOrgId = localStorage.getItem('celra_active_org_id');
-      if (!activeOrgId && mems.length > 0) {
-        activeOrgId = mems[0].id || mems[0].organizationId;
-        if (activeOrgId) {
-          localStorage.setItem('celra_active_org_id', activeOrgId);
-        }
+      const orgIsValid = activeOrgId !== null && mems.some((m: any) => (m.organizationId || m.organization?.id || m.id) === activeOrgId);
+      if (!orgIsValid) {
+        activeOrgId = mems.length > 0 ? (mems[0].organizationId || mems[0].organization?.id) : null;
+        if (activeOrgId) localStorage.setItem('celra_active_org_id', activeOrgId);
+        else localStorage.removeItem('celra_active_org_id');
       }
 
       set({
