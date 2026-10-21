@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Form, Input, Select, Upload, message } from 'antd';
+import { Modal, Form, Input, Select, Upload, message, Alert } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import apiClient from '../../api/client';
 
@@ -39,7 +39,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
       await apiClient.post('/evidence-documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      message.success('Tải lên tài liệu chứng từ thành công!');
+      message.success('Đã tải lên và lưu vào Context Doanh Nghiệp thành công!');
       form.resetFields();
       setFileList([]);
       onSuccess();
@@ -53,7 +53,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
 
   return (
     <Modal
-      title="Tải Lên Hồ Sơ / Chứng Từ Minh Chứng"
+      title="Tải Lên Hồ Sơ / Chứng Từ & Lưu Context Doanh Nghiệp"
       open={visible}
       onCancel={onClose}
       onOk={() => form.submit()}
@@ -63,6 +63,12 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
       destroyOnClose
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Alert
+          type="info"
+          showIcon
+          message="Hồ sơ / chứng từ tải lên sẽ được hệ thống lưu lại và tự động cập nhật vào dữ liệu Context Doanh Nghiệp."
+          style={{ marginBottom: 16 }}
+        />
         <Form.Item
           name="title"
           label="Tên tài liệu / Tiêu đề chứng từ"

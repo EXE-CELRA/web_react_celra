@@ -217,6 +217,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     if (!query || loading) return;
 
     setInputText('');
+    // eslint-disable-next-line react-hooks/purity
     const userMsgId = `usr-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
@@ -247,6 +248,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         ctaButton?: { text: string; action: string };
         proposedChecklists?: ProposedChecklistItem[];
       };
+      // eslint-disable-next-line react-hooks/purity
       const aiMsgId = res.messageId || `ai-${Date.now()}`;
       const replyContent = res.content || res.answer || 'Đã ghi nhận câu hỏi và xử lý dữ liệu tuân thủ.';
 
@@ -475,7 +477,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       }}
     >
       {/* DRAWER HEADER */}
-      <div className="p-4 bg-gradient-to-r from-teal-900 via-slate-900 to-teal-950 text-white flex items-center justify-between border-b border-teal-800/50 shrink-0 shadow-xs">
+      <div className="p-4 bg-linear-to-r from-teal-900 via-slate-900 to-teal-950 text-white flex items-center justify-between border-b border-teal-800/50 shrink-0 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="p-2 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-400/40">
@@ -571,7 +573,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                 <div
                   className={`p-4 rounded-2xl text-xs sm:text-sm shadow-xs space-y-2.5 leading-relaxed ${
                     isUser
-                      ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-tr-none'
+                      ? 'bg-linear-to-r from-teal-600 to-emerald-600 text-white rounded-tr-none'
                       : 'bg-white text-slate-900 border border-slate-200/90 rounded-tl-none'
                   }`}
                 >
@@ -593,7 +595,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
                   {/* VẤN ĐỀ 2: UPSELL CARD KHI PHÁT HIỆN HỎI QUÉT LỖI DN */}
                   {msg.actionType === 'open_compliance_audit' && (
-                    <div className="mt-3 p-3.5 bg-gradient-to-r from-teal-50 via-emerald-50 to-teal-50 border-2 border-teal-500/40 rounded-xl space-y-2 shadow-xs">
+                    <div className="mt-3 p-3.5 bg-linear-to-r from-teal-50 via-emerald-50 to-teal-50 border-2 border-teal-500/40 rounded-xl space-y-2 shadow-xs">
                       <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-teal-600 text-white rounded-lg">
                           <ShieldCheck className="w-4 h-4" />
@@ -610,7 +612,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
                       <button
                         onClick={handleOpenAudit}
-                        className="w-full py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02]"
+                        className="w-full py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02]"
                       >
                         <ShieldCheck className="w-4 h-4 text-emerald-200" />
                         <span>Mở Rà soát Tuân thủ ngay</span>
@@ -755,7 +757,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
             disabled={!inputText.trim() || loading}
             className={`p-2.5 rounded-xl text-white transition-all cursor-pointer shadow-xs ${
               inputText.trim() && !loading
-                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700'
+                ? 'bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
             title="Gửi câu hỏi"

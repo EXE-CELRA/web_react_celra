@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { ContextComplianceAuditModal } from '../../components/common/ContextComplianceAuditModal';
 import type { ContextFact } from '../../types';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import apiClient from '../../api/client';
 import { 
   Database, 
   AlertCircle, 
@@ -22,7 +26,10 @@ import {
   HardDrive,
   Plus
 } from 'lucide-react';
-import { message, Modal, Form, Input, Select } from 'antd';
+import { message, Modal, Form, Input, Select, Tooltip } from 'antd';
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const ENABLED_CONTEXT_GROUP_KEYS = ['tax_accounting', 'legal'];
 
 export interface ContextGroupConfig {
   key: string;
@@ -33,6 +40,7 @@ export interface ContextGroupConfig {
   badgeClass: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const CONTEXT_GROUPS: ContextGroupConfig[] = [
   {
     key: 'tax_accounting',
@@ -136,17 +144,11 @@ export const ContextPage: React.FC = () => {
     fetchFacts();
   }, []);
 
-  // Danh mục Thẻ Thuế & Hóa Đơn Dòng Tiền (Bao gồm đầy đủ q_tax_corp_1, q_tax_corp_2, q_tax_corp_3, q_tax_salary_1, v.v...)
-  const taxFacts = facts.filter((f) => f.group === 'tax_accounting' || f.group === 'revenue_invoices');
-
-  // 4 thẻ Hồ sơ nền tảng (MST, Loại hình, Quy mô nhân sự, Ngành nghề)
-  const baseFacts = facts.filter((f) => f.group === 'legal' || f.group === 'operations');
-
-  // Tab Tất cả = Toàn bộ các thẻ thực tế từ DB của doanh nghiệp
-  const allDisplayFacts = facts.length > 0 ? facts : [...baseFacts, ...taxFacts];
-
-  // Khi chọn Tab 'all': hiển thị tất cả thẻ; Khi chọn 'tax_accounting': hiển thị các thẻ thuộc Thuế & Hóa đơn
-  const filteredFacts = selectedTab === 'all' ? allDisplayFacts : taxFacts;
+// Lọc dữ kiện: Chỉ hiển thị dữ kiện thuộc 2 phân hệ đang mở (Thuế & Pháp lý)
+  const enabledFacts = facts.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
+  const filteredFacts = selectedTab === 'all'
+    ? enabledFacts
+    : enabledFacts.filter((f) => f.group === selectedTab);
   // Group metadata helper for module classification
   const getGroupMeta = (group: string) => {
     const found = CONTEXT_GROUPS.find((g) => g.key === group);
@@ -285,6 +287,7 @@ export const ContextPage: React.FC = () => {
       message.success(`Đã cập nhật dữ kiện "${editingFact.label}" thành công!`);
       setEditingFact(null);
       fetchFacts();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       message.error(err.message || 'Lỗi khi cập nhật dữ kiện');
     }
@@ -297,6 +300,7 @@ export const ContextPage: React.FC = () => {
       message.success(`Đã thống nhất thông tin cho "${conflictFact.label}"!`);
       setConflictFact(null);
       fetchFacts();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       message.error(err.message || 'Lỗi khi thống nhất thông tin');
     }
@@ -333,7 +337,7 @@ export const ContextPage: React.FC = () => {
               setAuditTargetFactId(null);
               setShowAuditModal(true);
             }}
-            className="px-4 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
+            className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
             title="Rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
@@ -370,9 +374,28 @@ export const ContextPage: React.FC = () => {
 
         {/* 9 NHÓM CONTEXT DYNAMIC TỪ DATABASE */}
         {CONTEXT_GROUPS.map((g) => {
+          const isEnabled = ENABLED_CONTEXT_GROUP_KEYS.includes(g.key);
           const count = facts.filter((f) => f.group === g.key).length;
           const isSelected = selectedTab === g.key;
           const IconComponent = g.icon;
+
+          if (!isEnabled) {
+            return (
+              <Tooltip key={g.key} title="Phân hệ tạm khóa theo lộ trình, hiện tại chỉ mở Thuế & Hồ sơ pháp lý">
+                <button
+                  type="button"
+                  disabled
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100/90 border border-slate-200 text-slate-400 opacity-60 cursor-not-allowed select-none transition-all"
+                >
+                  <IconComponent className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{g.label}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 font-medium">
+                    Tạm khóa
+                  </span>
+                </button>
+              </Tooltip>
+            );
+          }
 
           return (
             <button
@@ -427,7 +450,7 @@ export const ContextPage: React.FC = () => {
                 createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'tax_accounting' });
                 setIsCreateModalOpen(true);
               }}
-              className="px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+              className="px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
               Thêm dữ kiện cho nhóm này
@@ -507,7 +530,9 @@ export const ContextPage: React.FC = () => {
                     <span>
                       {fact.providedAt 
                         ? new Date(fact.providedAt).toLocaleString('vi-VN') 
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         : (fact as any).createdAt 
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         ? new Date((fact as any).createdAt).toLocaleString('vi-VN') 
                         : 'Mới cập nhật'}
                     </span>
@@ -566,8 +591,8 @@ export const ContextPage: React.FC = () => {
       )}
 
       {/* History Modal */}
-      {activeFactForHistory && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+      {activeFactForHistory && createPortal(
+        <div style={{ zIndex: 2000 }} className="fixed inset-0 z-2000 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -607,12 +632,13 @@ export const ContextPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Value Modal */}
-      {editingFact && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+      {editingFact && createPortal(
+        <div style={{ zIndex: 2000 }} className="fixed inset-0 z-[2000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-xs">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900">
@@ -661,50 +687,76 @@ export const ContextPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Conflict Resolution Modal */}
-      {conflictFact && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-xs">
+      {conflictFact && createPortal(
+        <div style={{ zIndex: 2000 }} className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-xs">
             <div className="flex items-center justify-between border-b pb-3 text-rose-900">
               <h3 className="text-sm font-bold flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-rose-600" />
-                Đối chiếu &amp; Thống nhất thông tin mâu thuẫn
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>Đối chiếu &amp; Thống nhất dữ liệu mâu thuẫn</span>
               </h3>
               <button onClick={() => setConflictFact(null)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-slate-600">
-              Nhập giá trị thống nhất cuối cùng sau khi đã trao đổi giữa Chủ doanh nghiệp và Phòng ban/Kế toán:
-            </p>
+            <div className="space-y-1">
+              <span className="font-bold text-slate-800 text-xs">{conflictFact.label}</span>
+            </div>
 
-            <textarea
-              rows={3}
-              value={agreedValue}
-              onChange={(e) => setAgreedValue(e.target.value)}
-              className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-teal-500 font-semibold"
-            />
+            {/* Chi tiết cảnh báo mâu thuẫn */}
+            {conflictFact.conflictDetails && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-1">
+                <div className="font-bold text-[11px] text-rose-900 flex items-center gap-1">
+                  <span>⚠️ Căn cứ phát hiện mâu thuẫn:</span>
+                </div>
+                <p className="text-[11px] leading-relaxed m-0">{conflictFact.conflictDetails}</p>
+              </div>
+            )}
+
+            {/* Giá trị đang lưu */}
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+              <span className="text-[11px] text-slate-500 font-semibold">Giá trị hiện tại đang ghi nhận:</span>
+              <div className="font-bold text-slate-800 text-xs">
+                {conflictFact.currentValue || 'Chưa có'}
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">
+                Nhập hoặc chọn giá trị chính thức đã thống nhất:
+              </label>
+              <textarea
+                rows={3}
+                value={agreedValue}
+                onChange={(e) => setAgreedValue(e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-teal-500 font-semibold"
+                placeholder="Nhập giá trị thống nhất cuối cùng..."
+              />
+            </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t">
               <button
                 onClick={() => setConflictFact(null)}
-                className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium cursor-pointer"
               >
-                Hủy
+                Hủy bỏ
               </button>
               <button
                 onClick={handleResolveConflict}
-                className="px-4 py-1.5 bg-teal-600 text-white rounded-lg font-bold hover:bg-teal-700 shadow-xs cursor-pointer"
+                className="px-5 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl font-bold shadow-xs cursor-pointer"
               >
-                Xác nhận thống nhất
+                Xác nhận thống nhất &amp; Xóa cảnh báo
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Context Compliance Audit Modal */}

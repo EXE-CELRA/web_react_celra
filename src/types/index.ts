@@ -8,6 +8,19 @@ export type RoleType =
   | 'VERIFIER_EXPERT'
   | 'AUDITOR';
 
+export type StatutoryCycleType =
+  | 'MONTHLY'          // 1. Hàng tháng (Hạn ngày 20)
+  | 'QUARTERLY'        // 2. Hàng quý (30/04, 31/07, 31/10, 31/01)
+  | 'BIANNUAL_6M'      // 3. 6 Tháng / Bán niên (05/06, 05/12)
+  | 'ANNUAL'           // 4. Cả năm (30/01 môn bài, 31/03 quyết toán BCTC)
+  | 'EVENT_10D'        // 5. Từng lần phát sinh 10 ngày (Thuế nhà thầu FCT, ĐK NQLĐ)
+  | 'EVENT_20D'        // 6. Đợt 20 ngày (Chuyển kỳ kê khai theo NĐ 126/2020)
+  | 'EVENT_45D'        // 7. Đợt 45 ngày (Quyết toán giải thể, chia tách)
+  | 'EVENT_3D'         // 8. Đợt 03 ngày làm việc (Tạm ngừng / HĐĐT sai sót)
+  | 'EVENT_10D_BIZ'    // 9. Đợt 10 ngày làm việc (Đổi ĐKKD & Thông tin thuế)
+  | 'EVENT_90D'        // 10. Đợt 90 ngày (Hạn góp đủ vốn điều lệ ban đầu)
+  | 'EVENT_30D_CAPITAL'; // 11. Đợt 30 ngày (Đăng ký giảm vốn điều lệ sau 90 ngày)
+
 export type CompanyTypeTag = 'TAG_HKD' | 'TAG_TNHH_1TV' | 'TAG_TNHH_2TV' | 'TAG_JSC';
 
 export type IndustryTag = 
@@ -53,17 +66,38 @@ export interface Checklist {
   code: string;
   title: string;
   category: string;
-  priority: Priority;
+  priority?: Priority;
   status: string;
-  generatedFromRuleId: string;
-  ruleCode: string;
-  contextReason: string;
-  legalBasis: string;
-  assigneeRole?: any;
+  itemCount?: number;
+  totalTasks?: number;
+  completedTasks?: number;
+  progressPercent?: number;
   createdAt?: string;
   items?: any[];
   tasks?: any[];
   [key: string]: any;
+}
+
+export interface ChecklistItem {
+  id: string;
+  checklistId: string;
+  findingId?: string;
+  ruleCode: string;
+  title: string;
+  cycleType: StatutoryCycleType;
+  departmentId?: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  assigneeRole?: string;
+  defaultPriority?: Priority;
+  legalBasis: string;
+  legalDocUrl?: string;
+  evidenceRequirement?: string;
+  eventDate?: string | null;
+  isActive: boolean;
+  lastGeneratedPeriod?: string;
+  nextDueDate?: string | null;
+  createdAt?: string;
 }
 
 export interface Task {
@@ -86,8 +120,25 @@ export interface Task {
   contextTrigger?: string;
   ruleCode?: string;
   legalBasis?: string;
+  periodCycle?: StatutoryCycleType;
+  periodKey?: string;
   documents?: any[];
   [key: string]: any;
+}
+
+export interface ComplianceNotification {
+  id: string;
+  organizationId: string;
+  userId: string;
+  taskId?: string | null;
+  milestone: 'BEFORE_7D' | 'BEFORE_3D' | 'BEFORE_1D' | 'DUE_TODAY' | 'OVERDUE';
+  title: string;
+  message: string;
+  linkUrl?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  dueDateVersion?: string | null;
+  createdAt: string;
 }
 
 export interface DynamicSituationQuestion {
@@ -119,9 +170,16 @@ export type TaskStatus =
   | 'VERIFIED'
   | 'OVERDUE'
   | 'COMPLETED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'need_info'
+  | 'pending_assignee'
+  | 'in_progress'
+  | 'waiting_verification'
+  | 'need_expert'
+  | 'completed'
+  | 'cancelled';
 
-export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'urgent' | 'high' | 'medium' | 'low';
 
 export type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 
@@ -225,26 +283,40 @@ export interface ContextFactHistory {
 
 export interface TaskItem {
   id: string;
+  code?: string;
   organizationId: string;
+  checklistId?: string;
+  checklistItemId?: string;
   title: string;
   description?: string;
   category: string;
-  periodCycle?: string;
+  periodCycle?: StatutoryCycleType | string;
+  periodKey?: string;
   periodLabel?: string;
   priority: TaskPriority;
   status: TaskStatus;
-  assigneeRole: RoleType;
-  waitingOnRole?: RoleType;
+  assigneeRole: RoleType | string;
+  assigneeName?: string;
+  waitingOnRole?: RoleType | string;
+  waitingOnName?: string;
   dueDate?: string;
+  eventDate?: string;
   legalCitation?: string;
+  legalBasis?: string;
+  ruleCode?: string;
   estimatedCost?: number;
-  isEscalated: boolean;
+  isEscalated?: boolean;
   assignedUserId?: string;
   departmentId?: string;
+  departmentName?: string;
   createdAt: string;
   updatedAt: string;
   evidenceCount?: number;
   commentsCount?: number;
+  documents?: any[];
+  comments?: any[];
+  timeline?: any[];
+  calculationBasisJson?: any;
 }
 
 export interface TaskComment {
@@ -373,4 +445,25 @@ export interface SurveyQuestion {
   inputType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'NUMBER' | 'BOOLEAN' | 'TEXT';
   options?: Array<{ label: string; value: any }>;
   currentAnswer?: any;
+}
+
+
+export interface CalendarNote {
+  id: string;
+  organizationId: string;
+  date: string; // YYYY-MM-DD
+  title: string;
+  content?: string;
+  category: 'general' | 'tax' | 'labor' | 'legal' | 'reminder';
+  authorId?: string;
+  authorName?: string;
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  author?: {
+    id: string;
+    name: string;
+    role: string;
+    avatar?: string;
+  };
 }

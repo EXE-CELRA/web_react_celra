@@ -24,6 +24,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   cardMaxWidth = 460,
 }) => {
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth < 992);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 992);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div
@@ -42,7 +51,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
       <header
         style={{
           height: 72,
-          padding: '0 48px',
+          padding: isMobile ? '0 16px' : '0 48px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -109,7 +118,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           backgroundColor: 'transparent',
           display: 'flex',
           alignItems: 'center',
-          padding: '24px 48px',
+          padding: isMobile ? '16px' : '24px 48px',
           position: 'relative',
         }}
       >
@@ -117,7 +126,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <Row gutter={[48, 24]} align="middle">
             {/* Cột trái: Thông điệp thương hiệu (nâng cao lên khớp với khoảng trắng nền) */}
             <Col xs={24} lg={13} xl={13}>
-              <div style={{ maxWidth: 540, marginTop: -240, marginBottom: 20 }}>
+              <div style={{ maxWidth: 540, marginTop: isMobile ? 0 : -240, marginBottom: isMobile ? 24 : 20 }}>
                 {/* Vạch ngang điểm nhấn màu vàng đồng hoàng gia */}
                 <div
                   style={{
@@ -148,7 +157,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                 <Title
                   level={1}
                   style={{
-                    fontSize: 42,
+                    fontSize: isMobile ? 28 : 42,
                     fontWeight: 850,
                     lineHeight: 1.22,
                     color: '#0b2545',
