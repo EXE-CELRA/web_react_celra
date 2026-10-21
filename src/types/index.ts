@@ -164,6 +164,7 @@ export interface Organization {
   taxCode: string;
   industry?: string;
   scale?: string;
+  employeeCount?: number;
   address?: string;
   city?: string;
   status: string;
