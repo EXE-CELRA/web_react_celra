@@ -1,11 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { ContextComplianceAuditModal } from '../../components/common/ContextComplianceAuditModal';
 import type { ContextFact } from '../../types';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import apiClient from '../../api/client';
 import { 
   Database, 
   AlertCircle, 
