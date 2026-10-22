@@ -2,28 +2,28 @@ import React from 'react';
 import { Tag } from 'antd';
 import type { TaskStatus, TaskPriority, RiskSeverity, VerificationStatus } from '../../types';
 
-export const TaskStatusTag: React.FC<{ status: TaskStatus }> = ({ status }) => {
-  const map: Record<TaskStatus, { color: string; text: string }> = {
-    TODO: { color: 'default', text: 'Chờ xử lý' },
-    IN_PROGRESS: { color: 'processing', text: 'Đang thực hiện' },
-    WAITING_DOCUMENT: { color: 'warning', text: 'Chờ chứng từ' },
-    WAITING_VERIFICATION: { color: 'purple', text: 'Chờ thẩm định' },
-    VERIFIED: { color: 'cyan', text: 'Đã thẩm định' },
-    OVERDUE: { color: 'error', text: 'Quá hạn' },
-    COMPLETED: { color: 'success', text: 'Hoàn thành' },
-    CANCELLED: { color: 'default', text: 'Đã hủy' },
-  };
-
-  const item = map[status] || { color: 'default', text: status };
-  return <Tag color={item.color}>{item.text}</Tag>;
+export const TaskStatusTag: React.FC<{ status: TaskStatus | string }> = ({ status }) => {
+  const s = String(status || '').toLowerCase();
+  if (s === 'completed' || s === 'done' || s === 'verified') {
+    return <Tag color="success">Hoàn thành</Tag>;
+  }
+  if (s === 'in_progress' || s === 'waiting_document' || s === 'waiting_verification' || s === 'need_expert') {
+    return <Tag color="processing">Đang thực hiện</Tag>;
+  }
+  return <Tag color="blue">Mới</Tag>;
 };
 
 export const PriorityTag: React.FC<{ priority: TaskPriority }> = ({ priority }) => {
-  const map: Record<TaskPriority, { color: string; text: string }> = {
+  const map: Record<string, { color: string; text: string }> = {
     LOW: { color: 'blue', text: 'Thấp' },
     MEDIUM: { color: 'gold', text: 'Trung bình' },
     HIGH: { color: 'orange', text: 'Cao' },
     CRITICAL: { color: 'red', text: 'Khẩn cấp' },
+    // Backend lowercase mappings:
+    low: { color: 'blue', text: 'Thấp' },
+    medium: { color: 'gold', text: 'Trung bình' },
+    high: { color: 'orange', text: 'Cao' },
+    urgent: { color: 'red', text: 'Khẩn cấp' },
   };
 
   const item = map[priority] || { color: 'default', text: priority };

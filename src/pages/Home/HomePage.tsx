@@ -16,6 +16,15 @@ const { Title, Paragraph } = Typography;
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
+  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#fff', color: '#1f1f1f' }}>
@@ -23,7 +32,7 @@ export const HomePage: React.FC = () => {
       <header
         style={{
           height: 76,
-          padding: '0 48px',
+          padding: isMobile ? '0 16px' : '0 48px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -126,7 +135,7 @@ export const HomePage: React.FC = () => {
       <section
         style={{
           position: 'relative',
-          padding: '128px 48px 56px',
+          padding: isMobile ? '96px 16px 40px' : '128px 48px 56px',
           backgroundImage: `url(${heroBg})`,
           backgroundPosition: 'center center',
           backgroundSize: 'cover',
@@ -143,7 +152,7 @@ export const HomePage: React.FC = () => {
             <Title
               level={1}
               style={{
-                fontSize: 54,
+                fontSize: isMobile ? 32 : 54,
                 fontWeight: 850,
                 lineHeight: 1.25,
                 color: '#091e42',

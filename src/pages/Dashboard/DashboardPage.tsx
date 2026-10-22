@@ -183,7 +183,7 @@ export const DashboardPage: React.FC = () => {
                 <Button
                   type="primary"
                   size="small"
-                  icon={<ThunderboltOutlined />}
+                icon={<ThunderboltOutlined />}
                   onClick={handleOpenMicroSurvey}
                   style={{ backgroundColor: '#fa541c', borderColor: '#fa541c', fontWeight: 600 }}
                 >
@@ -345,6 +345,7 @@ export const DashboardPage: React.FC = () => {
                 rowKey="id"
                 pagination={false}
                 size="small"
+                scroll={{ x: 'max-content' }}
                 columns={[
                   {
                     title: 'Tên nghĩa vụ',

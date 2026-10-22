@@ -181,6 +181,7 @@ export const EvidencePage: React.FC = () => {
           columns={columns}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 'max-content' }}
           pagination={{ pageSize: 10 }}
         />
       </Card>

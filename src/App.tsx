@@ -9,6 +9,7 @@ import { SurveyPage } from './pages/Survey/SurveyPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { ContextPage } from './pages/Context/ContextPage';
 import { TasksPage } from './pages/Tasks/TasksPage';
+import { ComplianceCalendarPage } from './pages/Tasks/ComplianceCalendarPage';
 import { EvidencePage } from './pages/Evidence/EvidencePage';
 import { WalletPage } from './pages/Wallet/WalletPage';
 import { MobileSandboxPaymentPage } from './pages/Payment/MobileSandboxPaymentPage';
@@ -30,7 +31,7 @@ export const App: React.FC = () => {
           colorPrimary: '#1677ff',
           borderRadius: 8,
           fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif",
         },
       }}
     >
@@ -55,6 +56,7 @@ export const App: React.FC = () => {
               <Route path="/survey" element={<SurveyPage />} />
               <Route path="/onboarding" element={<Navigate to="/survey" replace />} />
               <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/tasks/calendar" element={<ComplianceCalendarPage />} />
               <Route path="/checklists" element={<Navigate to="/tasks" replace />} />
               <Route path="/evidence" element={<EvidencePage />} />
               <Route path="/wallet" element={<WalletPage />} />

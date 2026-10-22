@@ -370,6 +370,7 @@ export const WalletPage: React.FC = () => {
           columns={columns}
           rowKey={(record: any) => record.id || record.code || Math.random().toString()}
           loading={isLoading}
+          scroll={{ x: 'max-content' }}
           pagination={{ pageSize: 10 }}
           onRow={(record) => ({
             onClick: () => {

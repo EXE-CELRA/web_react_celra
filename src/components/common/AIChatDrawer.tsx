@@ -2,21 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Drawer, message as antMessage } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
+import { useOrgStore } from '../../store/useOrgStore';
+import { useContextStore } from '../../store/useContextStore';
+import { StructuredAIMessage } from './StructuredAIMessage';
 import { 
   Bot, 
   User, 
   Send, 
-  BookOpen, 
   Sparkles, 
   ShieldCheck, 
   CheckCircle2, 
   ArrowRight, 
-  PlusCircle,
-  X,
-  RefreshCw,
-  ExternalLink
+  PlusCircle, 
+  X, 
+  RefreshCw, 
+  Maximize2, 
+  Minimize2 
 } from 'lucide-react';
-
 interface CitationItem {
   title: string;
   docNumber: string;
@@ -41,7 +43,8 @@ interface MessageItem {
   sender: 'USER' | 'AI';
   text: string;
   citations?: CitationItem[];
-  actionType?: 'info' | 'open_compliance_audit' | 'task_proposal';
+  actionType?: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit';
+  isEnterpriseQuery?: boolean;
   ctaButton?: {
     text: string;
     action: string;
@@ -55,6 +58,39 @@ interface AIChatDrawerProps {
   onClose: () => void;
   onOpenAuditModal?: () => void;
 }
+const CHAT_STORAGE_KEY = 'celra_chat_history';
+
+function loadChatHistory(orgId?: string): MessageItem[] | null {
+  try {
+    const key = orgId ? `${CHAT_STORAGE_KEY}_${orgId}` : CHAT_STORAGE_KEY;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed as MessageItem[];
+  } catch {
+    return null;
+  }
+}
+
+function saveChatHistory(messages: MessageItem[], orgId?: string): void {
+  try {
+    const key = orgId ? `${CHAT_STORAGE_KEY}_${orgId}` : CHAT_STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify(messages));
+  } catch {
+    // Storage full or unavailable — silently fail, chat still works
+  }
+}
+
+function clearChatHistory(orgId?: string): void {
+  try {
+    const key = orgId ? `${CHAT_STORAGE_KEY}_${orgId}` : CHAT_STORAGE_KEY;
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
 
 import { cleanDLPLUrl, matchCoreLegalDocUrl, CORE_LEGAL_DOC_LINKS } from '../../api/legalApi';
 
@@ -79,46 +115,77 @@ function resolveCitationUrl(c: CitationItem): string {
 export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ 
   visible, 
   onClose,
-  onOpenAuditModal 
+  onOpenAuditModal,
 }) => {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<MessageItem[]>([
-    {
-      id: 'welcome-msg',
-      sender: 'AI',
-      text: 'Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi thấu hiểu bối cảnh dữ liệu của công ty bạn và sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật F&B.',
-      citations: [
-        { 
-          title: 'Nghị định 252/2026/NĐ-CP', 
-          docNumber: '252/2026/NĐ-CP', 
-          articleNumber: 'Tạm nộp TNDN 80%',
-          sourceUrl: CORE_LEGAL_DOC_LINKS['252/2026']
-        },
-        { 
-          title: 'Nghị định 126/2020/NĐ-CP', 
-          docNumber: '126/2020/NĐ-CP', 
-          articleNumber: 'Kê khai thuế',
-          sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020']
-        },
-        { 
-          title: 'Thông tư 96/2015/TT-BTC', 
-          docNumber: '96/2015/TT-BTC', 
-          articleNumber: 'Chi phí lương',
-          sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015']
-        },
-      ],
-      actionType: 'info',
-    },
-  ]);
+  const { activeOrg } = useOrgStore();
+  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+    return localStorage.getItem('celra_chat_expanded') === 'true';
+  });
+  const [messages, setMessages] = useState<MessageItem[]>(() => {
+    const orgId = localStorage.getItem('celra_active_org_id') || undefined;
+    return loadChatHistory(orgId) ?? [
+      {
+        id: 'welcome-msg',
+        sender: 'AI',
+        text: 'Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh Nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi thấu hiểu bối cảnh dữ liệu của công ty bạn và sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật F&B.',
+        citations: [
+          { 
+            title: 'Nghị định 91/2022/NĐ-CP', 
+            docNumber: '91/2022/NĐ-CP', 
+            articleNumber: 'Tạm nộp TNDN 80%',
+            sourceUrl: CORE_LEGAL_DOC_LINKS['91/2022']
+          },
+          { 
+            title: 'Nghị định 126/2020/NĐ-CP', 
+            docNumber: '126/2020/NĐ-CP', 
+            articleNumber: 'Kê khai thuế',
+            sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020']
+          },
+          { 
+            title: 'Thông tư 96/2015/TT-BTC', 
+            docNumber: '96/2015/TT-BTC', 
+            articleNumber: 'Chi phí lương',
+            sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015']
+          },
+        ],
+        actionType: 'info',
+      },
+    ];
+  });
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [acceptedProposals, setAcceptedProposals] = useState<Record<string, boolean>>({});
   const [isAccepting, setIsAccepting] = useState<Record<string, boolean>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
+  };
+
+  // Cuộn ngay xuống câu hỏi mới nhất khi Drawer mở ra
+  useEffect(() => {
+    if (visible) {
+      // Đợi Drawer animation hoàn tất rồi cuộn xuống đáy
+      const timer1 = setTimeout(() => scrollToBottom('auto'), 80);
+      const timer2 = setTimeout(() => scrollToBottom('smooth'), 250);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [visible]);
+
+  // Tự động cuộn xuống khi có tin nhắn mới hoặc AI đang phản hồi
+  useEffect(() => {
+    scrollToBottom('smooth');
+  }, [messages, loading]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    const orgId = localStorage.getItem('celra_active_org_id') || undefined;
+    saveChatHistory(messages, orgId);
+  }, [messages]);
 
   // Danh mục câu hỏi gợi ý nhanh (Quick Prompts)
   const quickPrompts = [
@@ -150,6 +217,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     if (!query || loading) return;
 
     setInputText('');
+    // eslint-disable-next-line react-hooks/purity
     const userMsgId = `usr-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
@@ -163,13 +231,36 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     setLoading(true);
 
     try {
-      const res: any = await apiClient.post('/ai-assistant/chat', { 
+      const res = (await apiClient.post('/ai-assistant/chat', {
         message: query,
-        question: query 
-      });
-
+        question: query,
+        history: messages.slice(-10).map(m => ({
+          role: m.sender === 'USER' ? 'user' : 'assistant',
+          content: m.text,
+        })),
+      })) as {
+        messageId?: string;
+        content?: string;
+        answer?: string;
+        citations?: CitationItem[];
+        actionType?: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit';
+        isEnterpriseQuery?: boolean;
+        ctaButton?: { text: string; action: string };
+        proposedChecklists?: ProposedChecklistItem[];
+      };
+      // eslint-disable-next-line react-hooks/purity
       const aiMsgId = res.messageId || `ai-${Date.now()}`;
-      const replyContent = res.content || res.answer || 'Đã ghi nhận thông tin từ bạn.';
+      const replyContent = res.content || res.answer || 'Đã ghi nhận câu hỏi và xử lý dữ liệu tuân thủ.';
+
+      const validActionType: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit' =
+        res.actionType === 'enterprise_audit' || res.actionType === 'open_compliance_audit' || res.actionType === 'task_proposal'
+          ? res.actionType
+          : 'info';
+
+      const isEnterprise = Boolean(
+        res.isEnterpriseQuery ||
+        validActionType === 'enterprise_audit'
+      );
 
       setMessages((prev) => [
         ...prev,
@@ -178,19 +269,32 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           sender: 'AI',
           text: replyContent,
           citations: res.citations || [],
-          actionType: res.actionType || 'info',
+          actionType: validActionType,
+          isEnterpriseQuery: isEnterprise,
           ctaButton: res.ctaButton,
           proposedChecklists: res.proposedChecklists || [],
           timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
-    } catch (err: any) {
+
+      // Nếu là tin nhắn xác nhận thông tin, tự động làm mới store ContextFact của doanh nghiệp trên FE
+      if (query.toLowerCase().startsWith('xác nhận thông tin:') || query.toLowerCase().startsWith('xac nhan thong tin:')) {
+        useContextStore.getState().fetchFacts();
+      }
+    } catch (err: unknown) {
+      let backendMsg = 'Rất tiếc, đã có sự cố kết nối tới Engine Trợ lý AI. Vui lòng kiểm tra lại kết nối và thử lại.';
+      if (typeof err === 'string') {
+        backendMsg = err;
+      } else if (err && typeof err === 'object') {
+        const e = err as { message?: string; error?: string; response?: { data?: { message?: string } } };
+        backendMsg = e.response?.data?.message || e.message || e.error || backendMsg;
+      }
       setMessages((prev) => [
         ...prev,
         {
           id: `err-${Date.now()}`,
           sender: 'AI',
-          text: 'Rất tiếc, đã có sự cố kết nối tới Engine Trợ lý AI. Vui lòng kiểm tra lại kết nối và thử lại.',
+          text: backendMsg,
           actionType: 'info',
         },
       ]);
@@ -214,8 +318,9 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
       setAcceptedProposals((prev) => ({ ...prev, [proposal.id]: true }));
       antMessage.success(`🎉 Đã tạo thành công Checklist "${proposal.title}" vào hệ thống!`);
-    } catch (err: any) {
-      antMessage.error(err.message || 'Lỗi khi tạo Checklist từ đề xuất AI');
+    } catch (err: unknown) {
+      const e = err as { message?: string } | null;
+      antMessage.error(e?.message || 'Lỗi khi tạo Checklist từ đề xuất AI');
     } finally {
       setIsAccepting((prev) => ({ ...prev, [proposal.id]: false }));
     }
@@ -230,62 +335,149 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     }
   };
 
-  // Parser markdown đơn giản để in đậm và ngắt dòng đẹp mắt
-  const renderFormattedText = (rawText: string) => {
-    const lines = rawText.split('\n');
-    return lines.map((line, idx) => {
-      // In đậm cú pháp **text**
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      const formattedParts = parts.map((part, pIdx) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return (
-            <strong key={pIdx} className="font-bold text-slate-900">
-              {part.slice(2, -2)}
-            </strong>
-          );
-        }
-        if (part.startsWith('*') && part.endsWith('*')) {
-          return (
-            <em key={pIdx} className="italic text-teal-800">
-              {part.slice(1, -1)}
-            </em>
-          );
-        }
-        return part;
-      });
+  // Từ điển chuyển ngữ mã kỹ thuật Backend sang nhãn tiếng Việt trang nhã cho người dùng
+  const BE_FIELD_LABELS: Record<string, string> = {
+    q_tax_corp_2: 'Tạm nộp thuế TNDN (80%)',
+    q_tax_corp_3: 'Thanh toán không dùng tiền mặt (>20 triệu)',
+    q_tax_salary_1: 'Hồ sơ chi phí tiền lương & thuế TNCN',
+    q_tax_corp_1: 'Kê khai thuế GTGT/TNCN',
+    q_fnb_tax_1: 'Hóa đơn điện tử máy tính tiền',
+    q_fnb_tax_2: 'Đối soát doanh thu POS/QR',
+    q_fnb_tax_3: 'Chứng từ nguyên liệu thực phẩm',
+    q_ecom_tax_1: 'Đối soát sàn TMĐT (Shopee/TikTok)',
+    q_ecom_tax_2: 'Dòng tiền thu hộ COD',
+    q_ecom_tax_3: 'Hóa đơn đầu vào hàng online',
+    company_type_tag: 'Loại hình doanh nghiệp',
+    employee_scale: 'Quy mô nhân sự',
+    industry_tags: 'Ngành nghề kinh doanh',
+    tax_code: 'Mã số thuế',
+    APPLICABLE: 'Đã xác định nghĩa vụ áp dụng',
+    POSSIBLE: 'Có khả năng áp dụng nhưng chưa đủ dữ liệu',
+    NEEDS_VERIFICATION: 'Cần xác minh thông tin hoặc căn cứ',
+    NOT_APPLICABLE: 'Đã có căn cứ xác định không áp dụng',
+    COMPLETED: 'Có đủ bằng chứng xác nhận hoàn thành',
+    IN_PROGRESS: 'Đang thực hiện và có dữ liệu xác nhận',
+    OVERDUE: 'Đã xác định nghĩa vụ áp dụng, quá hạn và chưa hoàn thành theo dữ liệu đáng tin cậy',
+  };
 
-      // Kiểm tra dòng bullet
-      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+  // Parser định dạng thông minh: Xóa sạch toàn bộ ký tự thô (#, ##, ####, ****, *) và thay thế các mã trường kỹ thuật phía Backend
+  const renderFormattedText = (rawText?: string) => {
+    if (!rawText) return null;
+
+    // 1. Thay thế mã kỹ thuật Backend (q_tax_...) thành tiếng Việt dễ hiểu
+    let sanitizedText = rawText;
+    // Xóa tiền tố kỹ thuật dạng [Mã thẻ: q_...] hoặc [Mã: q_...]
+    sanitizedText = sanitizedText.replace(/\[?(?:Mã thẻ|Mã|Key):\s*([a-zA-Z0-9_]+)\]?/gi, (_, key) => {
+      return BE_FIELD_LABELS[key] || '';
+    });
+    // Thay thế độc lập các mã còn sót
+    Object.entries(BE_FIELD_LABELS).forEach(([k, v]) => {
+      sanitizedText = sanitizedText.replaceAll(k, v);
+    });
+
+    // 2. Tiền xử lý xóa sạch ký tự rác Markdown (dấu # thừa, 4 dấu sao ****)
+    sanitizedText = sanitizedText
+      .replace(/\*{4,}/g, '') // xóa các cụm **** thừa
+      .replace(/\*{3}(.*?)\*{3}/g, '**$1**'); // chuẩn hóa *** thành **
+
+    const lines = sanitizedText.split('\n');
+    return lines.map((line, idx) => {
+      const trimmed = line.trim();
+
+      // Xử lý dòng tiêu đề (#, ##, ###, #### hoặc dòng số 1. 2. 3. in hoa)
+      const headerMatch = trimmed.match(/^(?:#{1,6}\s*|\d+\.\s+)([^\n]+)$/);
+      const isExplicitHeader = trimmed.startsWith('#');
+
+      if (isExplicitHeader && headerMatch) {
+        // Xóa sạch mọi ký tự # và * trong tiêu đề
+        const cleanTitle = headerMatch[1].replace(/[#*]+/g, '').trim();
         return (
-          <div key={idx} className="flex items-start gap-2 my-0.5 pl-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 shrink-0" />
-            <span className="text-xs leading-relaxed text-slate-800">{formattedParts}</span>
+          <div
+            key={idx}
+            className="font-bold text-sm text-teal-950 border-b border-teal-100 pb-1 mt-3 mb-1.5"
+          >
+            {cleanTitle}
           </div>
         );
       }
 
+      // Dòng bình thường: Xóa bỏ mọi dấu # nếu có lọt vào giữa câu
+      const lineWithoutHash = line.replace(/#{1,6}\s*/g, '');
+
+      // Tokenizer bóc tách in đậm (**text**) và in nghiêng (*text*) sạch sẽ
+      const elements: React.ReactNode[] = [];
+      const tokenRegex = /(\*\*[^*]+?\*\*|\*[^*]+?\*)/g;
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = tokenRegex.exec(lineWithoutHash)) !== null) {
+        if (match.index > lastIndex) {
+          const plain = lineWithoutHash.substring(lastIndex, match.index).replace(/[*#]+/g, '');
+          elements.push(plain);
+        }
+        const matchedText = match[0];
+        if (matchedText.startsWith('**') && matchedText.endsWith('**')) {
+          const boldContent = matchedText.slice(2, -2).replace(/[*#]+/g, '').trim();
+          if (boldContent) {
+            elements.push(
+              <strong key={`b-${idx}-${match.index}`} className="font-bold text-slate-900">
+                {boldContent}
+              </strong>
+            );
+          }
+        } else if (matchedText.startsWith('*') && matchedText.endsWith('*')) {
+          const italicContent = matchedText.slice(1, -1).replace(/[*#]+/g, '').trim();
+          if (italicContent) {
+            elements.push(
+              <em key={`i-${idx}-${match.index}`} className="italic text-teal-800">
+                {italicContent}
+              </em>
+            );
+          }
+        }
+        lastIndex = tokenRegex.lastIndex;
+      }
+      if (lastIndex < lineWithoutHash.length) {
+        const tail = lineWithoutHash.substring(lastIndex).replace(/[*#]+/g, '');
+        elements.push(tail);
+      }
+
+      // Kiểm tra dòng gạch đầu dòng bullet (- hoặc *)
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        return (
+          <div key={idx} className="flex items-start gap-2 my-1 pl-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 shrink-0" />
+            <span className="text-xs leading-relaxed text-slate-800">{elements}</span>
+          </div>
+        );
+      }
+
+      // Dòng trống
+      if (!trimmed) {
+        return <div key={idx} className="h-1.5" />;
+      }
+
       return (
         <p key={idx} className="text-xs leading-relaxed text-slate-800 my-1">
-          {formattedParts}
+          {elements}
         </p>
       );
     });
   };
-
   return (
     <Drawer
       title={null}
       placement="right"
-      width={520}
+      width={isExpanded ? '96vw' : (window.innerWidth < 1024 ? '100vw' : '68vw')}
       onClose={onClose}
       open={visible}
       styles={{
         body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%', background: '#f8fafc' },
-        wrapper: { maxWidth: '100vw' }
+        wrapper: { maxWidth: '100vw', transition: 'all 0.25s ease-in-out' }
       }}
     >
       {/* DRAWER HEADER */}
-      <div className="p-4 bg-gradient-to-r from-teal-900 via-slate-900 to-teal-950 text-white flex items-center justify-between border-b border-teal-800/50 shrink-0 shadow-xs">
+      <div className="p-4 bg-linear-to-r from-teal-900 via-slate-900 to-teal-950 text-white flex items-center justify-between border-b border-teal-800/50 shrink-0 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="p-2 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-400/40">
@@ -308,13 +500,51 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-          title="Đóng"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              const orgId = localStorage.getItem('celra_active_org_id') || undefined;
+              clearChatHistory(orgId);
+              setMessages([
+                {
+                  id: 'welcome-msg',
+                  sender: 'AI',
+                  text: 'Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật F&B.',
+                  citations: [
+                    { title: 'Nghị định 91/2022/NĐ-CP', docNumber: '91/2022/NĐ-CP', articleNumber: 'Tạm nộp TNDN 80%', sourceUrl: CORE_LEGAL_DOC_LINKS['91/2022'] },
+                    { title: 'Nghị định 126/2020/NĐ-CP', docNumber: '126/2020/NĐ-CP', articleNumber: 'Kê khai thuế', sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020'] },
+                    { title: 'Thông tư 96/2015/TT-BTC', docNumber: '96/2015/TT-BTC', articleNumber: 'Chi phí lương', sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015'] },
+                  ],
+                  actionType: 'info',
+                },
+              ]);
+              antMessage.success('Đã làm mới phiên hội thoại!');
+            }}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            title="Làm mới lịch sử chat"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              setIsExpanded((prev) => {
+                const next = !prev;
+                localStorage.setItem('celra_chat_expanded', String(next));
+                return next;
+              });
+            }}
+            title={isExpanded ? 'Thu nhỏ giao diện chat (Mặc định 68vw)' : 'Phóng to tối đa màn hình (96vw)'}
+          >
+            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            title="Đóng"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* MESSAGES LIST AREA */}
@@ -338,50 +568,34 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
               </div>
 
               {/* Message Bubble Content */}
-              <div className={`max-w-[86%] space-y-2.5`}>
+              {/* Message Bubble Content - Tự co giãn theo chiều rộng màn hình lớn */}
+              <div className={`${isExpanded ? 'max-w-[92%]' : 'max-w-[88%]'} space-y-2.5`}>
                 <div
-                  className={`p-3.5 rounded-2xl text-xs shadow-xs space-y-2 leading-relaxed ${
+                  className={`p-4 rounded-2xl text-xs sm:text-sm shadow-xs space-y-2.5 leading-relaxed ${
                     isUser
-                      ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-tr-none'
+                      ? 'bg-linear-to-r from-teal-600 to-emerald-600 text-white rounded-tr-none'
                       : 'bg-white text-slate-900 border border-slate-200/90 rounded-tl-none'
                   }`}
                 >
-                  <div className={isUser ? 'text-white' : 'text-slate-800'}>
-                    {renderFormattedText(msg.text)}
-                  </div>
-
-                  {/* LEGAL CITATIONS */}
-                  {msg.citations && msg.citations.length > 0 && (
-                    <div className="pt-2.5 border-t border-slate-100 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
-                        <BookOpen className="w-3.5 h-3.5 text-teal-600" />
-                        <span>Căn cứ pháp lý viện dẫn (Bấm để xem văn bản luật):</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {msg.citations.map((c, i) => {
-                          const href = resolveCitationUrl(c);
-
-                          return (
-                            <a
-                              key={i}
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={`Xem toàn văn văn bản luật: ${c.title}`}
-                              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100/90 border border-teal-200 hover:border-teal-400 px-2 py-0.5 rounded-md transition-all shadow-2xs group cursor-pointer"
-                            >
-                              <span>{c.title} {c.articleNumber ? `(${c.articleNumber})` : ''}</span>
-                              <ExternalLink className="w-2.5 h-2.5 text-teal-600 group-hover:text-teal-900 shrink-0" />
-                            </a>
-                          );
-                        })}
-                      </div>
+                  {isUser ? (
+                    <div className="text-white text-xs leading-relaxed">
+                      {renderFormattedText(msg.text)}
                     </div>
+                  ) : (
+                    <StructuredAIMessage
+                      text={msg.text}
+                      citations={msg.citations || []}
+                      organization={activeOrg}
+                      onSendMessage={(txt) => handleSendMessage(txt)}
+                      onOpenAuditModal={handleOpenAudit}
+                      resolveCitationUrl={resolveCitationUrl}
+                      isEnterpriseQuery={msg.isEnterpriseQuery ?? (msg.actionType === 'enterprise_audit')}
+                    />
                   )}
 
                   {/* VẤN ĐỀ 2: UPSELL CARD KHI PHÁT HIỆN HỎI QUÉT LỖI DN */}
                   {msg.actionType === 'open_compliance_audit' && (
-                    <div className="mt-3 p-3.5 bg-gradient-to-r from-teal-50 via-emerald-50 to-teal-50 border-2 border-teal-500/40 rounded-xl space-y-2 shadow-xs">
+                    <div className="mt-3 p-3.5 bg-linear-to-r from-teal-50 via-emerald-50 to-teal-50 border-2 border-teal-500/40 rounded-xl space-y-2 shadow-xs">
                       <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-teal-600 text-white rounded-lg">
                           <ShieldCheck className="w-4 h-4" />
@@ -398,7 +612,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
                       <button
                         onClick={handleOpenAudit}
-                        className="w-full py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02]"
+                        className="w-full py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02]"
                       >
                         <ShieldCheck className="w-4 h-4 text-emerald-200" />
                         <span>Mở Rà soát Tuân thủ ngay</span>
@@ -526,9 +740,14 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           className="flex items-center gap-2"
         >
           <input
+            ref={inputRef}
             type="text"
             placeholder="Hỏi về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương..."
             value={inputText}
+            onFocus={() => {
+              // Khi người dùng click/focus vào ô nhập chat, tự động cuộn xuống tin nhắn mới nhất
+              setTimeout(() => scrollToBottom('smooth'), 120);
+            }}
             onChange={(e) => setInputText(e.target.value)}
             disabled={loading}
             className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
@@ -538,7 +757,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
             disabled={!inputText.trim() || loading}
             className={`p-2.5 rounded-xl text-white transition-all cursor-pointer shadow-xs ${
               inputText.trim() && !loading
-                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700'
+                ? 'bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
             title="Gửi câu hỏi"
