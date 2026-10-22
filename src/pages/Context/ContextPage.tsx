@@ -27,7 +27,7 @@ import {
 import { message, Modal, Form, Input, Select, Tooltip } from 'antd';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const ENABLED_CONTEXT_GROUP_KEYS = ['tax_accounting', 'legal'];
+export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan', 'phap_ly_von'];
 
 export interface ContextGroupConfig {
   key: string;
@@ -41,7 +41,7 @@ export interface ContextGroupConfig {
 // eslint-disable-next-line react-refresh/only-export-components
 export const CONTEXT_GROUPS: ContextGroupConfig[] = [
   {
-    key: 'tax_accounting',
+    key: 'thue_ke_toan',
     label: 'Thuế Doanh Nghiệp',
     shortLabel: 'Thuế',
     tag: 'THUẾ DOANH NGHIỆP',
@@ -49,7 +49,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-blue-700 bg-blue-50 border border-blue-200',
   },
   {
-    key: 'legal',
+    key: 'phap_ly_von',
     label: 'Hồ Sơ Pháp Lý & Vốn',
     shortLabel: 'Pháp Lý',
     tag: 'HỒ SƠ PHÁP LÝ & VỐN',
@@ -57,7 +57,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
   },
   {
-    key: 'operations',
+    key: 'nganh_nghe_van_hanh',
     label: 'Ngành Nghề & Vận Hành',
     shortLabel: 'Vận Hành',
     tag: 'HOẠT ĐỘNG THỰC TẾ',
@@ -65,7 +65,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-amber-700 bg-amber-50 border border-amber-200',
   },
   {
-    key: 'revenue_invoices',
+    key: 'hoa_don_dong_tien',
     label: 'Hóa Đơn & Dòng Tiền',
     shortLabel: 'Hóa Đơn',
     tag: 'HÓA ĐƠN & DÒNG TIỀN',
@@ -73,7 +73,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-purple-700 bg-purple-50 border border-purple-200',
   },
   {
-    key: 'hr_labor',
+    key: 'lao_dong_bhxh',
     label: 'Lao Động & BHXH',
     shortLabel: 'Lao Động',
     tag: 'LAO ĐỘNG & BHXH',
@@ -81,7 +81,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-teal-700 bg-teal-50 border border-teal-200',
   },
   {
-    key: 'premises',
+    key: 'dia_diem_pccc',
     label: 'Địa Điểm & PCCC',
     shortLabel: 'PCCC',
     tag: 'ĐỊA ĐIỂM & PCCC',
@@ -89,7 +89,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-rose-700 bg-rose-50 border border-rose-200',
   },
   {
-    key: 'conditional_licensing',
+    key: 'giay_phep_con',
     label: 'Giấy Phép Con',
     shortLabel: 'Giấy Phép',
     tag: 'GIẤY PHÉP CON',
@@ -97,7 +97,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-indigo-700 bg-indigo-50 border border-indigo-200',
   },
   {
-    key: 'contracts',
+    key: 'hop_dong',
     label: 'Hợp Đồng & Giao Kết',
     shortLabel: 'Hợp Đồng',
     tag: 'HỢP ĐỒNG & GIAO KẾT',
@@ -105,7 +105,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     badgeClass: 'text-cyan-700 bg-cyan-50 border border-cyan-200',
   },
   {
-    key: 'tech_data',
+    key: 'du_lieu_shtt',
     label: 'Dữ Liệu & Sở Hữu Trí Tuệ',
     shortLabel: 'Dữ Liệu',
     tag: 'DỮ LIỆU & SHTT',
@@ -320,7 +320,7 @@ export const ContextPage: React.FC = () => {
           <button
             onClick={() => {
               createForm.resetFields();
-              createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'tax_accounting' });
+              createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'thue_ke_toan' });
               setIsCreateModalOpen(true);
             }}
             className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-300 shadow-xs"
@@ -445,7 +445,7 @@ export const ContextPage: React.FC = () => {
             <button
               onClick={() => {
                 createForm.resetFields();
-                createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'tax_accounting' });
+                createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'thue_ke_toan' });
                 setIsCreateModalOpen(true);
               }}
               className="px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
@@ -808,7 +808,7 @@ export const ContextPage: React.FC = () => {
             name="group"
             label="Nhóm Bối Cảnh"
             rules={[{ required: true, message: 'Vui lòng chọn nhóm bối cảnh' }]}
-            initialValue="tax_accounting"
+            initialValue="thue_ke_toan"
           >
             <Select
               options={CONTEXT_GROUPS.map((g) => ({

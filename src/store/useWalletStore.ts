@@ -4,16 +4,26 @@ import type { WalletInfo, WalletLedger, CreditPackage } from '../types';
 
 interface WalletState {
   wallet: WalletInfo | null;
+  thongTinVi: WalletInfo | null;
   ledgers: WalletLedger[];
+  danhSachGiaoDich: WalletLedger[];
   packages: CreditPackage[];
+  danhSachGoiCredit: CreditPackage[];
   isLoading: boolean;
+  dangTai: boolean;
   error: string | null;
+  loi: string | null;
 
   fetchWallet: () => Promise<void>;
+  layThongTinVi: () => Promise<void>;
   fetchLedgers: () => Promise<void>;
+  layDanhSachGiaoDich: () => Promise<void>;
   fetchPackages: () => Promise<CreditPackage[]>;
+  layDanhSachGoiCredit: () => Promise<CreditPackage[]>;
   buyPackage: (packageId: string) => Promise<any>;
+  muaGoiCredit: (packageId: string) => Promise<any>;
   deposit: (amount: number, note?: string) => Promise<any>;
+  napTien: (amount: number, note?: string) => Promise<any>;
   generateDepositQR: (
     amount: number,
     note?: string,
@@ -27,6 +37,11 @@ interface WalletState {
     accountName?: string;
     bankId?: string;
   }>;
+  taoMaVietQrNapTien: (
+    amount: number,
+    note?: string,
+    packageId?: string,
+  ) => Promise<any>;
   processSandboxPayment: (payload: {
     packageId?: string;
     amount?: number;
@@ -34,12 +49,11 @@ interface WalletState {
     failureReason?: string;
     bankName?: string;
   }) => Promise<any>;
+  xuLyThanhToanSandbox: (payload: any) => Promise<any>;
 }
 
-export const useWalletStore = create<WalletState>((set) => ({
-  wallet: null,
-  ledgers: [],
-  packages: [
+export const useWalletStore = create<WalletState>((set) => {
+  const defaultPackages: CreditPackage[] = [
     {
       id: 'PKG_50',
       name: 'Gói Khởi Động',
@@ -67,66 +81,64 @@ export const useWalletStore = create<WalletState>((set) => ({
       bonusText: 'Tặng 200 Credit (Tối ưu chi phí)',
       popular: false,
     },
-  ],
-  isLoading: false,
-  error: null,
+  ];
 
-  fetchWallet: async () => {
-    set({ isLoading: true });
+  const fetchWalletFn = async () => {
+    set({ isLoading: true, dangTai: true });
     try {
       const res: any = await apiClient.get('/wallets/my-wallet');
-      set({ wallet: res, isLoading: false });
+      set({ wallet: res, thongTinVi: res, isLoading: false, dangTai: false });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      set({ error: err.message, loi: err.message, isLoading: false, dangTai: false });
     }
-  },
+  };
 
-  fetchLedgers: async () => {
+  const fetchLedgersFn = async () => {
     try {
       const res: any = await apiClient.get('/wallets/transactions');
-      set({ ledgers: Array.isArray(res) ? res : [] });
+      const list = Array.isArray(res) ? res : [];
+      set({ ledgers: list, danhSachGiaoDich: list });
     } catch (err) {
       console.error(err);
     }
-  },
+  };
 
-  fetchPackages: async () => {
+  const fetchPackagesFn = async () => {
     try {
       const res: any = await apiClient.get('/wallets/packages');
       if (Array.isArray(res) && res.length > 0) {
-        set({ packages: res });
+        set({ packages: res, danhSachGoiCredit: res });
         return res;
       }
     } catch (err) {
       console.error(err);
     }
-    return [];
-  },
+    return defaultPackages;
+  };
 
-  buyPackage: async (packageId: string) => {
+  const buyPackageFn = async (packageId: string) => {
     try {
       const res: any = await apiClient.post('/wallets/buy-package', { packageId });
-      set({ wallet: res });
-      // Refresh ledgers after purchase
+      set({ wallet: res, thongTinVi: res });
       const txRes: any = await apiClient.get('/wallets/transactions');
-      if (Array.isArray(txRes)) set({ ledgers: txRes });
+      if (Array.isArray(txRes)) set({ ledgers: txRes, danhSachGiaoDich: txRes });
       return res;
     } catch (err: any) {
       throw err;
     }
-  },
+  };
 
-  deposit: async (amount: number, note?: string) => {
+  const depositFn = async (amount: number, note?: string) => {
     try {
       const res: any = await apiClient.post('/wallets/deposit', { amount, note });
-      set({ wallet: res });
+      set({ wallet: res, thongTinVi: res });
       return res;
     } catch (err: any) {
       throw err;
     }
-  },
+  };
 
-  generateDepositQR: async (amount: number, note?: string, packageId?: string) => {
+  const generateDepositQRFn = async (amount: number, note?: string, packageId?: string) => {
     try {
       const res: any = await apiClient.post('/payments/vietqr/generate', {
         amount,
@@ -145,19 +157,47 @@ export const useWalletStore = create<WalletState>((set) => ({
     } catch (err: any) {
       throw err;
     }
-  },
+  };
 
-  processSandboxPayment: async (payload) => {
+  const processSandboxPaymentFn = async (payload: any) => {
     try {
       const res: any = await apiClient.post('/wallets/sandbox-payment', payload);
       if (res.wallet) {
-        set({ wallet: res.wallet });
+        set({ wallet: res.wallet, thongTinVi: res.wallet });
       }
       const txRes: any = await apiClient.get('/wallets/transactions');
-      if (Array.isArray(txRes)) set({ ledgers: txRes });
+      if (Array.isArray(txRes)) set({ ledgers: txRes, danhSachGiaoDich: txRes });
       return res;
     } catch (err: any) {
       throw err;
     }
-  },
-}));
+  };
+
+  return {
+    wallet: null,
+    thongTinVi: null,
+    ledgers: [],
+    danhSachGiaoDich: [],
+    packages: defaultPackages,
+    danhSachGoiCredit: defaultPackages,
+    isLoading: false,
+    dangTai: false,
+    error: null,
+    loi: null,
+
+    fetchWallet: fetchWalletFn,
+    layThongTinVi: fetchWalletFn,
+    fetchLedgers: fetchLedgersFn,
+    layDanhSachGiaoDich: fetchLedgersFn,
+    fetchPackages: fetchPackagesFn,
+    layDanhSachGoiCredit: fetchPackagesFn,
+    buyPackage: buyPackageFn,
+    muaGoiCredit: buyPackageFn,
+    deposit: depositFn,
+    napTien: depositFn,
+    generateDepositQR: generateDepositQRFn,
+    taoMaVietQrNapTien: generateDepositQRFn,
+    processSandboxPayment: processSandboxPaymentFn,
+    xuLyThanhToanSandbox: processSandboxPaymentFn,
+  };
+});

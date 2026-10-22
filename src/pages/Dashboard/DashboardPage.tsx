@@ -89,15 +89,22 @@ export const DashboardPage: React.FC = () => {
       await fetchWallet();
 
       const currentTasks = useTaskStore.getState().tasks;
-      const completed = currentTasks.filter((t) => t.status === 'COMPLETED').length;
-      const inProgress = currentTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'TODO').length;
-      const overdue = currentTasks.filter((t) => t.status === 'OVERDUE').length;
-      const urgent = currentTasks.filter(
-        (t) =>
-          (t.priority as string)?.toLowerCase() === 'high' ||
-          (t.priority as string)?.toLowerCase() === 'urgent' ||
-          (t.priority as string)?.toLowerCase() === 'critical',
-      ).length;
+      const completed = currentTasks.filter((t) => {
+        const s = String(t.trangThai || t.status || '').toUpperCase();
+        return s === 'COMPLETED' || s === 'VERIFIED';
+      }).length;
+      const inProgress = currentTasks.filter((t) => {
+        const s = String(t.trangThai || t.status || '').toUpperCase();
+        return s === 'IN_PROGRESS' || s === 'TODO' || s === 'WAITING_VERIFICATION' || s === 'NEED_INFO';
+      }).length;
+      const overdue = currentTasks.filter((t) => {
+        const s = String(t.trangThai || t.status || '').toUpperCase();
+        return s === 'OVERDUE';
+      }).length;
+      const urgent = currentTasks.filter((t) => {
+        const p = String(t.doUuTien || t.priority || '').toLowerCase();
+        return p === 'high' || p === 'urgent' || p === 'critical';
+      }).length;
       const total = currentTasks.length;
 
       const score = total > 0 ? Math.round((completed / total) * 100) : 100;
@@ -308,7 +315,7 @@ export const DashboardPage: React.FC = () => {
           <Card bordered={false} style={{ borderRadius: 10 }}>
             <Statistic
               title="Số Dư Ví Ký Quỹ & Bảo Chứng"
-              value={wallet?.balance || 0}
+              value={wallet?.balance || (wallet as any)?.soDu || 0}
               precision={0}
               valueStyle={{ color: '#389e0d', fontWeight: 'bold' }}
               prefix={<WalletOutlined />}

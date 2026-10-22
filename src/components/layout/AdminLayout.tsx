@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Layout, Menu, Button, Avatar, Space } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
@@ -135,7 +135,10 @@ export const AdminLayout: React.FC = () => {
               overflow: 'hidden',
               width: '100%',
             }}
-            onClick={() => navigate('/admin/dashboard')}
+            onClick={() => {
+              navigate('/');
+              if (isMobile) setCollapsed(true);
+            }}
           >
             <img
               src={celraLogo}

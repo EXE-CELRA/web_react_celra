@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Form, Input, Button, Checkbox, Typography, message } from 'antd';
-import { MailOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { AuthLayout } from '../../components/layout/AuthLayout';
@@ -9,25 +9,20 @@ const { Text } = Typography;
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuthStore();
-  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const { login, dangNhap, isLoading, dangTai } = useAuthStore();
 
   const onFinish = async (values: any) => {
     try {
-      const res = await login({
+      const loginMethod = dangNhap || login;
+      const res = await loginMethod({
         email: values.email,
-        password: values.password,
-        twoFactorCode: values.twoFactorCode,
+        password: values.password || values.matKhau,
+        matKhau: values.password || values.matKhau,
       });
 
-      if (res.twoFactorRequired) {
-        setTwoFactorRequired(true);
-        message.info('Tài khoản đã bật bảo mật 2 lớp (2FA). Vui lòng nhập mã OTP từ Google Authenticator.');
-        return;
-      }
-
       message.success('Đăng nhập thành công!');
-      if (res.user?.role === 'admin' || res.user?.isSuperAdmin) {
+      const userObj = res.user || res.nguoiDung;
+      if (userObj?.role === 'admin' || userObj?.vaiTro === 'admin' || userObj?.isSuperAdmin) {
         navigate('/admin/dashboard');
       } else {
         navigate('/dashboard');
@@ -75,22 +70,6 @@ export const LoginPage: React.FC = () => {
           />
         </Form.Item>
 
-        {twoFactorRequired && (
-          <Form.Item
-            name="twoFactorCode"
-            label={<span style={{ fontWeight: 600, color: '#334155', fontSize: 13.5 }}>Mã xác thực 2 bước (2FA OTP)</span>}
-            rules={[{ required: true, message: 'Vui lòng nhập mã 6 số từ Google Authenticator' }]}
-            style={{ marginBottom: 18 }}
-          >
-            <Input
-              prefix={<SafetyCertificateOutlined style={{ color: '#0052cc', marginRight: 6 }} />}
-              placeholder="123456"
-              maxLength={6}
-              style={{ height: 44, borderRadius: 8 }}
-            />
-          </Form.Item>
-        )}
-
         {/* Ghi nhớ đăng nhập & Quên mật khẩu */}
         <div
           style={{
@@ -116,7 +95,7 @@ export const LoginPage: React.FC = () => {
         <Button
           type="primary"
           htmlType="submit"
-          loading={isLoading}
+          loading={isLoading || dangTai}
           block
           style={{
             height: 46,

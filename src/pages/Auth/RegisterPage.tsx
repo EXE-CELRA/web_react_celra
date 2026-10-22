@@ -9,15 +9,19 @@ const { Text } = Typography;
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuthStore();
+  const { register, dangKy, isLoading, dangTai } = useAuthStore();
 
   const onFinish = async (values: any) => {
     try {
-      await register({
-        name: values.fullName,
+      const registerMethod = dangKy || register;
+      await registerMethod({
+        name: values.fullName || values.hoVaTen,
+        hoVaTen: values.fullName || values.hoVaTen,
         email: values.email,
-        password: values.password,
-        phone: values.phoneNumber,
+        password: values.password || values.matKhau,
+        matKhau: values.password || values.matKhau,
+        phone: values.phoneNumber || values.soDienThoai,
+        soDienThoai: values.phoneNumber || values.soDienThoai,
       });
 
       message.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
@@ -109,7 +113,7 @@ export const RegisterPage: React.FC = () => {
         <Button
           type="primary"
           htmlType="submit"
-          loading={isLoading}
+          loading={isLoading || dangTai}
           block
           style={{
             height: 42,

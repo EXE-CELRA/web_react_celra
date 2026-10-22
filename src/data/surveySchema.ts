@@ -1432,7 +1432,7 @@ export function generateComplianceArtifacts(
       id: 'fact-annual-revenue',
       key: 'annual_revenue',
       label: 'Doanh thu năm trước liền kề',
-      group: 'tax_accounting',
+      group: 'thue_ke_toan',
       currentValue: profile.isNewlyEstablished ? 'Mới thành lập (Doanh thu = 0)' : `${(profile.annualRevenue || 0).toLocaleString('vi-VN')} VNĐ`,
       source: 'Khảo sát nền tảng Bước 1',
       providedBy: 'Chủ doanh nghiệp',
@@ -1458,7 +1458,7 @@ export function generateComplianceArtifacts(
       id: 'fact-employee-count',
       key: 'employee_count',
       label: 'Số lượng nhân sự thực tế',
-      group: 'hr_labor',
+      group: 'lao_dong_bhxh',
       currentValue: `${actualEmpCount} nhân viên`,
       source: 'Khảo sát nền tảng Bước 1',
       providedBy: 'Chủ doanh nghiệp',
@@ -1484,27 +1484,27 @@ export function generateComplianceArtifacts(
 
   // 2. Ghi nhận toàn diện các câu trả lời 360 độ vào ContextFact
   questions.forEach((q) => {
-    let factGroup: ContextFact['group'] = 'tax_accounting';
+    let factGroup: ContextFact['group'] = 'thue_ke_toan';
     if (q.moduleId === 'MODULE_INVOICE_CASHFLOW') {
-      factGroup = 'revenue_invoices';
+      factGroup = 'hoa_don_dong_tien';
     } else if (q.moduleId === 'MODULE_LABOR_HR') {
-      factGroup = 'hr_labor';
+      factGroup = 'lao_dong_bhxh';
     } else if (q.moduleId === 'MODULE_PREMISES_PCCC') {
-      factGroup = 'premises';
+      factGroup = 'dia_diem_pccc';
     } else if (q.moduleId === 'MODULE_CONTRACTS') {
-      factGroup = 'contracts';
+      factGroup = 'hop_dong';
     } else if (q.moduleId === 'MODULE_DATA_IP' || q.moduleId === 'MODULE_ECOM_DATA_PRIVACY') {
-      factGroup = 'tech_data';
+      factGroup = 'du_lieu_shtt';
     } else if (q.moduleId === 'MODULE_LICENSING_ATTP' || q.moduleId === 'MODULE_LICENSING_CON') {
-      factGroup = 'conditional_licensing';
+      factGroup = 'giay_phep_con';
     } else if (q.moduleId === 'MODULE_LEGAL_CORP' || q.id === 'q_corp_capital_90d' || q.id === 'q_corp_amend_10d' || q.id === 'q_corp_member_register_book') {
-      factGroup = 'legal';
+      factGroup = 'phap_ly_von';
     } else if (q.branchType === 'labor_scale') {
       factGroup = 'hr_labor';
     } else if (q.branchType === 'company_type') {
       factGroup = 'legal';
     } else {
-      factGroup = 'operations';
+      factGroup = 'nganh_nghe_van_hanh';
     }
 
     contextFacts.push({

@@ -1,10 +1,14 @@
 import React from 'react';
-import { Button, Row, Col, Typography, Card, Space } from 'antd';
+import { Button, Row, Col, Typography, Card, Space, Dropdown, Avatar } from 'antd';
+import type { MenuProps } from 'antd';
 import {
-  ArrowRightOutlined,
   FacebookFilled,
   TikTokFilled,
   PhoneOutlined,
+  UserOutlined,
+  RightOutlined,
+  DashboardOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -15,7 +19,39 @@ const { Title, Paragraph } = Typography;
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, logout } = useAuthStore();
+
+  const role = user?.role || localStorage.getItem('celra_active_role');
+  const isSuperAdmin = role === 'admin' || (user as any)?.isSuperAdmin;
+
+  const handleGoToPortal = () => {
+    if (isSuperAdmin) {
+      navigate('/admin/dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'portal',
+      icon: <DashboardOutlined style={{ fontSize: 15, color: '#1677ff' }} />,
+      label: <span style={{ fontWeight: 500, fontSize: 13 }}>Vào Trang Quản Trị</span>,
+      onClick: handleGoToPortal,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined style={{ fontSize: 15, color: '#ef4444' }} />,
+      label: <span style={{ fontWeight: 500, fontSize: 13, color: '#ef4444' }}>Đăng xuất</span>,
+      onClick: () => {
+        logout();
+        navigate('/');
+      },
+    },
+  ];
   const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   React.useEffect(() => {
@@ -79,21 +115,52 @@ export const HomePage: React.FC = () => {
 
         <Space size="middle">
           {isAuthenticated ? (
-            <Button
-              type="primary"
-              size="large"
-              icon={<ArrowRightOutlined />}
-              onClick={() => navigate('/dashboard')}
-              style={{
-                height: 42,
-                borderRadius: 8,
-                backgroundColor: '#0052cc',
-                fontWeight: 600,
-                boxShadow: '0 4px 14px rgba(0, 82, 204, 0.3)',
-              }}
-            >
-              Vào Bảng Điều Khiển ({user?.fullName || 'Tài khoản'})
-            </Button>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+              <div
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '4px 14px 4px 6px',
+                  borderRadius: 16,
+                  background: '#ffffff',
+                  border: '1.5px solid #93c5fd',
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  height: 42,
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#2563eb';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(37, 99, 235, 0.16)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#93c5fd';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.08)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <Avatar
+                  size={32}
+                  icon={<UserOutlined />}
+                  style={{
+                    backgroundColor: isSuperAdmin ? '#7c3aed' : '#1677ff',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.25 }}>
+                  <span style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>
+                    {user?.hoVaTen || user?.name || user?.fullName || (isSuperAdmin ? 'Quản Trị Viên' : 'Chủ doanh nghiệp')}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 500 }}>
+                    {isSuperAdmin ? 'Quản Trị Viên Hệ Thống' : (user?.chucDanh || user?.roleTitle || 'Chủ doanh nghiệp')}
+                  </span>
+                </div>
+                <RightOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />
+              </div>
+            </Dropdown>
           ) : (
             <>
               <Button
@@ -186,7 +253,13 @@ export const HomePage: React.FC = () => {
               <Button
                 type="primary"
                 size="large"
-                onClick={() => navigate(isAuthenticated ? '/dashboard' : '/register')}
+                onClick={() => {
+                  if (isAuthenticated) {
+                    handleGoToPortal();
+                  } else {
+                    navigate('/register');
+                  }
+                }}
                 style={{
                   height: 52,
                   padding: '0 40px',

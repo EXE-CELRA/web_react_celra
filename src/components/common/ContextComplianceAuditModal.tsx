@@ -92,7 +92,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-tax-1',
     key: 'q_tax_corp_1',
     label: 'Doanh nghiệp có thực hiện nộp tờ khai thuế GTGT và thuế TNCN định kỳ theo Quý (hạn ngày cuối tháng đầu quý sau: 30/04, 31/07, 31/10, 31/01) đúng hạn không?',
-    group: 'tax_accounting',
+    group: 'thue_ke_toan',
     currentValue: 'Đã nộp tờ khai và tiền thuế đầy đủ đúng hạn theo Quý (hạn ngày cuối tháng đầu quý sau: 30/04, 31/07, 31/10, 31/01)',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -101,7 +101,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-tax-2',
     key: 'q_tax_corp_2',
     label: 'Doanh nghiệp có thực hiện tạm nộp thuế Thu nhập doanh nghiệp (TNDN) 4 quý đạt tối thiểu 80% số thuế TNDN phải nộp cả năm không?',
-    group: 'tax_accounting',
+    group: 'thue_ke_toan',
     currentValue: 'Đã tạm nộp định kỳ hàng quý, lũy kế 4 quý đạt tối thiểu 80% thuế TNDN cả năm',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -110,7 +110,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-tax-3',
     key: 'q_tax_corp_3',
     label: 'Doanh nghiệp có thực hiện kê khai và nộp Lệ phí môn bài hàng năm trước ngày 30/01 không?',
-    group: 'tax_accounting',
+    group: 'thue_ke_toan',
     currentValue: 'Đã nộp đầy đủ lệ phí môn bài bậc quy định trước ngày 30/01',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -119,7 +119,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-tax-4',
     key: 'q_tax_corp_4',
     label: 'Doanh nghiệp có thực hiện khấu trừ 10% thuế TNCN tại nguồn khi chi trả thù lao từ 2 triệu đồng/lần trở lên cho cá nhân vãng lai không?',
-    group: 'tax_accounting',
+    group: 'thue_ke_toan',
     currentValue: 'Đã thực hiện khấu trừ 10% và cấp chứng từ khấu trừ thuế TNCN điện tử',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -128,7 +128,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-tax-5',
     key: 'q_tax_corp_5',
     label: 'Doanh nghiệp có thanh toán chi phí quảng cáo trực tuyến (Facebook, Google, TikTok) và kê khai thuế nhà thầu (FCT) trong vòng 10 ngày không?',
-    group: 'tax_accounting',
+    group: 'thue_ke_toan',
     currentValue: 'Có phát sinh chi phí quảng cáo và đã nộp tờ khai thuế nhà thầu mẫu 01/NTNN',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -137,7 +137,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-tax-6',
     key: 'q_tax_corp_6',
     label: 'Doanh nghiệp có lập và nộp Báo cáo tài chính, Quyết toán thuế TNDN & TNCN năm trước ngày 31/03 năm sau không?',
-    group: 'tax_accounting',
+    group: 'thue_ke_toan',
     currentValue: 'Đã nộp đầy đủ BCTC và hồ sơ quyết toán năm đúng thời hạn quy định',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -147,7 +147,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-legal-1',
     key: 'q_legal_1',
     label: 'Các thành viên/cổ đông sáng lập đã góp đủ 100% số vốn điều lệ đã đăng ký cam kết trong vòng 90 ngày kể từ ngày cấp GCN ĐKDN chưa?',
-    group: 'legal',
+    group: 'phap_ly_von',
     currentValue: 'Đã góp đủ 100% vốn điều lệ vào tài khoản vốn đầu tư của công ty',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -156,7 +156,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-legal-2',
     key: 'q_legal_2',
     label: 'Doanh nghiệp có thực hiện đăng ký thay đổi nội dung ĐKKD trong thời hạn 10 ngày làm việc khi có thay đổi thông tin (địa chỉ, đại diện pháp luật, ngành nghề, vốn)?',
-    group: 'legal',
+    group: 'phap_ly_von',
     currentValue: 'Đã nộp hồ sơ đăng ký thay đổi tại Phòng ĐKKD trong thời hạn 10 ngày',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -165,7 +165,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-legal-3',
     key: 'q_legal_3',
     label: 'Doanh nghiệp có thông báo tạm ngừng hoặc tiếp tục kinh doanh trước thời hạn ít nhất 03 ngày làm việc không?',
-    group: 'legal',
+    group: 'phap_ly_von',
     currentValue: 'Đã gửi thông báo bằng văn bản đến cơ quan đăng ký kinh doanh đúng hạn',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -175,7 +175,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-ops-1',
     key: 'q_ops_1',
     label: 'Doanh nghiệp có mở tài khoản ngân hàng và thông báo tài khoản thanh toán với cơ quan thuế trong thời hạn 10 ngày làm việc không?',
-    group: 'operations',
+    group: 'nganh_nghe_van_hanh',
     currentValue: 'Đã thông báo mẫu 08-MST tài khoản ngân hàng giao dịch của công ty',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -184,7 +184,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-ops-2',
     key: 'q_ops_2',
     label: 'Doanh nghiệp có duy trì biển hiệu công ty tại trụ sở chính và các địa điểm kinh doanh theo quy định Luật Doanh nghiệp không?',
-    group: 'operations',
+    group: 'nganh_nghe_van_hanh',
     currentValue: 'Đã gắn biển hiệu đầy đủ thông tin tên công ty, MST, địa chỉ trụ sở',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -194,7 +194,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-inv-1',
     key: 'q_invoice_1',
     label: 'Doanh nghiệp có sử dụng 100% hóa đơn điện tử có mã hoặc không có mã của cơ quan thuế theo Nghị định 123/2020/NĐ-CP không?',
-    group: 'revenue_invoices',
+    group: 'hoa_don_dong_tien',
     currentValue: 'Đã đăng ký và được cơ quan thuế chấp thuận sử dụng HĐĐT Mẫu 01/ĐKTĐ-HĐĐT',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -203,7 +203,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-inv-2',
     key: 'q_invoice_2',
     label: 'Doanh nghiệp có gửi Mẫu 04/SS-HĐĐT giải trình với cơ quan thuế khi phát hiện hóa đơn điện tử có sai sót không?',
-    group: 'revenue_invoices',
+    group: 'hoa_don_dong_tien',
     currentValue: 'Đã lập và gửi thông báo Mẫu 04/SS-HĐĐT trong kỳ kê khai phát sinh',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -212,7 +212,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-inv-3',
     key: 'q_invoice_3',
     label: 'Doanh nghiệp có lưu trữ dữ liệu hóa đơn điện tử an toàn tối thiểu 10 năm theo Luật Kế toán không?',
-    group: 'revenue_invoices',
+    group: 'hoa_don_dong_tien',
     currentValue: 'Đã thiết lập hệ thống sao lưu định kỳ hóa đơn XML và PDF lưu trữ an toàn',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -221,7 +221,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-inv-4',
     key: 'q_invoice_4',
     label: 'Các hóa đơn đầu vào có giá trị từ 20 triệu đồng trở lên có được thanh toán qua tài khoản ngân hàng của doanh nghiệp không?',
-    group: 'revenue_invoices',
+    group: 'hoa_don_dong_tien',
     currentValue: '100% hóa đơn từ 20 triệu trở lên thanh toán không dùng tiền mặt',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -230,7 +230,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-inv-5',
     key: 'q_invoice_5',
     label: 'Doanh nghiệp có đối chiếu số lượng hóa đơn đầu ra - đầu vào định kỳ hàng tháng để tránh chênh lệch tờ khai không?',
-    group: 'revenue_invoices',
+    group: 'hoa_don_dong_tien',
     currentValue: 'Đã đối soát khớp đúng giữa bảng kê hóa đơn và dữ liệu trên Cổng Thuế',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -240,7 +240,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-hr-1',
     key: 'q_hr_1',
     label: 'Doanh nghiệp có ký hợp đồng lao động và đăng ký tham gia BHXH, BHYT, BHTN bắt buộc cho người lao động trong vòng 30 ngày làm việc không?',
-    group: 'hr_labor',
+    group: 'lao_dong_bhxh',
     currentValue: 'Đã ký kết HĐLĐ và báo tăng BHXH kịp thời cho người lao động',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -249,7 +249,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-hr-2',
     key: 'q_hr_2',
     label: 'Doanh nghiệp có thực hiện báo cáo tình hình sử dụng lao động định kỳ 6 tháng (trước 05/06) và hàng năm (trước 05/12) không?',
-    group: 'hr_labor',
+    group: 'lao_dong_bhxh',
     currentValue: 'Đã nộp báo cáo tình hình sử dụng lao động trên Cổng Dịch vụ công Quốc gia',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -258,7 +258,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-hr-3',
     key: 'q_hr_3',
     label: 'Doanh nghiệp có trên 10 người lao động và đã đăng ký Nội quy lao động với cơ quan quản lý nhà nước về lao động cấp tỉnh trong vòng 10 ngày không?',
-    group: 'hr_labor',
+    group: 'lao_dong_bhxh',
     currentValue: 'Đã ban hành và nộp hồ sơ đăng ký Nội quy lao động hợp pháp',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -267,7 +267,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-hr-4',
     key: 'q_hr_4',
     label: 'Doanh nghiệp có tổ chức khám sức khỏe định kỳ hàng năm cho toàn bộ người lao động không?',
-    group: 'hr_labor',
+    group: 'lao_dong_bhxh',
     currentValue: 'Đã ký hợp đồng với cơ sở y tế đủ điều kiện và tổ chức khám sức khỏe định kỳ',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -276,7 +276,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     id: 'fact-hr-5',
     key: 'q_hr_5',
     label: 'Doanh nghiệp có thực hiện trích nộp kinh phí công đoàn 2% quỹ tiền lương đóng BHXH hàng tháng theo quy định không?',
-    group: 'hr_labor',
+    group: 'lao_dong_bhxh',
     currentValue: 'Đã trích nộp đầy đủ 2% kinh phí công đoàn cùng thời điểm đóng BHXH',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
@@ -293,7 +293,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const { facts, fetchFacts } = useContextStore();
   const { wallet, fetchWallet, buyPackage } = useWalletStore();
 
-  const [activeTab, setActiveTab] = useState<string>('tax_accounting');
+  const [activeTab, setActiveTab] = useState<string>('thue_ke_toan');
   const [step, setStep] = useState<'select' | 'confirm' | 'scanning' | 'results'>('select');
   const [selectedFactIds, setSelectedFactIds] = useState<string[]>([]);
   const [scanProgress, setScanProgress] = useState(0);
@@ -327,13 +327,13 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   // Khởi tạo chọn thẻ ban đầu
   useEffect(() => {
     if (isOpen && effectiveFacts.length > 0) {
-      const taxFacts = effectiveFacts.filter((f) => f.group === 'tax_accounting');
+      const taxFacts = effectiveFacts.filter((f) => f.group === 'thue_ke_toan');
       if (initialSelectedFactId) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedFactIds([initialSelectedFactId]);
         const target = effectiveFacts.find((f) => f.id === initialSelectedFactId);
-        if (target && target.group === 'tax_accounting') {
-          setActiveTab('tax_accounting');
+        if (target && target.group === 'thue_ke_toan') {
+          setActiveTab('thue_ke_toan');
         } else {
           setActiveTab('all');
         }
@@ -353,7 +353,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
   // Tính toán chi phí: 25 Credit / thẻ
   const totalCost = selectedFactIds.length * COST_PER_CARD;
-  const currentBalance = wallet?.balance ?? 40;
+  const currentBalance = wallet?.balance ?? (wallet as any)?.soDu ?? 40;
   const isBalanceSufficient = currentBalance >= totalCost;
   const missingCredit = Math.max(0, totalCost - currentBalance);
 
@@ -506,12 +506,12 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   // Helper render module tag tên đẹp
   const getModuleTag = (groupKey?: string) => {
     switch (groupKey) {
-      case 'tax_accounting': return 'MODULE 1: THUẾ';
-      case 'legal': return 'MODULE 2: PHÁP LÝ';
-      case 'operations': return 'MODULE 3: VẬN HÀNH';
-      case 'revenue_invoices': return 'MODULE 4: HÓA ĐƠN';
-      case 'hr_labor': return 'MODULE 5: LAO ĐỘNG';
-      case 'premises': return 'MODULE 6: PCCC';
+      case 'thue_ke_toan': return 'MODULE 1: THUẾ';
+      case 'phap_ly_von': return 'MODULE 2: PHÁP LÝ';
+      case 'nganh_nghe_van_hanh': return 'MODULE 3: VẬN HÀNH';
+      case 'hoa_don_dong_tien': return 'MODULE 4: HÓA ĐƠN';
+      case 'lao_dong_bhxh': return 'MODULE 5: LAO ĐỘNG';
+      case 'dia_diem_pccc': return 'MODULE 6: PCCC';
       default: return 'MODULE BỐI CẢNH';
     }
   };
@@ -703,12 +703,12 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
                       {/* Tiêu đề câu hỏi / Fact label */}
                       <p className="text-xs font-bold text-slate-800 leading-snug">
-                        {fact.label}
+                        {fact.nhan || fact.label}
                       </p>
 
                       {/* Khung câu trả lời / Giá trị ghi nhận */}
                       <div className="text-xs text-slate-600 bg-slate-50/90 p-2.5 rounded-lg border border-slate-100 leading-relaxed">
-                        {fact.currentValue || fact.value || 'Chưa ghi nhận dữ liệu'}
+                        {fact.giaTriHienTai || fact.currentValue || fact.value || 'Chưa ghi nhận dữ liệu'}
                       </div>
 
                       {/* Đơn giá rà soát thẻ này */}
@@ -808,7 +808,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                     .map((fact) => (
                       <div key={fact.id} className="text-xs text-slate-700 flex items-start gap-2">
                         <Check className="w-3.5 h-3.5 text-teal-600 mt-0.5 shrink-0" />
-                        <span className="leading-snug">{fact.label}</span>
+                        <span className="leading-snug">{fact.nhan || fact.label}</span>
                       </div>
                     ))}
                 </div>

@@ -4,24 +4,27 @@ import type { Organization } from '../types';
 
 interface OrgState {
   organizations: Organization[];
+  danhSachDoanhNghiep: Organization[];
   activeOrg: Organization | null;
+  doanhNghiepHienTai: Organization | null;
   isLoading: boolean;
+  dangTai: boolean;
   error: string | null;
+  loi: string | null;
 
   fetchMyOrganizations: () => Promise<void>;
+  layDanhSachDoanhNghiep: () => Promise<void>;
   setActiveOrg: (org: Organization) => void;
+  datDoanhNghiepHienTai: (org: Organization) => void;
   submitOnboarding: (data: any) => Promise<Organization>;
+  nopHoSoKhoiTao: (data: any) => Promise<Organization>;
   fetchOrgDetails: (id: string) => Promise<void>;
+  layChiTietDoanhNghiep: (id: string) => Promise<void>;
 }
 
-export const useOrgStore = create<OrgState>((set) => ({
-  organizations: [],
-  activeOrg: null,
-  isLoading: false,
-  error: null,
-
-  fetchMyOrganizations: async () => {
-    set({ isLoading: true });
+export const useOrgStore = create<OrgState>((set) => {
+  const fetchMyOrgsFn = async () => {
+    set({ isLoading: true, dangTai: true });
     try {
       const res: any = await apiClient.get('/organizations/my-workspaces');
       const list = Array.isArray(res) ? res : [];
@@ -33,40 +36,73 @@ export const useOrgStore = create<OrgState>((set) => ({
         localStorage.setItem('celra_active_org_id', currentActive.id);
       }
 
-      set({ organizations: list, activeOrg: currentActive, isLoading: false });
+      set({
+        organizations: list,
+        danhSachDoanhNghiep: list,
+        activeOrg: currentActive,
+        doanhNghiepHienTai: currentActive,
+        isLoading: false,
+        dangTai: false,
+      });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      set({ error: err.message, loi: err.message, isLoading: false, dangTai: false });
     }
-  },
+  };
 
-  setActiveOrg: (org: Organization) => {
+  const setActiveOrgFn = (org: Organization) => {
     localStorage.setItem('celra_active_org_id', org.id);
-    set({ activeOrg: org });
-  },
+    set({ activeOrg: org, doanhNghiepHienTai: org });
+  };
 
-  submitOnboarding: async (data) => {
-    set({ isLoading: true, error: null });
+  const submitOnboardingFn = async (data: any) => {
+    set({ isLoading: true, dangTai: true, error: null, loi: null });
     try {
       const res: any = await apiClient.post('/organizations/onboarding', data);
       localStorage.setItem('celra_active_org_id', res.id);
-      set((state) => ({
-        organizations: [res, ...state.organizations.filter((o) => o.id !== res.id)],
-        activeOrg: res,
-        isLoading: false,
-      }));
+      set((state) => {
+        const updatedList = [res, ...state.organizations.filter((o) => o.id !== res.id)];
+        return {
+          organizations: updatedList,
+          danhSachDoanhNghiep: updatedList,
+          activeOrg: res,
+          doanhNghiepHienTai: res,
+          isLoading: false,
+          dangTai: false,
+        };
+      });
       return res;
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      set({ error: err.message, loi: err.message, isLoading: false, dangTai: false });
       throw err;
     }
-  },
+  };
 
-  fetchOrgDetails: async (id: string) => {
+  const fetchOrgDetailsFn = async (id: string) => {
     try {
       const res: any = await apiClient.get(`/organizations/${id}`);
-      set({ activeOrg: res });
+      set({ activeOrg: res, doanhNghiepHienTai: res });
     } catch (err) {
       console.error(err);
     }
-  },
-}));
+  };
+
+  return {
+    organizations: [],
+    danhSachDoanhNghiep: [],
+    activeOrg: null,
+    doanhNghiepHienTai: null,
+    isLoading: false,
+    dangTai: false,
+    error: null,
+    loi: null,
+
+    fetchMyOrganizations: fetchMyOrgsFn,
+    layDanhSachDoanhNghiep: fetchMyOrgsFn,
+    setActiveOrg: setActiveOrgFn,
+    datDoanhNghiepHienTai: setActiveOrgFn,
+    submitOnboarding: submitOnboardingFn,
+    nopHoSoKhoiTao: submitOnboardingFn,
+    fetchOrgDetails: fetchOrgDetailsFn,
+    layChiTietDoanhNghiep: fetchOrgDetailsFn,
+  };
+});
