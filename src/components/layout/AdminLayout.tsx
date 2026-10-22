@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Layout, Menu, Button, Avatar, Space } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
@@ -150,32 +150,17 @@ export const AdminLayout: React.FC = () => {
             />
             {!collapsed && (
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span
-                    style={{
-                      color: '#fff',
-                      fontWeight: 900,
-                      fontSize: 18,
-                      letterSpacing: 1.2,
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    CELRA
-                  </span>
-                  <span
-                    style={{
-                      background: '#7c3aed',
-                      color: '#fff',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: '1px 5px',
-                      borderRadius: 4,
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    ADMIN
-                  </span>
-                </div>
+                <span
+                  style={{
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: 18,
+                    letterSpacing: 1.2,
+                    lineHeight: 1.1,
+                  }}
+                >
+                  CELRA
+                </span>
                 <span
                   style={{
                     color: 'rgba(255,255,255,0.75)',
@@ -293,25 +278,7 @@ export const AdminLayout: React.FC = () => {
             <div style={{ width: 1, height: 20, backgroundColor: '#e2e8f0', flexShrink: 0 }} />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span
-                style={{
-                  fontWeight: 600,
-                  fontSize: 12.5,
-                  color: '#6366f1',
-                  background: '#eef2ff',
-                  padding: '3px 8px',
-                  borderRadius: 6,
-                  border: '1px solid #c7d2fe',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <CrownOutlined style={{ fontSize: 12 }} />
-                Admin Portal
-              </span>
-              <span style={{ color: '#94a3b8', fontSize: 14, fontWeight: 300, userSelect: 'none' }}>/</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5, color: '#0f172a' }}>
+              <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>
                 {currentAdminPageTitle}
               </span>
             </div>
@@ -374,7 +341,7 @@ export const AdminLayout: React.FC = () => {
             background: 'transparent',
           }}
         >
-          © {new Date().getFullYear()} <strong>CELRA Admin Portal</strong>. Bản quyền thuộc về dự án liên ngành <strong>EXE101</strong>.
+          © {new Date().getFullYear()} <strong>CELRA Portal</strong>. Bản quyền thuộc về dự án liên ngành <strong>EXE101</strong>.
         </footer>
       </Layout>
     </Layout>
