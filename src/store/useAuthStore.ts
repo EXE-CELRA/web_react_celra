@@ -87,6 +87,11 @@ export const useAuthStore = create<AuthState>((set) => {
         phone: data.soDienThoai || data.phoneNumber || data.phone,
       };
 
+      localStorage.removeItem('celra_active_org_id');
+      localStorage.removeItem('celra_active_role');
+      localStorage.removeItem('celra_survey_completed');
+      localStorage.removeItem('celra_survey_draft_answers');
+      localStorage.removeItem('celra_survey_draft_profile');
       const res: any = await apiClient.post('/auth/register', payload);
       set({ isLoading: false, dangTai: false });
       return res;

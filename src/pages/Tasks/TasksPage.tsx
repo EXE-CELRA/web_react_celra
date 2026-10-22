@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTaskStore } from '../../store/useTaskStore';
+import { useOrgStore } from '../../store/useOrgStore';
 import type { TaskItem, TaskStatus, TaskPriority, StatutoryCycleType, ComplianceNotification } from '../../types';
 import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
@@ -45,6 +46,7 @@ const { Text, Paragraph } = Typography;
 
 export const TasksPage: React.FC = () => {
   const navigate = useNavigate();
+  const { activeOrg, organizations } = useOrgStore();
   const {
     tasks,
     selectedTask,
@@ -70,9 +72,11 @@ export const TasksPage: React.FC = () => {
       const [createForm] = Form.useForm();
 
   useEffect(() => {
-    fetchTasks();
-    fetchNotifications();
-  }, []);
+    if (activeOrg?.id) {
+      fetchTasks();
+      fetchNotifications();
+    }
+  }, [activeOrg?.id]);
 
   // Đếm số lượng task theo từng đợt luật định
   const getPeriodCount = (periodCode: string) => {
@@ -102,7 +106,22 @@ export const TasksPage: React.FC = () => {
 
   const isInProgressStatus = (status?: string) => {
     const s = String(status || '').toLowerCase();
+    if (!activeOrg && organizations.length === 0) {
     return (
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <Empty
+          description="B?n chua c� h? so doanh nghi?p n�o tr�n h? th?ng"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          <Button type="primary" size="large" onClick={() => navigate('/survey')}>
+            B?t d?u t?o h? so doanh nghi?p ngay
+          </Button>
+        </Empty>
+      </div>
+    );
+  }
+
+  return (
       s === 'in_progress' ||
       s === 'waiting_document' ||
       s === 'waiting_verification' ||

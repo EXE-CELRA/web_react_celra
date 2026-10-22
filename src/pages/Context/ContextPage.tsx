@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useContextStore } from '../../store/useContextStore';
+import { useOrgStore } from '../../store/useOrgStore';
 import { ContextComplianceAuditModal } from '../../components/common/ContextComplianceAuditModal';
 import type { ContextFact } from '../../types';
 import { 
@@ -115,6 +116,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
 ];
 
 export const ContextPage: React.FC = () => {
+  const { activeOrg } = useOrgStore();
   const { facts, fetchFacts, updateFact, createFact } = useContextStore();
 
   const [selectedTab, setSelectedTab] = useState<string>('all');
@@ -139,8 +141,10 @@ export const ContextPage: React.FC = () => {
   const [auditTargetFactId, setAuditTargetFactId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFacts();
-  }, []);
+    if (activeOrg?.id) {
+      fetchFacts();
+    }
+  }, [activeOrg?.id]);
 
 // Lọc dữ kiện: Chỉ hiển thị dữ kiện thuộc 2 phân hệ đang mở (Thuế & Pháp lý)
   const enabledFacts = facts.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
