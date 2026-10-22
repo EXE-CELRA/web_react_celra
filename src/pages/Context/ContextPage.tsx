@@ -383,10 +383,17 @@ export const ContextPage: React.FC = () => {
                 <button
                   type="button"
                   disabled
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100/90 border border-slate-200 text-slate-400 opacity-60 cursor-not-allowed select-none transition-all"
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100/90 border border-slate-200 text-slate-400 opacity-75 cursor-not-allowed select-none transition-all"
                 >
                   <IconComponent className="w-3.5 h-3.5 text-slate-400" />
                   <span>{g.label}</span>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                      count > 0 ? 'bg-slate-200 text-slate-700' : 'bg-slate-200/70 text-slate-400'
+                    }`}
+                  >
+                    {count}
+                  </span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 font-medium">
                     Tạm khóa
                   </span>

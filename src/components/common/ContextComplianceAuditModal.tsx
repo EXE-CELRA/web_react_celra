@@ -595,15 +595,23 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                   const IconComp = g.icon;
 
                   if (!isEnabled) {
+                    const factCount = facts.filter((f) => f.group === g.key).length;
                     return (
                       <button
                         key={g.key}
                         type="button"
                         disabled
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed select-none"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100 text-slate-400 opacity-75 cursor-not-allowed select-none"
                       >
                         <IconComp className="w-3.5 h-3.5 text-slate-400" />
                         <span>{g.shortLabel}</span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                            factCount > 0 ? 'bg-slate-200 text-slate-700' : 'bg-slate-200/70 text-slate-400'
+                          }`}
+                        >
+                          {factCount}
+                        </span>
                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-500">
                           Khóa
                         </span>
