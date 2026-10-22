@@ -102,6 +102,9 @@ export const useAuthStore = create<AuthState>((set) => {
     localStorage.removeItem('celra_user');
     localStorage.removeItem('celra_active_org_id');
     localStorage.removeItem('celra_active_role');
+    localStorage.removeItem('celra_survey_draft_profile');
+    localStorage.removeItem('celra_survey_draft_answers');
+    localStorage.removeItem('celra_survey_completed');
     set({
       user: null,
       nguoiDung: null,
