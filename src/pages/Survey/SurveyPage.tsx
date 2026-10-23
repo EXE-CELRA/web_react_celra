@@ -8,10 +8,10 @@ import {
   COMPANY_TYPE_TAGS, 
   INDUSTRY_TAGS, 
   DEFAULT_BASE_PROFILE,
-  generateDynamicQuestions,
   detectEnterpriseLegalType,
   COMPLIANCE_MODULES
-} from '../../data/surveySchema';
+} from '../../data/baseProfile';
+import { getTaxSurveyQuestions } from '../../data/questionServey';
 import { 
   CheckCircle2, 
   ArrowRight, 
@@ -99,7 +99,7 @@ export const SurveyPage: React.FC = () => {
   const [activeTabStep, setActiveTabStep] = useState<1 | 2 | 3>(1);
 
   const [dynamicQuestions, setDynamicQuestions] = useState<DynamicSituationQuestion[]>(() => {
-    const baseList = generateDynamicQuestions(baseProfile);
+    const baseList = getTaxSurveyQuestions(baseProfile);
     try {
       const savedCompletedAnswers = localStorage.getItem('celra_survey_completed_answers');
       const savedDraftAnswers = localStorage.getItem('celra_survey_draft_answers');
@@ -298,7 +298,7 @@ export const SurveyPage: React.FC = () => {
       if (updates.employeeScale) {
         next.requiresLaborRuleBook = next.employeeScale === '10_to_50' || next.employeeScale === 'over_50';
       }
-      const rawQuestions = generateDynamicQuestions(next);
+      const rawQuestions = getTaxSurveyQuestions(next);
       const newQuestions = enrichQuestionsWithLegalRules(rawQuestions, legalRules);
       setDynamicQuestions(currentList => {
         return newQuestions.map(nq => {
@@ -532,55 +532,12 @@ export const SurveyPage: React.FC = () => {
     }
   };
 
-  // Group questions by Compliance Module for Step 2 (Bao quát 100% 8 nhóm bối cảnh)
-  const taxModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_TAX_CORE');
-  const legalModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LEGAL_CORP');
-  const invoiceModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_INVOICE_CASHFLOW');
-  const laborModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LABOR_HR');
-  const premisesModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_PREMISES_PCCC');
-  const contractModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_CONTRACTS');
-  const dataIpModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_DATA_IP' || q.moduleId === 'MODULE_ECOM_DATA_PRIVACY');
-  const licensingModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_LICENSING_ATTP' || q.moduleId === 'MODULE_LICENSING_CON');
-  const otherQuestions = dynamicQuestions.filter(q => 
-    !q.moduleId || 
-    (q.moduleId !== 'MODULE_TAX_CORE' && 
-     q.moduleId !== 'MODULE_LEGAL_CORP' &&
-     q.moduleId !== 'MODULE_INVOICE_CASHFLOW' && 
-     q.moduleId !== 'MODULE_LABOR_HR' && 
-     q.moduleId !== 'MODULE_PREMISES_PCCC' && 
-     q.moduleId !== 'MODULE_CONTRACTS' && 
-     q.moduleId !== 'MODULE_DATA_IP' && 
-     q.moduleId !== 'MODULE_ECOM_DATA_PRIVACY' && 
-     q.moduleId !== 'MODULE_LICENSING_ATTP' && 
-     q.moduleId !== 'MODULE_LICENSING_CON')
-  );
+  // Khảo sát bối cảnh chuyên biệt 100% cho Thuế Doanh Nghiệp & Hóa Đơn Dòng Tiền
+  const taxModuleQuestions = dynamicQuestions.filter(q => q.moduleId === 'MODULE_TAX_CORE' || q.moduleId === 'MODULE_INVOICE_CASHFLOW');
 
   // =========================================================================
   return (
     <div className="w-full space-y-6 pb-28">
-      {/* 🔒 BANNER KHÓA KHẢO SÁT CHỈ XEM ĐỂ TRÌNH BÀY */}
-      {isSurveyCompleted && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-amber-100/50 border-2 border-amber-400/80 rounded-2xl p-4 sm:p-5 flex items-center gap-3.5 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-            <Lock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-950 font-extrabold text-[10px] uppercase tracking-wider">
-                Đã khóa an toàn
-              </span>
-              <h4 className="text-sm font-extrabold text-amber-950 m-0">
-                HỒ SƠ KHẢO SÁT ĐÃ HOÀN TẤT (CHẾ ĐỘ CHỈ XEM ĐỂ TRÌNH BÀY)
-              </h4>
-            </div>
-            <p className="text-xs text-amber-900/80 m-0 mt-1 font-medium leading-relaxed">
-              Toàn bộ dữ liệu 3 bước đã được lưu trữ cố định và khóa thay đổi. Bạn có thể tự do bấm chuyển các Bước 1, 2, 3 để trình diễn cho hội đồng.
-            </p>
-          </div>
-        </div>
-      )}
-
-
       {/* Modern 3-Step Stepper Bar */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
@@ -1351,13 +1308,13 @@ export const SurveyPage: React.FC = () => {
             </div>
           </div>
 
-          {/* NHÓM 1: TUÂN THỦ THUẾ DOANH NGHIỆP */}
+          {/* KHỐI DUY NHẤT: TUÂN THỦ THUẾ DOANH NGHIỆP & HÓA ĐƠN DÒNG TIỀN */}
           {taxModuleQuestions.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Tuân thủ Thuế Doanh Nghiệp ({taxModuleQuestions.length} tình huống)
+                    Tuân thủ Thuế Doanh Nghiệp &amp; Hóa Đơn Dòng Tiền ({taxModuleQuestions.length} tình huống)
                   </h3>
                 </div>
               </div>
@@ -1368,196 +1325,6 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 2: HỒ SƠ PHÁP LÝ & QUẢN TRỊ VỐN */}
-          {legalModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Hồ Sơ Pháp Lý &amp; Quản Trị Vốn ({legalModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {legalModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 3: HÓA ĐƠN & DÒNG TIỀN THỰC TẾ */}
-          {invoiceModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Hóa Đơn &amp; Dòng Tiền Thực Tế ({invoiceModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {invoiceModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 4: LAO ĐỘNG, TIỀN LƯƠNG & BHXH */}
-          {laborModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Lao Động, Tiền Lương &amp; BHXH ({laborModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {laborModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 5: ĐỊA ĐIỂM & AN TOÀN PCCC */}
-          {premisesModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Địa Điểm &amp; An Toàn PCCC ({premisesModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {premisesModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 6: HỢP ĐỒNG & GIAO KẾT KINH DOANH */}
-          {contractModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Hợp Đồng &amp; Giao Kết Kinh Doanh ({contractModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {contractModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 7: DỮ LIỆU & SỞ HỮU TRÍ TUỆ */}
-          {dataIpModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Dữ Liệu &amp; Sở Hữu Trí Tuệ ({dataIpModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {dataIpModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NHÓM 8: GIẤY PHÉP CON & PHÁP CHẾ CHUYÊN NGÀNH */}
-          {licensingModuleQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    Giấy Phép Con &amp; Pháp Chế Chuyên Ngành ({licensingModuleQuestions.length} tình huống)
-                  </h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {licensingModuleQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + dataIpModuleQuestions.length + idx + 1}
-                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* CÂU HỎI BỔ TRỢ (NẾU CÓ) */}
-          {otherQuestions.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-2 px-1">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
-                  Các câu hỏi bổ trợ ({otherQuestions.length} tình huống)
-                </h3>
-              </div>
-
-              <div className="space-y-3">
-                {otherQuestions.map((q, idx) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + dataIpModuleQuestions.length + licensingModuleQuestions.length + idx + 1}
                     disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}

@@ -25,7 +25,7 @@ import {
   HardDrive,
   Plus
 } from 'lucide-react';
-import { message, Modal, Form, Input, Select, Tooltip } from 'antd';
+import { message, Modal, Form, Input, Select } from 'antd';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan'];
@@ -327,24 +327,26 @@ export const ContextPage: React.FC = () => {
             <span>Thêm dữ kiện mới</span>
           </button>
 
-          <button
-            onClick={() => {
-              setAuditTargetGroup(selectedTab !== 'all' ? selectedTab : 'all');
-              setShowAuditModal(true);
-            }}
-            className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
-            title="Rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
-            <span>
-              {selectedTab !== 'all'
-                ? `Rà soát lĩnh vực ${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.shortLabel || ''}`
-                : 'Rà soát tuân thủ'}
-            </span>
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-              {selectedTab !== 'all' ? `${filteredFacts.length} thẻ` : `${facts.length} thẻ`}
-            </span>
-          </button>
+          {(selectedTab === 'all' || ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab)) && (
+            <button
+              onClick={() => {
+                setAuditTargetGroup(selectedTab !== 'all' ? selectedTab : 'all');
+                setShowAuditModal(true);
+              }}
+              className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
+              title="Rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
+              <span>
+                {selectedTab !== 'all'
+                  ? `Rà soát lĩnh vực ${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.shortLabel || ''}`
+                  : 'Rà soát tuân thủ'}
+              </span>
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
+                {selectedTab !== 'all' ? `${filteredFacts.length} thẻ` : `${facts.length} thẻ`}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -380,26 +382,25 @@ export const ContextPage: React.FC = () => {
 
           if (!isEnabled) {
             return (
-              <Tooltip key={g.key} title="Phân hệ tạm khóa theo lộ trình, hiện tại CELRA chỉ mở rà soát cho phân hệ Thuế Doanh Nghiệp">
-                <button
-                  type="button"
-                  disabled
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-slate-100/90 border border-slate-200 text-slate-400 opacity-75 cursor-not-allowed select-none transition-all"
-                >
-                  <IconComponent className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{g.label}</span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-                      count > 0 ? 'bg-slate-200 text-slate-700' : 'bg-slate-200/70 text-slate-400'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 font-medium">
-                    Tạm khóa
-                  </span>
-                </button>
-              </Tooltip>
+              <button
+                key={g.key}
+                type="button"
+                onClick={() => setSelectedTab(g.key)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-slate-800 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-600'
+                }`}
+                title={`Phân hệ ${g.label} (Chưa kích hoạt - Chờ lập trình viên mở rộng)`}
+              >
+                <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+                <span>{g.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  Chưa kích hoạt
+                </span>
+              </button>
             );
           }
 
@@ -433,8 +434,49 @@ export const ContextPage: React.FC = () => {
       </div>
 
 
-      {/* CONTEXT FACTS LIST - 2 COLUMN GRID */}
-      {filteredFacts.length === 0 ? (
+      {/* NẾU PHÂN HỆ ĐƯỢC CHỌN CHƯA KÍCH HOẠT */}
+      {selectedTab !== 'all' && !ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
+        <div className="bg-white p-8 sm:p-12 rounded-2xl border border-dashed border-slate-300 text-center space-y-5 shadow-xs">
+          <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto border border-slate-200 shadow-inner">
+            {(() => {
+              const CurrentIcon = CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.icon || Layers;
+              return <CurrentIcon className="w-8 h-8 text-slate-600" />;
+            })()}
+          </div>
+          <div className="space-y-2 max-w-lg mx-auto">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              Phân Hệ Đang Phát Triển
+            </div>
+            <h3 className="text-base font-bold text-slate-900">
+              Phân Hệ {CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab} Chưa Kích Hoạt
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              CELRA hiện tại đang chuyên sâu và chỉ rà soát cho phân hệ <strong>Thuế Doanh Nghiệp</strong>.
+              <br />
+              Để kích hoạt phân hệ này, lập trình viên sẽ cấu hình bộ câu hỏi độc lập tại thư mục <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-800 text-[11px]">src/data/questionServey/</code> và kết nối vào hệ sinh thái CELRA.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => message.info(`Phân hệ "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label}" đang chờ lập trình viên bổ sung file khảo sát vào questionServey/!`)}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 text-emerald-400" />
+              <span>Khảo sát &amp; Kích hoạt Phân hệ này</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTab('thue_ke_toan')}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Quay lại phân hệ Thuế
+            </button>
+          </div>
+        </div>
+      ) : filteredFacts.length === 0 ? (
         <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-xs">
           <div className="w-14 h-14 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto">
             <Database className="w-7 h-7" />
