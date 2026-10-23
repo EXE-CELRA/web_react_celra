@@ -1,3 +1,4 @@
+import type { MandatoryOnboardingModalProps } from '../../interfaces';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -31,10 +32,7 @@ import celraLogo from '../../assets/logo_celra_tachnen.png';
 
 const { Title, Paragraph, Text } = Typography;
 
-interface MandatoryOnboardingModalProps {
-  open: boolean;
-  onSuccess: () => void;
-}
+
 
 export const MandatoryOnboardingModal: React.FC<MandatoryOnboardingModalProps> = ({ open, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(0);

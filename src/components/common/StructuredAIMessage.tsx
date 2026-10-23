@@ -18,37 +18,14 @@ import {
   Info
 } from 'lucide-react';
 import { message as antMessage } from 'antd';
-import type { Organization } from '../../types';
+import type { ParsedObligation, StructuredMessageProps } from '../../interfaces';
+export type { StructuredMessageProps };
 
-export interface CitationItem {
-  title: string;
-  docNumber: string;
-  articleNumber?: string;
-  sourceUrl?: string;
-  url?: string;
-}
 
-export interface StructuredMessageProps {
-  text: string;
-  citations?: CitationItem[];
-  organization?: Organization | null;
-  onSendMessage?: (text: string) => void;
-  onOpenAuditModal?: () => void;
-  resolveCitationUrl: (c: CitationItem) => string;
-  isEnterpriseQuery?: boolean;
-}
 
-interface ParsedObligation {
-  title: string;
-  status: 'COMPLETED' | 'IN_PROGRESS' | 'NEEDS_VERIFICATION' | 'INCOMPLETE';
-  priority?: 'urgent' | 'high' | 'medium';
-  shortDesc: string;
-  systemRecorded?: string;
-  verifiedResult?: string;
-  actionRequired?: string;
-  legalBasis?: string;
-  sourceUrl?: string;
-}
+
+
+
 
 export const StructuredAIMessage: React.FC<StructuredMessageProps> = ({
   text,

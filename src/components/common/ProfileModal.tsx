@@ -1,3 +1,4 @@
+import type { ProfileModalProps } from '../../interfaces';
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -24,10 +25,7 @@ import {
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
 
-interface ProfileModalProps {
-  open: boolean;
-  onClose: () => void;
-}
+
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => {
   const [form] = Form.useForm();

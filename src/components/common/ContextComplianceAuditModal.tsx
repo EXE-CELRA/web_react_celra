@@ -6,7 +6,7 @@ import { useContextStore } from '../../store/useContextStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import apiClient from '../../api/client';
 import { message } from 'antd';
-import type { Priority, StatutoryCycleType, ContextFact } from '../../types';
+import type { ContextFact, AuditFindingItem, ContextComplianceAuditModalProps } from '../../interfaces';
 import { 
   ShieldCheck, 
   X, 
@@ -23,36 +23,9 @@ import {
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from '../../pages/Context/ContextPage';
 
-interface ContextComplianceAuditModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  initialSelectedFactId?: string | null;
-  onSuccess?: () => void;
-}
 
-export interface AuditFindingItem {
-  id: string;
-  auditId: string;
-  factId?: string | null;
-  ruleCode: string;
-  obligationTitle: string;
-  category: string;
-  applicableStatus: 'applicable' | 'not_applicable' | 'missing_info' | 'verification_required';
-  actionRequired: string;
-  evidenceRequired: string;
-  legalBasis: string;
-  legalDocNumber?: string | null;
-  legalArticle?: string | null;
-  legalDocUrl?: string | null;
-  legalValidity: 'in_force' | 'expired' | 'unverified';
-  verifiedAt?: string | null;
-  resultSource: 'rule_based' | 'ai_assisted' | 'unverified_fallback';
-  cycleType: StatutoryCycleType;
-  calculationMethod?: string | null;
-  missingDataNotice?: string | null;
-  suggestedPriority: Priority;
-  penaltyRisk?: string;
-}
+
+
 
 const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
@@ -287,6 +260,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   isOpen,
   onClose,
   initialSelectedFactId,
+  initialSelectedGroup,
   onSuccess,
 }) => {
   const navigate = useNavigate();
@@ -324,32 +298,43 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     return rawList.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
   }, [facts]);
 
-  // Khởi tạo chọn thẻ ban đầu
+  // Khởi tạo chọn toàn bộ thẻ theo Lĩnh Vực ban đầu (Không cho phép chọn lẻ)
   useEffect(() => {
     if (isOpen && effectiveFacts.length > 0) {
-      const taxFacts = effectiveFacts.filter((f) => f.group === 'thue_ke_toan');
-      if (initialSelectedFactId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedFactIds([initialSelectedFactId]);
+      if (initialSelectedGroup && initialSelectedGroup !== 'all') {
+        const groupFacts = effectiveFacts.filter((f) => f.group === initialSelectedGroup);
+        setSelectedFactIds(groupFacts.map((f) => f.id));
+        setActiveTab(initialSelectedGroup);
+      } else if (initialSelectedGroup === 'all') {
+        setSelectedFactIds(effectiveFacts.map((f) => f.id));
+        setActiveTab('all');
+      } else if (initialSelectedFactId) {
         const target = effectiveFacts.find((f) => f.id === initialSelectedFactId);
-        if (target && target.group === 'thue_ke_toan') {
-          setActiveTab('thue_ke_toan');
-        } else {
-          setActiveTab('all');
-        }
+        const targetGroup = target?.group || 'thue_ke_toan';
+        const groupFacts = effectiveFacts.filter((f) => f.group === targetGroup);
+        setSelectedFactIds(groupFacts.map((f) => f.id));
+        setActiveTab(targetGroup);
       } else {
+        const taxFacts = effectiveFacts.filter((f) => f.group === 'thue_ke_toan');
         setSelectedFactIds(taxFacts.map((f) => f.id));
-        setActiveTab('tax_accounting');
+        setActiveTab('thue_ke_toan');
       }
     }
-  }, [isOpen, initialSelectedFactId, effectiveFacts]);
-
-  if (!isOpen) return null;
+  }, [isOpen, initialSelectedFactId, initialSelectedGroup, effectiveFacts]);
 
   // Nhóm hiển thị thẻ theo Tab
-  const displayedFacts = activeTab === 'all' 
-    ? effectiveFacts 
-    : effectiveFacts.filter((f) => f.group === activeTab);
+  const displayedFacts = useMemo(() => {
+    return activeTab === 'all' 
+      ? effectiveFacts 
+      : effectiveFacts.filter((f) => f.group === activeTab);
+  }, [activeTab, effectiveFacts]);
+
+  // Luôn luôn đồng bộ 100% thẻ của lĩnh vực đang xem (Khóa trọn gói, tuyệt đối không cho tick lẻ)
+  useEffect(() => {
+    if (isOpen && displayedFacts.length > 0) {
+      setSelectedFactIds(displayedFacts.map((f) => f.id));
+    }
+  }, [isOpen, displayedFacts]);
 
   // Tính toán chi phí: 25 Credit / thẻ
   const totalCost = selectedFactIds.length * COST_PER_CARD;
@@ -357,23 +342,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const isBalanceSufficient = currentBalance >= totalCost;
   const missingCredit = Math.max(0, totalCost - currentBalance);
 
-  const toggleSelectFact = (id: string) => {
-    setSelectedFactIds((prev) =>
-      prev.includes(id) ? prev.filter((fId) => fId !== id) : [...prev, id]
-    );
-  };
-
-  const isAllCurrentTabSelected =
-    displayedFacts.length > 0 && displayedFacts.every((f) => selectedFactIds.includes(f.id));
-
-  const handleToggleSelectCurrentTab = () => {
-    if (isAllCurrentTabSelected) {
-      setSelectedFactIds((prev) => prev.filter((id) => !displayedFacts.some((f) => f.id === id)));
-    } else {
-      const newSelected = new Set([...selectedFactIds, ...displayedFacts.map((f) => f.id)]);
-      setSelectedFactIds(Array.from(newSelected));
-    }
-  };
+  if (!isOpen) return null;
 
   // 1. GỌI API RÀ SOÁT BỐI CẢNH (BATCH AUDIT)
   const handleStartAudit = async () => {
@@ -571,7 +540,10 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
               <div className="bg-slate-100/90 p-1.5 rounded-xl border border-slate-200 flex items-center gap-1.5 overflow-x-auto">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('all')}
+                  onClick={() => {
+                    setActiveTab('all');
+                    setSelectedFactIds(effectiveFacts.map((f) => f.id));
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                     activeTab === 'all'
                       ? 'bg-blue-600 text-white shadow-xs'
@@ -623,7 +595,11 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                     <button
                       key={g.key}
                       type="button"
-                      onClick={() => setActiveTab(g.key)}
+                      onClick={() => {
+                        setActiveTab(g.key);
+                        const groupFacts = effectiveFacts.filter((f) => f.group === g.key);
+                        setSelectedFactIds(groupFacts.map((f) => f.id));
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                         isSelected
                           ? 'bg-blue-600 text-white shadow-xs'
@@ -648,58 +624,47 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                 })}
               </div>
 
-              {/* HỘP HƯỚNG DẪN & CHỌN THẺ */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-teal-50/70 border border-teal-200 rounded-xl p-3.5">
+              {/* HỘP HƯỚNG DẪN RÀ SOÁT TRỌN GÓI LĨNH VỰC (KHÔNG CÒN NÚT CHỌN LẺ) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-teal-50/80 border border-teal-200 rounded-xl p-3.5">
                 <div className="space-y-0.5">
-                  <h4 className="text-sm font-bold text-teal-950 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-teal-600" />
-                    Chọn các thẻ bối cảnh muốn rà soát tuân thủ
+                  <h4 className="text-sm font-bold text-teal-950 flex items-center gap-2 m-0">
+                    <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Rà soát trọn gói Lĩnh vực: {activeTab === 'all' ? 'Tất cả lĩnh vực bối cảnh' : CONTEXT_GROUPS.find((g) => g.key === activeTab)?.label || activeTab}</span>
                   </h4>
-                  <p className="text-xs text-teal-800">
-                    Mỗi thẻ được chọn sẽ được phân tích đối chiếu với hệ thống luật định và quy chuẩn thuế tương ứng. Bạn có thể chọn tất cả hoặc tick chọn riêng từng thẻ.
+                  <p className="text-xs text-teal-800 m-0 mt-0.5">
+                    Hệ thống sẽ đối chiếu đồng bộ toàn bộ {displayedFacts.length} thẻ bối cảnh thuộc lĩnh vực này với CSDL văn bản luật định để xác định rủi ro và xuất Checklist tuân thủ.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                  <button
-                    onClick={handleToggleSelectCurrentTab}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-teal-900 border border-teal-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    {isAllCurrentTabSelected ? 'Bỏ chọn tab này' : 'Chọn tất cả tab này'}
-                  </button>
-                  <span className="text-xs font-bold px-3 py-1.5 bg-teal-600 text-white rounded-lg shadow-xs">
-                    Đã chọn: {selectedFactIds.length} thẻ
+                  <span className="text-xs font-bold px-3.5 py-2 bg-teal-600 text-white rounded-xl shadow-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-teal-200" />
+                    <span>Trọn gói: {displayedFacts.length} thẻ</span>
                   </span>
                 </div>
               </div>
 
-              {/* GRID DANH SÁCH THẺ CONTEXT */}
+              {/* GRID DANH SÁCH THẺ CONTEXT (TRỌN GÓI 100%, KHÔNG CÓ CHECKBOX, KHÔNG CHO TICK LẺ) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {displayedFacts.map((fact) => {
-                  const isSelected = selectedFactIds.includes(fact.id);
+                {displayedFacts.map((fact, idx) => {
                   const isConfirmed = fact.status === 'confirmed';
 
                   return (
                     <div
                       key={fact.id}
-                      onClick={() => toggleSelectFact(fact.id)}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer select-none space-y-2.5 relative ${
-                        isSelected
-                          ? 'bg-teal-50/40 border-teal-500 shadow-xs ring-1 ring-teal-500/30'
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
+                      className="p-4 rounded-xl border border-teal-200/80 bg-teal-50/20 shadow-xs space-y-2.5 relative select-none"
                     >
-                      {/* Top Thẻ: Checkbox, Module tag, Status tag */}
+                      {/* Top Thẻ: Số thứ tự cố định, Module tag, Badge Trọn gói, Status tag */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 pointer-events-none"
-                          />
-                          <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                          <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="text-[11px] font-bold text-teal-800 bg-teal-100/80 border border-teal-200 px-2 py-0.5 rounded">
                             {getModuleTag(fact.group)}
+                          </span>
+                          <span className="text-[10px] font-semibold text-teal-700 bg-white border border-teal-200 px-1.5 py-0.2 rounded">
+                            Trọn gói
                           </span>
                         </div>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
@@ -710,19 +675,13 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                       </div>
 
                       {/* Tiêu đề câu hỏi / Fact label */}
-                      <p className="text-xs font-bold text-slate-800 leading-snug">
+                      <p className="text-xs font-bold text-slate-800 leading-snug m-0">
                         {fact.nhan || fact.label}
                       </p>
 
                       {/* Khung câu trả lời / Giá trị ghi nhận */}
-                      <div className="text-xs text-slate-600 bg-slate-50/90 p-2.5 rounded-lg border border-slate-100 leading-relaxed">
+                      <div className="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-teal-100 leading-relaxed font-medium">
                         {fact.giaTriHienTai || fact.currentValue || fact.value || 'Chưa ghi nhận dữ liệu'}
-                      </div>
-
-                      {/* Đơn giá rà soát thẻ này */}
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
-                        <span className="text-slate-500">Đơn giá rà soát thẻ này:</span>
-                        <span className="font-bold text-teal-800">{COST_PER_CARD} Credit</span>
                       </div>
                     </div>
                   );
@@ -1030,7 +989,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                 onClick={() => setStep('select')}
                 className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                Quay lại chọn thẻ
+                Quay lại xem lĩnh vực
               </button>
               <div className="flex items-center gap-2">
                 <button

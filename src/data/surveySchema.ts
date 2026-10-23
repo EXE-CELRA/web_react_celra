@@ -7,77 +7,16 @@ import type {
   Task,
   ContextFact,
   ComplianceModuleId,
-} from '../types';
+  TagMeta,
+  ComplianceModuleMeta,
+  StandardComplianceQuestion,
+  LegalTypeDetection,
+} from '../interfaces';
 import { 
   calculateLegalDueDate, 
   formatISODate, 
   STATUTORY_PERIOD_METAS 
 } from '../utils/taxCalendar';
-
-export interface TagMeta<T> {
-  id: T;
-  label: string;
-  shortLabel: string;
-  description: string;
-  iconName: string;
-  badgeColor: string;
-}
-
-export interface ComplianceModuleMeta {
-  id: ComplianceModuleId;
-  name: string;
-  badge: string;
-  status: 'ACTIVE' | 'ROADMAP_PHASE_2' | 'ROADMAP_PHASE_3';
-  statusLabel: string;
-  description: string;
-  iconName: string;
-}
-
-// =========================================================================
-// [ CHUẨN HÓA BỘ CÂU HỎI ĐA LĨNH VỰC - UNIVERSAL COMPLIANCE QUESTION SCHEMA ]
-// =========================================================================
-
-export type ComplianceDomain = 'TAX' | 'INVOICE' | 'BHXH' | 'LABOR' | 'SAFETY' | 'CORPORATE' | 'LICENSING';
-
-export interface StandardComplianceQuestion {
-  id: string;
-  domain: ComplianceDomain;
-  subCategory: string;
-  version: string;
-  status: 'ACTIVE' | 'PENDING_VERIFICATION' | 'ARCHIVED';
-  title: string;
-  description?: string;
-  severity: 'urgent' | 'high' | 'medium';
-  legalReference: {
-    docCode: string;
-    docTitle: string;
-    articleNumber: string;
-    sourceUrl: string;
-    statusInDLPL: 'VALID' | 'AMENDED' | 'EXPIRED';
-    penaltyClause?: string;
-  };
-  conditions: {
-    minRevenue?: number;
-    maxRevenue?: number;
-    minEmployees?: number;
-    maxEmployees?: number;
-    companyTypes?: CompanyTypeTag[];
-    industryTags?: IndustryTag[];
-    isNewlyEstablished?: boolean;
-  };
-  options?: string[];
-}
-
-/**
- * Danh mục câu hỏi chuẩn hóa đa lĩnh vực (Universal Question Registry).
- * Bao trùm 6 trụ cột tuân thủ cốt lõi của doanh nghiệp tại Việt Nam:
- * 1. Thuế (Tax)
- * 2. Hóa đơn & Dòng tiền (Invoice & Cashflow)
- * 3. Lao động & Tiền lương (Labor & HR)
- * 4. Bảo hiểm xã hội (BHXH)
- * 5. Pháp lý Doanh nghiệp & Quản trị Vốn (Corporate Governance)
- * 6. Giấy phép chuyên ngành & Dữ liệu (Licensing & Compliance)
- */
 export const UNIVERSAL_COMPLIANCE_REGISTRY: StandardComplianceQuestion[] = [
   // LĨNH VỰC 1: THUẾ (TAX)
   {
@@ -457,12 +396,7 @@ export const COMPANY_TYPE_TAGS: TagMeta<CompanyTypeTag>[] = [
   }
 ];
 
-export interface LegalTypeDetection {
-  tagId: 'TAG_TNHH_1TV' | 'TAG_TNHH_2TV' | 'UNSUPPORTED';
-  label: string;
-  isSupported: boolean;
-  unsupportedReason?: string;
-}
+
 
 /**
  * Thuật toán tự động bóc tách Hình thức kinh doanh từ Tên pháp lý doanh nghiệp (theo Khoản 1 Điều 37 Luật Doanh nghiệp 2020)

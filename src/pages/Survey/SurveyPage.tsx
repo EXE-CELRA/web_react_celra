@@ -40,25 +40,13 @@ import {
   Search,
   Loader2,
 } from 'lucide-react';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { getLegalRules } from '../../api/legalApi';
+import type { LegalRule, QuestionCardProps } from '../../interfaces';
 import { useOrgStore } from '../../store/useOrgStore';
 import { UnsavedChangesModal } from '../../components/common/UnsavedChangesModal';
-
-type LegalRule = {
-  code?: string;
-  legalReference?: string;
-  conditionSummary?: string;
-  conditionsJson?: {
-    citations?: Array<{
-      title?: string;
-      sourceUrl?: string;
-      articleNumber?: string;
-    }>;
-  };
-};
 
 const formatCurrencyToWords = (amount: number): string => {
   if (!amount || isNaN(amount) || amount <= 0) return '0 VNĐ';
@@ -394,15 +382,44 @@ export const SurveyPage: React.FC = () => {
     });
   };
 
-  const resetSurveyStatus = () => {
-    localStorage.removeItem('celra_survey_completed');
-    localStorage.removeItem('celra_survey_draft_answers');
-    localStorage.removeItem('celra_survey_draft_profile');
-    setIsSurveyCompleted(false);
-    setActiveTabStep(1);
-    setDynamicQuestions(generateDynamicQuestions(baseProfile));
-    message.warning('Đã khóa lại hệ thống để bạn tiến hành thử nghiệm khảo sát!');
+  
+  const handleResetDemo = () => {
+    Modal.confirm({
+      title: 'Làm Lại Bài Khảo Sát (Reset Demo)',
+      icon: <RotateCcw className="w-5 h-5 text-rose-500" />,
+      content: 'Thao tác này sẽ xóa toàn bộ dữ liệu của doanh nghiệp hiện tại trong cơ sở dữ liệu (thông tin công ty, câu hỏi bối cảnh, nhiệm vụ, checklist). Bạn có chắc chắn muốn xóa để làm lại từ đầu không?',
+      okText: 'Xác nhận xóa & làm lại',
+      okType: 'danger',
+      cancelText: 'Hủy bỏ',
+      onOk: async () => {
+        try {
+          const activeId = activeOrg?.id || localStorage.getItem('celra_active_org_id');
+          if (activeId) {
+            await apiClient.delete(`/organizations/${activeId}/reset-demo`);
+          }
+        } catch (err) {
+          console.warn('Lỗi gọi API xóa doanh nghiệp:', err);
+        }
+
+        localStorage.removeItem('celra_survey_completed');
+        localStorage.removeItem('celra_survey_draft_answers');
+        localStorage.removeItem('celra_survey_draft_profile');
+        localStorage.removeItem('celra_tax_lookup_details');
+        localStorage.removeItem('celra_active_org_id');
+
+        setIsSurveyCompleted(false);
+        setBaseProfile(DEFAULT_BASE_PROFILE);
+        setDynamicQuestions(generateDynamicQuestions(DEFAULT_BASE_PROFILE));
+        setTaxLookupDetails(null);
+        setActiveTabStep(1);
+
+        await useOrgStore.getState().fetchMyOrganizations();
+        message.success('Đã làm sạch dữ liệu doanh nghiệp cũ thành công! Bạn có thể bắt đầu demo bài khảo sát mới.');
+      },
+    });
   };
+
+
 
   const finishDynamicSurvey = async () => {
     setSubmitting(true);
@@ -508,168 +525,40 @@ export const SurveyPage: React.FC = () => {
   );
 
   // =========================================================================
-  // 🔒 MÀN HÌNH KHÓA KHẢO SÁT KHI ĐÃ HOÀN TẤT THU THẬP BỐI CẢNH 360 ĐỘ
-  // =========================================================================
-  if (isSurveyCompleted) {
-    return (
-      <div className="w-full max-w-5xl mx-auto space-y-6 pb-28 pt-2">
-        {/* Main Lock Card */}
-        <div className="bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-8 sm:p-10 text-white shadow-xl border border-teal-500/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold tracking-wide">
-                <Lock className="w-3.5 h-3.5" />
-                <span>HỒ SƠ TUÂN THỦ 360° ĐÃ ĐƯỢC THIẾT LẬP &amp; KHÓA AN TOÀN</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                Khảo Sát Tuân Thủ Đã Hoàn Tất Thành Công
-              </h1>
-              <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-                Doanh nghiệp của bạn đã hoàn thành khảo sát tuân thủ toàn diện bao trùm 6 trụ cột luật định (Thuế, Hóa đơn, Lao động, BHXH, Vốn điều lệ &amp; Giấy phép chuyên ngành). Toàn bộ dữ kiện bối cảnh (<span className="text-teal-300 font-semibold">Context Facts</span>) đã được lưu trữ cố định để vận hành rà soát tự động mà không bị ghi đè.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
-              <button
-                type="button"
-                onClick={() => navigate('/context')}
-                className="px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-teal-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <span>Xem Thẻ Bối Cảnh (Context Hub)</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <span>Về Bảng Điều Khiển</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 6 Pillars Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card 1: Thuế */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">Trụ Cột 1</span>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Đã thu thập
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">Thuế Doanh Nghiệp</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Kỳ kê khai GTGT &amp; TNCN (Tháng/Quý), tạm nộp 80% thuế TNDN 4 quý, lệ phí môn bài và khấu trừ TNCN tại nguồn.
-            </p>
-          </div>
-
-          {/* Card 2: Hóa đơn & Dòng tiền */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">Trụ Cột 2</span>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Đã thu thập
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">Hóa Đơn &amp; Dòng Tiền</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              HĐĐT máy tính tiền POS, thanh toán không dùng tiền mặt &gt; 20 triệu, đối soát sao kê ngân hàng và dòng tiền COD sàn TMĐT.
-            </p>
-          </div>
-
-          {/* Card 3: Lao động & Tiền lương */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">Trụ Cột 3</span>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Đã thu thập
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">Lao Động &amp; Tiền Lương</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Hợp đồng lao động, Bảng chấm công, Thang bảng lương định ngạch và thủ tục đăng ký Nội quy lao động tại Phòng LĐ-TB&amp;XH.
-            </p>
-          </div>
-
-          {/* Card 4: BHXH & Khai trình */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">Trụ Cột 4</span>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Đã thu thập
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">Bảo Hiểm Xã Hội &amp; Khai Trình</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Trích nộp BHXH bắt buộc định kỳ hàng tháng cho người lao động và Báo cáo tình hình thay đổi lao động 6 tháng một lần.
-            </p>
-          </div>
-
-          {/* Card 5: Pháp lý Doanh nghiệp & Vốn */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">Trụ Cột 5</span>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Đã thu thập
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">Pháp Lý &amp; Vốn Điều Lệ</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Cam kết góp đủ 100% vốn điều lệ trong 90 ngày kể từ ngày cấp ĐKKD và đăng ký thay đổi nội dung ĐKKD trong 10 ngày làm việc.
-            </p>
-          </div>
-
-          {/* Card 6: Giấy phép con & Chuyên ngành */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">Trụ Cột 6</span>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Đã thu thập
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">Giấy Phép Con &amp; Ngành Nghề</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Chứng nhận An toàn thực phẩm cho cơ sở F&amp;B hoặc Thủ tục thông báo website thương mại điện tử với Bộ Công Thương.
-            </p>
-          </div>
-        </div>
-
-        {/* Informative Callout for New Laws */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-4">
-          <div className="p-2 bg-amber-100 rounded-xl text-amber-800 shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
-              Cơ Chế Cập Nhật Tự Động Khi Có Luật Mới Ban Hành
-            </h4>
-            <p className="text-xs text-amber-800 leading-relaxed">
-              Hệ thống tuân thủ nguyên tắc <strong>"Luật không hồi tố"</strong>. Khi cơ quan nhà nước ban hành văn bản luật mới và được Admin phê duyệt, bạn <strong>KHÔNG CẦN</strong> phải làm lại bài khảo sát này. Hệ thống sẽ hiển thị thông báo trên Bảng điều khiển (Dashboard) và bạn chỉ mất đúng 30 giây để xác nhận riêng câu hỏi bị ảnh hưởng.
-            </p>
-          </div>
-        </div>
-
-        {/* Discreet Test Reset */}
-        <div className="pt-4 text-center">
-          <button
-            type="button"
-            onClick={resetSurveyStatus}
-            className="text-xs text-slate-400 hover:text-slate-600 underline font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Mở khóa khảo sát để thử nghiệm lại (Dành cho nhà phát triển / Demo)
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full space-y-6 pb-28">
+      {/* 🔒 BANNER KHÓA KHẢO SÁT CHỈ XEM ĐỂ THUYẾT TRÌNH & NÚT RESET DEMO */}
+      {isSurveyCompleted && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-amber-100/50 border-2 border-amber-400/80 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-950 font-extrabold text-[10px] uppercase tracking-wider">
+                  Đã khóa an toàn
+                </span>
+                <h4 className="text-sm font-extrabold text-amber-950 m-0">
+                  HỒ SƠ KHẢO SÁT ĐÃ HOÀN TẤT (CHẾ ĐỘ CHỈ XEM ĐỂ TRÌNH BÀY)
+                </h4>
+              </div>
+              <p className="text-xs text-amber-900/80 m-0 mt-1 font-medium leading-relaxed">
+                Toàn bộ dữ liệu 3 bước đã được lưu trữ cố định và khóa thay đổi. Bạn có thể tự do bấm chuyển các Bước 1, 2, 3 để trình diễn cho hội đồng.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetDemo}
+            className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-rose-600/20 hover:shadow-lg transition-all cursor-pointer shrink-0"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Làm Lại Bài Khảo Sát (Reset Demo)</span>
+          </button>
+        </div>
+      )}
+
 
       {/* Modern 3-Step Stepper Bar */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -931,13 +820,14 @@ export const SurveyPage: React.FC = () => {
                         handleLookupTax();
                       }
                     }}
+                    disabled={isSurveyCompleted}
                     placeholder="Nhập mã số thuế (VD: 0101248141, 0303217354...)"
                     className="flex-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => handleLookupTax()}
-                    disabled={isLookingUpTax || !baseProfile.taxCode}
+                    disabled={isLookingUpTax || !baseProfile.taxCode || isSurveyCompleted}
                     className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-semibold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
                     title="Tra cứu thông tin công ty theo mã số thuế"
                   >
@@ -1442,7 +1332,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1466,7 +1356,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1490,7 +1380,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1514,7 +1404,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1538,7 +1428,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1562,7 +1452,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1586,7 +1476,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1610,7 +1500,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + dataIpModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1632,7 +1522,7 @@ export const SurveyPage: React.FC = () => {
                     key={q.id}
                     question={q}
                     index={taxModuleQuestions.length + legalModuleQuestions.length + invoiceModuleQuestions.length + laborModuleQuestions.length + premisesModuleQuestions.length + contractModuleQuestions.length + dataIpModuleQuestions.length + licensingModuleQuestions.length + idx + 1}
-                    onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
+                    disabled={isSurveyCompleted} onSelect={(opt) => answerDynamicQuestion(q.id, opt)}
                   />
                 ))}
               </div>
@@ -1764,13 +1654,9 @@ export const SurveyPage: React.FC = () => {
 // =========================================================================
 // SUB-COMPONENT: QuestionCard
 // =========================================================================
-interface QuestionCardProps {
-  question: DynamicSituationQuestion;
-  index: number;
-  onSelect: (option: string) => void;
-}
 
-const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, onSelect }) => {
+
+const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, disabled, onSelect }) => {
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm space-y-3.5">
       {/* Question Header & Category Badge */}
@@ -1785,6 +1671,11 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, onSelect }
           {question.moduleId && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full font-mono bg-teal-50 text-teal-700 border border-teal-200">
               {COMPLIANCE_MODULES[question.moduleId]?.name || 'Tuân thủ pháp lý'}
+            </span>
+          )}
+          {disabled && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+              <Lock className="w-2.5 h-2.5" /> Đã khóa
             </span>
           )}
         </div>
@@ -1853,10 +1744,16 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, onSelect }
           return (
             <div
               key={idx}
-              onClick={() => onSelect(option)}
-              className={`p-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-start justify-between gap-2.5 select-none ${
+              onClick={() => {
+                if (!disabled) onSelect(option);
+              }}
+              className={`p-3 rounded-xl border text-xs font-semibold transition-all flex items-start justify-between gap-2.5 select-none ${
+                disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+              } ${
                 isSelected
                   ? `${borderSelectColor} shadow-sm ring-1`
+                  : disabled
+                  ? 'bg-slate-50/60 border-slate-200 text-slate-400 opacity-60'
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
               }`}
             >

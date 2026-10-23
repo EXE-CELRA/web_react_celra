@@ -1,3 +1,4 @@
+import type { AuthLayoutProps } from '../../interfaces';
 import React from 'react';
 import { Row, Col, Typography, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -6,14 +7,7 @@ import celraLogo from '../../assets/logo_celra_tachnen.png';
 
 const { Title, Paragraph } = Typography;
 
-interface AuthLayoutProps {
-  title: string;
-  subtitle: string;
-  rightButtonText?: string;
-  rightButtonLink?: string;
-  children: React.ReactNode;
-  cardMaxWidth?: number;
-}
+
 
 export const AuthLayout: React.FC<AuthLayoutProps> = ({
   title,

@@ -1,3 +1,4 @@
+import type { TaskDetailDrawerProps } from '../../interfaces';
 import React, { useState, useEffect } from 'react';
 import {
   Drawer,
@@ -29,7 +30,6 @@ import {
   PaperClipOutlined,
 } from '@ant-design/icons';
 import { useTaskStore } from '../../store/useTaskStore';
-import type { TaskItem } from '../../types';
 import { TaskStatusTag, PriorityTag } from './StatusBadge';
 import { EvidenceUploadModal } from './EvidenceUploadModal';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
@@ -60,12 +60,7 @@ function isCompletedStatus(status?: string): boolean {
   return s === 'completed' || s === 'done' || s === 'verified';
 }
 
-interface TaskDetailDrawerProps {
-  task: TaskItem | null;
-  open: boolean;
-  onClose: () => void;
-  onRefresh?: () => void;
-}
+
 
 export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   task,

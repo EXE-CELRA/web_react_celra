@@ -1,15 +1,12 @@
 /* eslint-disable react-hooks/immutability */
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Progress, Statistic, Typography, Button, Table, Space, Empty, Tag, message, Alert, Modal, Radio } from 'antd';
+import { Row, Col, Card, Progress, Typography, Button, Table, Space, Empty, Tag, message, Alert, Modal, Radio } from 'antd';
 import {
   SafetyCertificateOutlined,
   WarningOutlined,
   CheckCircleOutlined,
-  WalletOutlined,
   ArrowRightOutlined,
-  FileTextOutlined,
   RobotOutlined,
-  PlusOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -30,7 +27,7 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { activeOrg, organizations } = useOrgStore();
   const { tasks, fetchTasks } = useTaskStore();
-  const { wallet, fetchWallet } = useWalletStore();
+  const { fetchWallet } = useWalletStore();
 
   const [stats, setStats] = useState<{
     totalTasks: number;
@@ -45,7 +42,7 @@ export const DashboardPage: React.FC = () => {
     inProgressTasks: 0,
     overdueTasks: 0,
     urgentTasksCount: 0,
-    complianceScore: 100,
+    complianceScore: 0,
   });
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [showLawAlert, setShowLawAlert] = useState<boolean>(() => {
@@ -54,6 +51,9 @@ export const DashboardPage: React.FC = () => {
   const [microSurveyVisible, setMicroSurveyVisible] = useState(false);
   const [microSelectedOption, setMicroSelectedOption] = useState<string>('Đã hoàn thành / Tuân thủ đầy đủ');
   const [updatingLawContext, setUpdatingLawContext] = useState(false);
+  // Kiểm tra cờ trạng thái hoàn thành bài khảo sát bối cảnh
+  const isSurveyCompleted = localStorage.getItem('celra_survey_completed') === 'true';
+
 
   const handleOpenMicroSurvey = () => {
     setMicroSurveyVisible(true);
@@ -85,10 +85,40 @@ export const DashboardPage: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
+      const isSurveyDone = localStorage.getItem('celra_survey_completed') === 'true';
+
+      // Nếu chưa hoàn thành bài khảo sát, toàn bộ số liệu để là 0
+      if (!isSurveyDone) {
+        setStats({
+          totalTasks: 0,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          overdueTasks: 0,
+          urgentTasksCount: 0,
+          complianceScore: 0,
+        });
+        return;
+      }
+
       await fetchTasks();
       await fetchWallet();
 
       const currentTasks = useTaskStore.getState().tasks;
+      const total = currentTasks.length;
+
+      // Nếu thực tế chưa có bất kỳ nhiệm vụ nào, thiết lập các chỉ số về 0
+      if (total === 0) {
+        setStats({
+          totalTasks: 0,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          overdueTasks: 0,
+          urgentTasksCount: 0,
+          complianceScore: 0,
+        });
+        return;
+      }
+
       const completed = currentTasks.filter((t) => {
         const s = String(t.trangThai || t.status || '').toUpperCase();
         return s === 'COMPLETED' || s === 'VERIFIED';
@@ -105,9 +135,8 @@ export const DashboardPage: React.FC = () => {
         const p = String(t.doUuTien || t.priority || '').toLowerCase();
         return p === 'high' || p === 'urgent' || p === 'critical';
       }).length;
-      const total = currentTasks.length;
 
-      const score = total > 0 ? Math.round((completed / total) * 100) : 100;
+      const score = Math.round((completed / total) * 100);
 
       setStats({
         totalTasks: total,
@@ -138,19 +167,42 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const hasTasks = isSurveyCompleted && stats.totalTasks > 0;
   const chartData = {
-    labels: ['Đã hoàn thành', 'Đang xử lý', 'Quá hạn / Chờ'],
+    labels: hasTasks ? ['Đã hoàn thành', 'Đang xử lý', 'Quá hạn / Chờ'] : ['Chưa có dữ liệu'],
     datasets: [
       {
-        data: [
-          stats.completedTasks,
-          stats.inProgressTasks,
-          stats.overdueTasks,
-        ],
-        backgroundColor: ['#52c41a', '#1677ff', '#ff4d4f'],
-        hoverBackgroundColor: ['#73d13d', '#4096ff', '#ff7875'],
+        data: hasTasks
+          ? [stats.completedTasks, stats.inProgressTasks, stats.overdueTasks]
+          : [1],
+        backgroundColor: hasTasks
+          ? ['#52c41a', '#1677ff', '#ff4d4f']
+          : ['#f0f0f0'],
+        hoverBackgroundColor: hasTasks
+          ? ['#73d13d', '#4096ff', '#ff7875']
+          : ['#e4e4e7'],
       },
     ],
+  };
+
+  // Hàm chuyển đổi mã ngành nghề sang tiếng Việt thân thiện
+  const formatIndustry = (code?: string) => {
+    if (!code) return 'Chưa xác định';
+    if (code === 'TAG_FNB') return 'F&B - Dịch vụ ăn uống';
+    if (code === 'TAG_RETAIL') return 'Bán lẻ & Thương mại';
+    if (code === 'TAG_LOGISTICS') return 'Vận tải & Kho bãi';
+    if (code === 'TAG_TECH') return 'Công nghệ thông tin';
+    return code;
+  };
+
+  // Hàm chuyển đổi mã quy mô sang tiếng Việt thân thiện
+  const formatScale = (scale?: string) => {
+    if (!scale) return 'Chưa xác định';
+    if (scale === 'MICRO') return 'Siêu nhỏ (< 10 nhân sự)';
+    if (scale === 'SMALL') return 'Nhỏ (10 - 50 nhân sự)';
+    if (scale === 'MEDIUM') return 'Vừa (50 - 200 nhân sự)';
+    if (scale === 'LARGE') return 'Lớn (> 200 nhân sự)';
+    return scale;
   };
 
   if (!activeOrg && organizations.length === 0) {
@@ -168,9 +220,9 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
-  const urgentTasks = tasks
-    .filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED')
-    .slice(0, 5);
+  const urgentTasks = isSurveyCompleted
+    ? tasks.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED').slice(0, 5)
+    : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -233,100 +285,237 @@ export const DashboardPage: React.FC = () => {
           border: 'none',
         }}
       >
-        <Row align="middle" justify="space-between">
-          <Col xs={24} md={16}>
+        <Row align="middle">
+          <Col xs={24}>
             <Title level={3} style={{ color: '#fff', margin: 0 }}>
-              {activeOrg?.legalName || 'Hồ Sơ Doanh Nghiệp'}
+              {isSurveyCompleted ? (activeOrg?.legalName || activeOrg?.name || 'Chưa xác định') : 'Chưa xác định'}
             </Title>
             <Paragraph style={{ color: 'rgba(255,255,255,0.85)', margin: '8px 0 0' }}>
-              Mã số thuế: <strong style={{ color: '#fff' }}>{activeOrg?.taxCode || '---'}</strong> | Ngành nghề:{' '}
-              <strong style={{ color: '#fff' }}>{activeOrg?.industry || 'Chưa cập nhật'}</strong> | Quy mô:{' '}
-              <strong style={{ color: '#fff' }}>{activeOrg?.scale || 'MICRO'}</strong>
+              Mã số thuế:{' '}
+              <strong style={{ color: '#fff' }}>
+                {isSurveyCompleted ? (activeOrg?.taxCode || 'Chưa xác định') : 'Chưa xác định'}
+              </strong>{' '}
+              | Ngành nghề:{' '}
+              <strong style={{ color: '#fff' }}>
+                {isSurveyCompleted ? formatIndustry(activeOrg?.industry) : 'Chưa xác định'}
+              </strong>{' '}
+              | Quy mô:{' '}
+              <strong style={{ color: '#fff' }}>
+                {isSurveyCompleted ? formatScale(activeOrg?.scale || (activeOrg as any)?.employeeScale) : 'Chưa xác định'}
+              </strong>
             </Paragraph>
-          </Col>
-          
-          <Col xs={24} md={8} style={{ textAlign: 'right', marginTop: 16 }}>
-            <Space wrap>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => setQrModalOpen(true)}
-                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-              >
-                Nạp Tiền Vào Ví
-              </Button>
-              <Button icon={<FileTextOutlined />} onClick={() => navigate('/survey')}>
-                Thu Thập Bối Cảnh
-              </Button>
-            </Space>
           </Col>
         </Row>
       </Card>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ borderRadius: 10 }}>
-            <Statistic
-              title="Điểm Tuân Thủ Toàn Diện"
-              value={stats.complianceScore}
-              suffix="/ 100"
-              valueStyle={{ color: stats.complianceScore > 70 ? '#52c41a' : '#fa8c16', fontWeight: 'bold' }}
-              prefix={<SafetyCertificateOutlined />}
-            />
-            <Progress
-              percent={stats.complianceScore}
-              strokeColor={stats.complianceScore > 70 ? '#52c41a' : '#fa8c16'}
-              showInfo={false}
-              size="small"
-              style={{ marginTop: 8 }}
-            />
-          </Card>
+        {/* Card 1: Điểm Tuân Thủ Toàn Diện */}
+        <Col xs={24} sm={12} lg={8}>
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              border: stats.complianceScore > 70 ? '1px solid #bbf7d0' : '1px solid #fde68a',
+              borderLeft: stats.complianceScore > 70 ? '5px solid #16a34a' : '5px solid #d97706',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+              padding: '16px 20px',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: stats.complianceScore > 70
+                  ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+                  : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: stats.complianceScore > 70
+                  ? '0 4px 12px rgba(22, 163, 74, 0.28)'
+                  : '0 4px 12px rgba(217, 119, 6, 0.28)',
+                outline: stats.complianceScore > 70
+                  ? '3px solid rgba(22, 163, 74, 0.15)'
+                  : '3px solid rgba(217, 119, 6, 0.15)',
+                flexShrink: 0,
+              }}
+            >
+              <SafetyCertificateOutlined style={{ fontSize: 22, color: '#ffffff' }} />
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                ĐIỂM TUÂN THỦ TOÀN DIỆN
+              </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: stats.complianceScore > 70 ? '#16a34a' : '#d97706',
+                  lineHeight: 1.2,
+                  marginTop: 2,
+                }}
+              >
+                {stats.complianceScore} <span style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8' }}>/ 100</span>
+              </div>
+              <Progress
+                percent={stats.complianceScore}
+                strokeColor={stats.complianceScore > 70 ? '#16a34a' : '#d97706'}
+                showInfo={false}
+                size="small"
+                style={{ margin: '6px 0 0 0' }}
+              />
+            </div>
+          </div>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ borderRadius: 10 }}>
-            <Statistic
-              title="Tổng Nghĩa Vụ Đang Quản Lý"
-              value={stats.totalTasks}
-              valueStyle={{ color: '#1677ff', fontWeight: 'bold' }}
-              prefix={<CheckCircleOutlined />}
-            />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Đã hoàn tất: <strong>{stats.completedTasks}</strong> việc
-            </Text>
-          </Card>
+        {/* Card 2: Tổng Nghĩa Vụ Đang Quản Lý */}
+        <Col xs={24} sm={12} lg={8}>
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              border: '1px solid #bfdbfe',
+              borderLeft: '5px solid #2563eb',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+              padding: '16px 20px',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.28)',
+                outline: '3px solid rgba(37, 99, 235, 0.15)',
+                flexShrink: 0,
+              }}
+            >
+              <CheckCircleOutlined style={{ fontSize: 22, color: '#ffffff' }} />
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                TỔNG NGHĨA VỤ ĐANG QUẢN LÝ
+              </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: '#0f172a',
+                  lineHeight: 1.2,
+                  marginTop: 2,
+                }}
+              >
+                {stats.totalTasks}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                Đã hoàn tất: <Text strong style={{ color: '#16a34a' }}>{stats.completedTasks}</Text> việc
+              </div>
+            </div>
+          </div>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ borderRadius: 10 }}>
-            <Statistic
-              title="Nghĩa Vụ Ưu Tiên Cao"
-              value={stats.urgentTasksCount}
-              valueStyle={{ color: stats.urgentTasksCount > 0 ? '#fa8c16' : '#52c41a', fontWeight: 'bold' }}
-              prefix={<WarningOutlined />}
-            />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Cần theo dõi sát sao
-            </Text>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ borderRadius: 10 }}>
-            <Statistic
-              title="Số Dư Ví Ký Quỹ & Bảo Chứng"
-              value={wallet?.balance || (wallet as any)?.soDu || 0}
-              precision={0}
-              valueStyle={{ color: '#389e0d', fontWeight: 'bold' }}
-              prefix={<WalletOutlined />}
-              formatter={(val) =>
-                new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(val))
-              }
-            />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Khả dụng để thuê thẩm định
-            </Text>
-          </Card>
+        {/* Card 3: Nghĩa Vụ Ưu Tiên Cao */}
+        <Col xs={24} sm={12} lg={8}>
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              border: stats.urgentTasksCount > 0 ? '1px solid #fed7aa' : '1px solid #bbf7d0',
+              borderLeft: stats.urgentTasksCount > 0 ? '5px solid #ea580c' : '5px solid #16a34a',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+              padding: '16px 20px',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: stats.urgentTasksCount > 0
+                  ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
+                  : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: stats.urgentTasksCount > 0
+                  ? '0 4px 12px rgba(234, 88, 12, 0.28)'
+                  : '0 4px 12px rgba(22, 163, 74, 0.28)',
+                outline: stats.urgentTasksCount > 0
+                  ? '3px solid rgba(234, 88, 12, 0.15)'
+                  : '3px solid rgba(22, 163, 74, 0.15)',
+                flexShrink: 0,
+              }}
+            >
+              <WarningOutlined style={{ fontSize: 22, color: '#ffffff' }} />
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                NGHĨA VỤ ƯU TIÊN CAO
+              </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: stats.urgentTasksCount > 0 ? '#ea580c' : '#16a34a',
+                  lineHeight: 1.2,
+                  marginTop: 2,
+                }}
+              >
+                {stats.urgentTasksCount}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                {stats.urgentTasksCount > 0 ? (
+                  <Text type="danger" strong>Cần theo dõi sát sao</Text>
+                ) : (
+                  <Text type="success">Trạng thái an toàn</Text>
+                )}
+              </div>
+            </div>
+          </div>
         </Col>
       </Row>
 
@@ -336,7 +525,7 @@ export const DashboardPage: React.FC = () => {
             title="Nghĩa Vụ Cần Xử Lý Ngay"
             extra={
               <Button type="link" onClick={() => navigate('/tasks')} icon={<ArrowRightOutlined />}>
-                Xem tất cả ({tasks.length})
+                Xem tất cả ({isSurveyCompleted ? tasks.length : 0})
               </Button>
             }
             style={{ borderRadius: 10 }}

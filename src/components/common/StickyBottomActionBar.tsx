@@ -1,50 +1,9 @@
+import type { StickyBottomActionBarProps } from '../../interfaces';
+export type { StickyBottomActionBarProps };
 import React from 'react';
 import { ArrowLeft, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 
-export interface StickyBottomActionBarProps {
-  /** Bước hiện tại (nếu là dạng wizard) */
-  currentStep?: number;
-  /** Tổng số bước */
-  totalSteps?: number;
-  /** Tiêu đề ngắn gọn về bước hoặc trạng thái */
-  title?: string;
-  /** Mô tả chi tiết hoặc thông báo phụ */
-  subtitle?: string;
-  /** Tỉ lệ hoàn thành % (0 - 100) */
-  progressPercent?: number;
-  /** Nhãn mô tả tiến độ (VD: 'Đã hoàn thành 10/10 câu') */
-  progressLabel?: string;
 
-  /** Cấu hình nút hành động chính (Next / Submit / Activate) */
-  primaryAction: {
-    label: string;
-    onClick: () => void | Promise<void>;
-    disabled?: boolean;
-    loading?: boolean;
-    icon?: React.ReactNode;
-    variant?: 'teal' | 'blue' | 'emerald';
-  };
-
-  /** Cấu hình nút hành động phụ (Back / Cancel) */
-  secondaryAction?: {
-    label: string;
-    onClick: () => void;
-    disabled?: boolean;
-    icon?: React.ReactNode;
-  };
-
-  /** Nút hành động nhanh đặc biệt (VD: Nút Kích hoạt nhanh ngay ở bước giữa) */
-  quickAction?: {
-    label: string;
-    onClick: () => void | Promise<void>;
-    disabled?: boolean;
-    loading?: boolean;
-    icon?: React.ReactNode;
-  };
-
-  /** Class CSS tùy biến thêm */
-  className?: string;
-}
 
 /**
  * Reusable Sticky Bottom Bar

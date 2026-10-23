@@ -1,39 +1,12 @@
+import type { CelraFilterBarProps } from '../../interfaces';
+export type { CelraFilterBarProps };
 import React from 'react';
 import { Card, Input, Select, Button } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 
-export interface SelectFilterConfig {
-  value: any;
-  onChange: (value: any) => void;
-  options: { value: any; label: string }[];
-  placeholder?: string;
-  width?: number | string;
-}
 
-export interface CelraFilterBarProps {
-  // Tìm kiếm theo từ khóa
-  searchValue?: string;
-  onSearchChange?: (value: string) => void;
-  onSearch?: () => void;
-  searchPlaceholder?: string;
-  searchWidth?: number | string;
-  allowClear?: boolean;
 
-  // Bộ lọc Dropdown (1 hoặc nhiều)
-  selectFilter?: SelectFilterConfig;
-  selectFilters?: SelectFilterConfig[];
 
-  // Nút hành động
-  onRefresh?: () => void;
-  searchText?: string;
-  refreshText?: string;
-  extraActions?: React.ReactNode;
-
-  // Khung bọc
-  borderedCard?: boolean;
-  style?: React.CSSProperties;
-  className?: string;
-}
 
 /**
  * CelraFilterBar: Thanh tìm kiếm & bộ lọc dùng chung chuẩn Ant Design

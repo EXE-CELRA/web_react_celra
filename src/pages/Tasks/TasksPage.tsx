@@ -46,7 +46,7 @@ const { Text, Paragraph } = Typography;
 
 export const TasksPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeOrg, organizations } = useOrgStore();
+  const { activeOrg } = useOrgStore();
   const {
     tasks,
     selectedTask,
@@ -106,22 +106,7 @@ export const TasksPage: React.FC = () => {
 
   const isInProgressStatus = (status?: string) => {
     const s = String(status || '').toLowerCase();
-    if (!activeOrg && organizations.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <Empty
-          description="B?n chua c� h? so doanh nghi?p n�o tr�n h? th?ng"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        >
-          <Button type="primary" size="large" onClick={() => navigate('/survey')}>
-            B?t d?u t?o h? so doanh nghi?p ngay
-          </Button>
-        </Empty>
-      </div>
-    );
-  }
-
-  return (
       s === 'in_progress' ||
       s === 'waiting_document' ||
       s === 'waiting_verification' ||
@@ -376,18 +361,6 @@ export const TasksPage: React.FC = () => {
                 borderRadius: 10,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CalendarOutlined style={{ color: '#0ea5e9', fontSize: 13 }} />
-                  <Text strong style={{ fontSize: 12, color: '#0f172a' }}>
-                    11 Đợt Luật Định:
-                  </Text>
-                </div>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Sắp xếp: <strong>Hạn gần nhất lên đầu</strong>
-                </Text>
-              </div>
-
               <div style={{ overflowX: 'auto', paddingBottom: 2 }}>
                 <Radio.Group
                   size="small"
@@ -405,39 +378,39 @@ export const TasksPage: React.FC = () => {
                   <Radio.Button value="ALL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
                     Tất cả ({getPeriodCount('ALL')})
                   </Radio.Button>
-                  <Radio.Button value="MONTHLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    1. Hàng tháng (Hạn ngày 20) ({getPeriodCount('MONTHLY')})
-                  </Radio.Button>
-                  <Radio.Button value="QUARTERLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    2. Hàng quý (30/04, 31/07...) ({getPeriodCount('QUARTERLY')})
-                  </Radio.Button>
-                  <Radio.Button value="BIANNUAL_6M" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    3. 6 Tháng / Bán niên ({getPeriodCount('BIANNUAL_6M')})
-                  </Radio.Button>
-                  <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    4. Cả năm (Môn bài, BCTC) ({getPeriodCount('ANNUAL')})
+                  <Radio.Button value="EVENT_3D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    03 Ngày làm việc ({getPeriodCount('EVENT_3D')})
                   </Radio.Button>
                   <Radio.Button value="EVENT_10D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    5. Từng lần 10 ngày ({getPeriodCount('EVENT_10D')})
-                  </Radio.Button>
-
-                  <Radio.Button value="EVENT_20D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    6. Đợt 20 ngày ({getPeriodCount('EVENT_20D')})
-                  </Radio.Button>
-                  <Radio.Button value="EVENT_45D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    7. Đợt 45 ngày ({getPeriodCount('EVENT_45D')})
-                  </Radio.Button>
-                  <Radio.Button value="EVENT_3D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    8. 03 Ngày làm việc ({getPeriodCount('EVENT_3D')})
+                    Từng lần 10 ngày ({getPeriodCount('EVENT_10D')})
                   </Radio.Button>
                   <Radio.Button value="EVENT_10D_BIZ" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    9. 10 Ngày làm việc ({getPeriodCount('EVENT_10D_BIZ')})
+                    10 Ngày làm việc ({getPeriodCount('EVENT_10D_BIZ')})
+                  </Radio.Button>
+                  <Radio.Button value="EVENT_20D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Đợt 20 ngày ({getPeriodCount('EVENT_20D')})
+                  </Radio.Button>
+                  <Radio.Button value="MONTHLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Hàng tháng (Hạn ngày 20) ({getPeriodCount('MONTHLY')})
+                  </Radio.Button>
+
+                  <Radio.Button value="EVENT_30D_CAPITAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Đợt 30 ngày ({getPeriodCount('EVENT_30D_CAPITAL')})
+                  </Radio.Button>
+                  <Radio.Button value="EVENT_45D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Đợt 45 ngày ({getPeriodCount('EVENT_45D')})
+                  </Radio.Button>
+                  <Radio.Button value="QUARTERLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Hàng quý (30/04, 31/07...) ({getPeriodCount('QUARTERLY')})
                   </Radio.Button>
                   <Radio.Button value="EVENT_90D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    10. Đợt 90 ngày ({getPeriodCount('EVENT_90D')})
+                    Đợt 90 ngày ({getPeriodCount('EVENT_90D')})
                   </Radio.Button>
-                  <Radio.Button value="EVENT_30D_CAPITAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    11. Đợt 30 ngày ({getPeriodCount('EVENT_30D_CAPITAL')})
+                  <Radio.Button value="BIANNUAL_6M" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    6 Tháng / Bán niên ({getPeriodCount('BIANNUAL_6M')})
+                  </Radio.Button>
+                  <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Cả năm (Môn bài, BCTC) ({getPeriodCount('ANNUAL')})
                   </Radio.Button>
                 </Radio.Group>
               </div>

@@ -1,34 +1,10 @@
+import type { UnsavedChangesModalProps } from '../../interfaces';
+export type { UnsavedChangesModalProps };
 import React from 'react';
 import { Modal } from 'antd';
 import { AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
 
-export interface UnsavedChangesModalProps {
-  /** Kiểm soát trạng thái hiển thị Modal */
-  open: boolean;
-  /** Tiêu đề Modal */
-  title?: string;
-  /** Nội dung thông điệp cảnh báo */
-  description?: string;
-  /** Chi tiết dữ liệu hoặc cảnh báo bổ sung */
-  warningDetail?: string;
 
-  /** Nhãn nút bấm Lưu & Tiếp tục (Primary Action) */
-  saveText?: string;
-  /** Nhãn nút bấm Rời đi không lưu (Destructive / Discard) */
-  discardText?: string;
-  /** Nhãn nút Ở lại màn hình hiện tại (Cancel / Stay) */
-  cancelText?: string;
-
-  /** Hàm thực thi khi người dùng bấm 'Lưu & Tiếp tục' */
-  onSaveAndProceed?: () => Promise<void> | void;
-  /** Hàm thực thi khi người dùng bấm 'Rời đi không lưu' */
-  onDiscard?: () => void;
-  /** Hàm thực thi khi người dùng bấm 'Ở lại' hoặc tắt modal */
-  onCancel?: () => void;
-
-  /** Trạng thái đang lưu dữ liệu */
-  isSaving?: boolean;
-}
 
 /**
  * Reusable Unsaved Changes Modal

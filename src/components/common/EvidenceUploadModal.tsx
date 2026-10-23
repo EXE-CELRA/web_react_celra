@@ -1,14 +1,10 @@
+import type { EvidenceUploadModalProps } from '../../interfaces';
 import React, { useState } from 'react';
 import { Modal, Form, Input, Select, Upload, message, Alert } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import apiClient from '../../api/client';
 
-interface EvidenceUploadModalProps {
-  visible: boolean;
-  taskId?: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}
+
 
 export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
   visible,

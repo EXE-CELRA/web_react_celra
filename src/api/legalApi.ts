@@ -1,43 +1,7 @@
 import apiClient from './client';
+import type { LegalRuleCitation, LegalRule, LegalDocumentItem } from '../interfaces';
+export type { LegalRuleCitation, LegalRule, LegalDocumentItem };
 
-export interface LegalRuleCitation {
-  title?: string;
-  sourceUrl?: string;
-  articleNumber?: string;
-  docNumber?: string;
-}
-
-export interface LegalRule {
-  id?: string;
-  code: string;
-  title: string;
-  conditionSummary?: string;
-  legalReference?: string;
-  priority?: string;
-  category?: string;
-  version?: string;
-  effectiveDate?: string;
-  conditionsJson?: {
-    content?: string;
-    answer?: string;
-    citations?: LegalRuleCitation[];
-    keywords?: string[];
-    [key: string]: any;
-  };
-}
-
-export interface LegalDocumentItem {
-  id: string;
-  code: string;
-  name: string;
-  database?: string;
-  status?: string;
-  effectiveDate?: string;
-  issuedDate?: string;
-  sourceUrl?: string;
-}
-
-// BẢN ĐỒ ĐƯỜNG DẪN TRỰC TIẾP TOÀN VĂN VĂN BẢN PHÁP LUẬT CHÍNH THỨC (dulieuphapluat.vn)
 export const CORE_LEGAL_DOC_LINKS: Record<string, string> = {
   // THUẾ & QUẢN LÝ THUẾ
   '38/2019': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/luat-quan-ly-thue-2019-54279.html',

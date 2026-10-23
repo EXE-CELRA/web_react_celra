@@ -1,3 +1,4 @@
+import type { ElectronicReceiptModalProps } from '../../interfaces';
 import React from 'react';
 import { Modal, Button, Tag } from 'antd';
 import { 
@@ -9,11 +10,7 @@ import {
   Printer
 } from 'lucide-react';
 
-interface ElectronicReceiptModalProps {
-  visible: boolean;
-  onClose: () => void;
-  transaction: any | null;
-}
+
 
 export const ElectronicReceiptModal: React.FC<ElectronicReceiptModalProps> = ({
   visible,

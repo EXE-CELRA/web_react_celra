@@ -454,21 +454,12 @@ export const HomePage: React.FC = () => {
               borderTop: '1px solid rgba(255, 255, 255, 0.1)',
               marginTop: 20,
               paddingTop: 14,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 10,
+              textAlign: 'center',
               fontSize: 12,
               color: 'rgba(255, 255, 255, 0.5)',
             }}
           >
-            <div>
-              © {new Date().getFullYear()} CELRA Compliance Evaluation, Legal Recovery & Assistance. Bản quyền thuộc về dự án liên ngành EXE101.
-            </div>
-            <div>
-              Hệ Thống Quản Trị Tuân Thủ Doanh Nghiệp
-            </div>
+            © {new Date().getFullYear()} CELRA Compliance Evaluation, Legal Recovery & Assistance. Bản quyền thuộc về dự án liên ngành EXE101.
           </div>
         </div>
       </footer>

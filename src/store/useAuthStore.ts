@@ -18,8 +18,8 @@ interface AuthState {
 
   login: (credentials: { email: string; password?: string; passwordHash?: string; matKhau?: string }) => Promise<any>;
   dangNhap: (credentials: { email: string; password?: string; passwordHash?: string; matKhau?: string }) => Promise<any>;
-  register: (data: { email: string; password?: string; passwordHash?: string; matKhau?: string; fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string }) => Promise<any>;
-  dangKy: (data: { email: string; password?: string; passwordHash?: string; matKhau?: string; fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string }) => Promise<any>;
+  register: (data: { email: string; password?: string; passwordHash?: string; matKhau?: string; fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; otp?: string; }) => Promise<any>;
+  dangKy: (data: { email: string; password?: string; passwordHash?: string; matKhau?: string; fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string, otp?: string; }) => Promise<any>;
   logout: () => void;
   dangXuat: () => void;
   loadUserProfile: () => Promise<void>;
@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>((set) => {
       const { accessToken, user, memberships } = res;
       localStorage.setItem('celra_access_token', accessToken);
       localStorage.setItem('celra_user', JSON.stringify(user));
-      
+
       const defaultRole = memberships && memberships.length > 0 ? memberships[0].role : user.systemRole || user.role;
       localStorage.setItem('celra_active_role', defaultRole);
 
@@ -85,6 +85,7 @@ export const useAuthStore = create<AuthState>((set) => {
         email: data.email,
         password: data.matKhau || data.password || data.passwordHash,
         phone: data.soDienThoai || data.phoneNumber || data.phone,
+        otp: data.otp,
       };
 
       localStorage.removeItem('celra_active_org_id');
@@ -147,7 +148,7 @@ export const useAuthStore = create<AuthState>((set) => {
       }
 
       const membershipsRes: any = await apiClient.get('/organizations/my-workspaces');
-      
+
       const mems = Array.isArray(membershipsRes) ? membershipsRes : [];
       let activeOrgId = localStorage.getItem('celra_active_org_id');
       const orgIsValid = activeOrgId !== null && mems.some((m: any) => (m.organizationId || m.organization?.id || m.id) === activeOrgId);

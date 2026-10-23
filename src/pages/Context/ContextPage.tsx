@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import { ContextComplianceAuditModal } from '../../components/common/ContextComplianceAuditModal';
-import type { ContextFact } from '../../types';
+import type { ContextFact, ContextGroupConfig } from '../../interfaces';
 import { 
   Database, 
   AlertCircle, 
@@ -30,14 +30,7 @@ import { message, Modal, Form, Input, Select, Tooltip } from 'antd';
 // eslint-disable-next-line react-refresh/only-export-components
 export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan', 'phap_ly_von'];
 
-export interface ContextGroupConfig {
-  key: string;
-  label: string;
-  shortLabel: string;
-  tag: string;
-  icon: any;
-  badgeClass: string;
-}
+
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const CONTEXT_GROUPS: ContextGroupConfig[] = [
@@ -138,7 +131,7 @@ export const ContextPage: React.FC = () => {
 
   // Compliance Audit Modal
   const [showAuditModal, setShowAuditModal] = useState(false);
-  const [auditTargetFactId, setAuditTargetFactId] = useState<string | null>(null);
+  const [auditTargetGroup, setAuditTargetGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeOrg?.id) {
@@ -336,16 +329,20 @@ export const ContextPage: React.FC = () => {
 
           <button
             onClick={() => {
-              setAuditTargetFactId(null);
+              setAuditTargetGroup(selectedTab !== 'all' ? selectedTab : 'all');
               setShowAuditModal(true);
             }}
             className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
             title="Rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
-            <span>Rà soát tuân thủ</span>
+            <span>
+              {selectedTab !== 'all'
+                ? `Rà soát lĩnh vực ${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.shortLabel || ''}`
+                : 'Rà soát tuân thủ'}
+            </span>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-              {facts.length} thẻ
+              {selectedTab !== 'all' ? `${filteredFacts.length} thẻ` : `${facts.length} thẻ`}
             </span>
           </button>
         </div>
@@ -480,7 +477,6 @@ export const ContextPage: React.FC = () => {
             const compInfo = getFactComplianceInfo(fact);
             const groupMeta = getGroupMeta(fact.group || fact.category || '');
             const GroupIcon = groupMeta.icon;
-            const affectedRules = Array.isArray(fact.affectedRules) ? fact.affectedRules : [];
 
             return (
               <div
@@ -546,18 +542,6 @@ export const ContextPage: React.FC = () => {
                         : 'Mới cập nhật'}
                     </span>
                   </div>
-                  {affectedRules.length > 0 && (
-                    <div className="flex items-center gap-1 pt-1 flex-wrap">
-                      <span className="text-slate-400">Rule bị ảnh hưởng:</span>
-                      <div className="flex gap-1 flex-wrap">
-                        {affectedRules.map((r: string) => (
-                          <span key={r} className="font-mono text-[10px] font-bold text-teal-700 bg-teal-50 px-1 rounded">
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Actions footer */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
@@ -569,17 +553,6 @@ export const ContextPage: React.FC = () => {
                     </button>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setAuditTargetFactId(fact.id);
-                          setShowAuditModal(true);
-                        }}
-                        className="text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
-                        title="Rà soát tuân thủ riêng cho thẻ này"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Rà soát thẻ
-                      </button>
-
                       <button
                         onClick={() => {
                           setEditingFact(fact);
@@ -773,9 +746,9 @@ export const ContextPage: React.FC = () => {
         isOpen={showAuditModal}
         onClose={() => {
           setShowAuditModal(false);
-          setAuditTargetFactId(null);
+          setAuditTargetGroup(null);
         }}
-        initialSelectedFactId={auditTargetFactId}
+        initialSelectedGroup={auditTargetGroup}
         onSuccess={() => fetchFacts()}
       />
 

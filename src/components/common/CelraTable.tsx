@@ -1,9 +1,8 @@
-import { Table, ConfigProvider, type TableProps } from 'antd';
+export type { CelraTableProps } from '../../interfaces';
+import type { CelraTableProps } from '../../interfaces';
+import { Table, ConfigProvider } from 'antd';
 
-export interface CelraTableProps<T = any> extends TableProps<T> {
-  headerBg?: string;
-  headerTextColor?: string;
-}
+
 
 /**
  * CelraTable: Bảng chuẩn giao diện Ant Design của hệ thống CELRA
