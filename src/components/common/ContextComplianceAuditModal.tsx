@@ -29,7 +29,7 @@ import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from '../../pages/Context/
 
 const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
-// Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành
+// Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế & Hóa đơn
 // eslint-disable-next-line react-refresh/only-export-components
 export const STATUTORY_PENALTY_RISKS: Record<string, string> = {
   'RULE-TAX-GTGT':
@@ -38,24 +38,14 @@ export const STATUTORY_PENALTY_RISKS: Record<string, string> = {
     'Tính tiền chậm nộp 0,03%/ngày trên số thuế TNDN tạm nộp 4 quý còn thiếu so với ngưỡng 80% quyết toán theo Khoản 3 Điều 1 Nghị định 91/2022/NĐ-CP.',
   'RULE-TAX-MB':
     'Phạt tiền từ 2.000.000đ - 5.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai lệ phí môn bài quá hạn quy định.',
-  'RULE-LABOR-REPORT-6M':
-    'Phạt tiền từ 5.000.000đ - 10.000.000đ theo Khoản 2 Điều 8 Nghị định 12/2022/NĐ-CP đối với hành vi không báo cáo tình hình thay đổi lao động.',
-  'RULE-CORP-CAPITAL-90D':
-    'Phạt tiền từ 30.000.000đ - 50.000.000đ theo Khoản 3 Điều 46 Nghị định 122/2021/NĐ-CP đối với hành vi không góp đủ vốn điều lệ đúng thời hạn cam kết.',
-  'RULE-CORP-CAPITAL-REDUCE-30D':
-    'Phạt tiền từ 20.000.000đ - 30.000.000đ theo Khoản 2 Điều 46 Nghị định 122/2021/NĐ-CP đối với hành vi không đăng ký điều chỉnh giảm vốn điều lệ khi hết hạn góp vốn.',
-  'RULE-CORP-BIZ-INFO-10D':
-    'Phạt tiền từ 5.000.000đ - 10.000.000đ theo Điều 44 Nghị định 122/2021/NĐ-CP đối với hành vi thông báo thay đổi thông tin ĐKKD quá thời hạn từ 11 đến 30 ngày.',
   'RULE-TAX-FCT-10D':
     'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai thuế nhà thầu quá hạn quy định.',
   'RULE-TAX-CYCLE-CHANGE-20D':
     'Phạt cảnh cáo hoặc phạt tiền từ 1.000.000đ - 5.000.000đ theo Điều 10 Nghị định 125/2020/NĐ-CP khi vi phạm thời hạn thông báo chuyển đổi kỳ tính thuế.',
-  'RULE-CORP-SUSPENSION-3D':
-    'Phạt tiền từ 10.000.000đ - 15.000.000đ theo Điều 52 Nghị định 122/2021/NĐ-CP đối với hành vi không thông báo hoặc thông báo tạm ngừng kinh doanh không đúng thời hạn.',
   'RULE-TAX-DISSOLUTION-45D':
     'Phạt tiền từ 8.000.000đ - 15.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai quyết toán thuế khi giải thể chậm quá 90 ngày.',
-  'RULE-LABOR-BHXH-MONTHLY':
-    'Phạt tiền từ 12% đến 15% tổng số tiền phải đóng BHXH bắt buộc theo Khoản 5 Điều 39 Nghị định 12/2022/NĐ-CP và tính lãi chậm nộp bằng 2 lần mức lãi suất đầu tư quỹ BHXH.',
+  'RULE-TAX-POS-FNB':
+    'Phạt cảnh cáo hoặc phạt tiền từ 4.000.000đ - 8.000.000đ theo Điều 24 Nghị định 125/2020/NĐ-CP đối với hành vi không lập hóa đơn điện tử máy tính tiền khi bán lẻ hàng hóa, dịch vụ ăn uống.',
 };
 
 // 21 Thẻ Bối Cảnh Chuẩn Luật Định Doanh Nghiệp Việt Nam (Dùng khi khởi tạo hoặc context rỗng)
@@ -115,54 +105,7 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
-  // 2. Pháp Lý (3 thẻ)
-  {
-    id: 'fact-legal-1',
-    key: 'q_legal_1',
-    label: 'Các thành viên/cổ đông sáng lập đã góp đủ 100% số vốn điều lệ đã đăng ký cam kết trong vòng 90 ngày kể từ ngày cấp GCN ĐKDN chưa?',
-    group: 'phap_ly_von',
-    currentValue: 'Đã góp đủ 100% vốn điều lệ vào tài khoản vốn đầu tư của công ty',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-legal-2',
-    key: 'q_legal_2',
-    label: 'Doanh nghiệp có thực hiện đăng ký thay đổi nội dung ĐKKD trong thời hạn 10 ngày làm việc khi có thay đổi thông tin (địa chỉ, đại diện pháp luật, ngành nghề, vốn)?',
-    group: 'phap_ly_von',
-    currentValue: 'Đã nộp hồ sơ đăng ký thay đổi tại Phòng ĐKKD trong thời hạn 10 ngày',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-legal-3',
-    key: 'q_legal_3',
-    label: 'Doanh nghiệp có thông báo tạm ngừng hoặc tiếp tục kinh doanh trước thời hạn ít nhất 03 ngày làm việc không?',
-    group: 'phap_ly_von',
-    currentValue: 'Đã gửi thông báo bằng văn bản đến cơ quan đăng ký kinh doanh đúng hạn',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  // 3. Vận Hành (2 thẻ)
-  {
-    id: 'fact-ops-1',
-    key: 'q_ops_1',
-    label: 'Doanh nghiệp có mở tài khoản ngân hàng và thông báo tài khoản thanh toán với cơ quan thuế trong thời hạn 10 ngày làm việc không?',
-    group: 'nganh_nghe_van_hanh',
-    currentValue: 'Đã thông báo mẫu 08-MST tài khoản ngân hàng giao dịch của công ty',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-ops-2',
-    key: 'q_ops_2',
-    label: 'Doanh nghiệp có duy trì biển hiệu công ty tại trụ sở chính và các địa điểm kinh doanh theo quy định Luật Doanh nghiệp không?',
-    group: 'nganh_nghe_van_hanh',
-    currentValue: 'Đã gắn biển hiệu đầy đủ thông tin tên công ty, MST, địa chỉ trụ sở',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  // 4. Hóa Đơn (5 thẻ)
+  // 2. Hóa Đơn & Dòng Tiền (Phục vụ trực tiếp khấu trừ thuế GTGT & chi phí hợp lý TNDN)
   {
     id: 'fact-inv-1',
     key: 'q_invoice_1',
@@ -208,52 +151,6 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
-  // 5. Lao Động (5 thẻ)
-  {
-    id: 'fact-hr-1',
-    key: 'q_hr_1',
-    label: 'Doanh nghiệp có ký hợp đồng lao động và đăng ký tham gia BHXH, BHYT, BHTN bắt buộc cho người lao động trong vòng 30 ngày làm việc không?',
-    group: 'lao_dong_bhxh',
-    currentValue: 'Đã ký kết HĐLĐ và báo tăng BHXH kịp thời cho người lao động',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-hr-2',
-    key: 'q_hr_2',
-    label: 'Doanh nghiệp có thực hiện báo cáo tình hình sử dụng lao động định kỳ 6 tháng (trước 05/06) và hàng năm (trước 05/12) không?',
-    group: 'lao_dong_bhxh',
-    currentValue: 'Đã nộp báo cáo tình hình sử dụng lao động trên Cổng Dịch vụ công Quốc gia',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-hr-3',
-    key: 'q_hr_3',
-    label: 'Doanh nghiệp có trên 10 người lao động và đã đăng ký Nội quy lao động với cơ quan quản lý nhà nước về lao động cấp tỉnh trong vòng 10 ngày không?',
-    group: 'lao_dong_bhxh',
-    currentValue: 'Đã ban hành và nộp hồ sơ đăng ký Nội quy lao động hợp pháp',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-hr-4',
-    key: 'q_hr_4',
-    label: 'Doanh nghiệp có tổ chức khám sức khỏe định kỳ hàng năm cho toàn bộ người lao động không?',
-    group: 'lao_dong_bhxh',
-    currentValue: 'Đã ký hợp đồng với cơ sở y tế đủ điều kiện và tổ chức khám sức khỏe định kỳ',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fact-hr-5',
-    key: 'q_hr_5',
-    label: 'Doanh nghiệp có thực hiện trích nộp kinh phí công đoàn 2% quỹ tiền lương đóng BHXH hàng tháng theo quy định không?',
-    group: 'lao_dong_bhxh',
-    currentValue: 'Đã trích nộp đầy đủ 2% kinh phí công đoàn cùng thời điểm đóng BHXH',
-    status: 'confirmed',
-    updatedAt: new Date().toISOString(),
-  },
 ];
 
 export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalProps> = ({
@@ -294,7 +191,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   // Danh sách fact hợp nhất: Ưu tiên facts từ Database, nếu rỗng thì dùng chuẩn 21 thẻ
   const effectiveFacts: ContextFact[] = useMemo(() => {
     const rawList = facts && facts.length > 0 ? facts : (STANDARD_21_CONTEXT_FACTS as ContextFact[]);
-    // Tạm thời chỉ mở phân hệ Thuế và Hồ sơ pháp lý
+    // Hiện tại chỉ mở rà soát chuyên sâu cho phân hệ Thuế Doanh Nghiệp
     return rawList.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
   }, [facts]);
 

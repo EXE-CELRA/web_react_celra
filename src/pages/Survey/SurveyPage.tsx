@@ -19,7 +19,6 @@ import {
   Sparkles, 
   ListChecks, 
   Check, 
-  RotateCcw, 
   Building, 
   Building2, 
   Users, 
@@ -40,7 +39,7 @@ import {
   Search,
   Loader2,
 } from 'lucide-react';
-import { message, Modal } from 'antd';
+import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { getLegalRules } from '../../api/legalApi';
@@ -75,6 +74,10 @@ export const SurveyPage: React.FC = () => {
 
   const [baseProfile, setBaseProfile] = useState<BaseProfile>(() => {
     try {
+      const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
+      if (savedCompleted) {
+        return JSON.parse(savedCompleted);
+      }
       const savedDraft = localStorage.getItem('celra_survey_draft_profile');
       if (savedDraft) {
         return JSON.parse(savedDraft);
@@ -98,7 +101,9 @@ export const SurveyPage: React.FC = () => {
   const [dynamicQuestions, setDynamicQuestions] = useState<DynamicSituationQuestion[]>(() => {
     const baseList = generateDynamicQuestions(baseProfile);
     try {
-      const savedAnswers = localStorage.getItem('celra_survey_draft_answers');
+      const savedCompletedAnswers = localStorage.getItem('celra_survey_completed_answers');
+      const savedDraftAnswers = localStorage.getItem('celra_survey_draft_answers');
+      const savedAnswers = savedCompletedAnswers || savedDraftAnswers;
       if (savedAnswers) {
         const answersMap = JSON.parse(savedAnswers);
         return baseList.map(q => ({
@@ -216,20 +221,76 @@ export const SurveyPage: React.FC = () => {
     }
   }, [activeOrg]);
 
-  // Sync activeOrg details if available on load
+  // Sync activeOrg details if available on load & restore answers if completed
   useEffect(() => {
     if (activeOrg) {
       if (activeOrg.id) {
         localStorage.setItem('celra_active_org_id', activeOrg.id);
       }
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBaseProfile(prev => ({
-        ...prev,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        employeeScale: (activeOrg.scale as any) || prev.employeeScale,
-      }));
+      setBaseProfile(prev => {
+        const next = {
+          ...prev,
+          companyName: prev.companyName || activeOrg.name || '',
+          taxCode: prev.taxCode || activeOrg.taxCode || '',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          employeeScale: (activeOrg.scale as any) || prev.employeeScale,
+          employeeCount: prev.employeeCount || activeOrg.employeeCount || 0,
+          annualRevenue: prev.annualRevenue || (activeOrg.revenueStatus === 'over_50b' ? 60000000000 : activeOrg.revenueStatus === 'under_50b' ? 20000000000 : prev.annualRevenue || 0),
+          isNewlyEstablished: prev.isNewlyEstablished ?? (activeOrg.revenueStatus === 'newly_established'),
+        };
+        try {
+          localStorage.setItem('celra_survey_completed_profile', JSON.stringify(next));
+          localStorage.setItem('celra_survey_draft_profile', JSON.stringify(next));
+        } catch {
+          // Ignore
+        }
+        return next;
+      });
+
+      if (activeOrg.taxCode && activeOrg.name) {
+        setTaxLookupDetails(old => old || {
+          taxCode: activeOrg.taxCode || '',
+          name: activeOrg.name || '',
+          legalType: activeOrg.legalType || 'Công ty TNHH',
+          status: 'NNT đang hoạt động',
+          isOperating: true,
+        });
+      }
+
+      // Khôi phục câu trả lời từ contextFacts nếu đã hoàn thành khảo sát
+      if (isSurveyCompleted) {
+        apiClient.get('/context-facts', { headers: { 'x-organization-id': activeOrg.id } })
+          .then((res: any) => {
+            const list = Array.isArray(res) ? res : res?.data || [];
+            if (list.length > 0) {
+              const answersFromFacts: Record<string, string> = {};
+              list.forEach((f: any) => {
+                if (f.key && f.currentValue) {
+                  answersFromFacts[f.key] = f.currentValue;
+                }
+              });
+              setDynamicQuestions(currentQuestions => {
+                const updated = currentQuestions.map(q => {
+                  const saved = answersFromFacts[q.id];
+                  return saved ? { ...q, selectedOption: saved } : q;
+                });
+                try {
+                  const map: Record<string, string> = {};
+                  updated.forEach(q => { if (q.selectedOption) map[q.id] = q.selectedOption; });
+                  localStorage.setItem('celra_survey_completed_answers', JSON.stringify(map));
+                  localStorage.setItem('celra_survey_draft_answers', JSON.stringify(map));
+                } catch {
+                  // Ignore
+                }
+                return updated;
+              });
+            }
+          })
+          .catch((err) => console.warn('[SURVEY] Không tải được facts:', err?.message));
+      }
     }
-  }, [activeOrg]);
+  }, [activeOrg, isSurveyCompleted]);
 
   const updateBaseProfile = (updates: Partial<BaseProfile>) => {
     setBaseProfile(prev => {
@@ -342,6 +403,7 @@ export const SurveyPage: React.FC = () => {
   };
 
   const handleToggleIndustryTag = (tag: IndustryTag) => {
+    if (isSurveyCompleted) return;
     const exists = baseProfile.industryTags.includes(tag);
     if (exists) {
       updateBaseProfile({
@@ -382,45 +444,6 @@ export const SurveyPage: React.FC = () => {
     });
   };
 
-  
-  const handleResetDemo = () => {
-    Modal.confirm({
-      title: 'Làm Lại Bài Khảo Sát (Reset Demo)',
-      icon: <RotateCcw className="w-5 h-5 text-rose-500" />,
-      content: 'Thao tác này sẽ xóa toàn bộ dữ liệu của doanh nghiệp hiện tại trong cơ sở dữ liệu (thông tin công ty, câu hỏi bối cảnh, nhiệm vụ, checklist). Bạn có chắc chắn muốn xóa để làm lại từ đầu không?',
-      okText: 'Xác nhận xóa & làm lại',
-      okType: 'danger',
-      cancelText: 'Hủy bỏ',
-      onOk: async () => {
-        try {
-          const activeId = activeOrg?.id || localStorage.getItem('celra_active_org_id');
-          if (activeId) {
-            await apiClient.delete(`/organizations/${activeId}/reset-demo`);
-          }
-        } catch (err) {
-          console.warn('Lỗi gọi API xóa doanh nghiệp:', err);
-        }
-
-        localStorage.removeItem('celra_survey_completed');
-        localStorage.removeItem('celra_survey_draft_answers');
-        localStorage.removeItem('celra_survey_draft_profile');
-        localStorage.removeItem('celra_tax_lookup_details');
-        localStorage.removeItem('celra_active_org_id');
-
-        setIsSurveyCompleted(false);
-        setBaseProfile(DEFAULT_BASE_PROFILE);
-        setDynamicQuestions(generateDynamicQuestions(DEFAULT_BASE_PROFILE));
-        setTaxLookupDetails(null);
-        setActiveTabStep(1);
-
-        await useOrgStore.getState().fetchMyOrganizations();
-        message.success('Đã làm sạch dữ liệu doanh nghiệp cũ thành công! Bạn có thể bắt đầu demo bài khảo sát mới.');
-      },
-    });
-  };
-
-
-
   const finishDynamicSurvey = async () => {
     setSubmitting(true);
     try {
@@ -449,8 +472,16 @@ export const SurveyPage: React.FC = () => {
       await useOrgStore.getState().fetchMyOrganizations();
 
       localStorage.setItem('celra_survey_completed', 'true');
-      localStorage.removeItem('celra_survey_draft_answers');
-      localStorage.removeItem('celra_survey_draft_profile');
+      localStorage.setItem('celra_survey_completed_profile', JSON.stringify(baseProfile));
+      localStorage.setItem('celra_survey_draft_profile', JSON.stringify(baseProfile));
+
+      const answersMap: Record<string, string> = {};
+      dynamicQuestions.forEach(q => {
+        if (q.selectedOption) answersMap[q.id] = q.selectedOption;
+      });
+      localStorage.setItem('celra_survey_completed_answers', JSON.stringify(answersMap));
+      localStorage.setItem('celra_survey_draft_answers', JSON.stringify(answersMap));
+
       setIsSurveyCompleted(true);
 
       message.success('🎉 Đã kích hoạt hệ thống! Thiết lập thành công các thẻ Bối cảnh tuân thủ.');
@@ -527,35 +558,25 @@ export const SurveyPage: React.FC = () => {
   // =========================================================================
   return (
     <div className="w-full space-y-6 pb-28">
-      {/* 🔒 BANNER KHÓA KHẢO SÁT CHỈ XEM ĐỂ THUYẾT TRÌNH & NÚT RESET DEMO */}
+      {/* 🔒 BANNER KHÓA KHẢO SÁT CHỈ XEM ĐỂ TRÌNH BÀY */}
       {isSurveyCompleted && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-amber-100/50 border-2 border-amber-400/80 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-              <Lock className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-950 font-extrabold text-[10px] uppercase tracking-wider">
-                  Đã khóa an toàn
-                </span>
-                <h4 className="text-sm font-extrabold text-amber-950 m-0">
-                  HỒ SƠ KHẢO SÁT ĐÃ HOÀN TẤT (CHẾ ĐỘ CHỈ XEM ĐỂ TRÌNH BÀY)
-                </h4>
-              </div>
-              <p className="text-xs text-amber-900/80 m-0 mt-1 font-medium leading-relaxed">
-                Toàn bộ dữ liệu 3 bước đã được lưu trữ cố định và khóa thay đổi. Bạn có thể tự do bấm chuyển các Bước 1, 2, 3 để trình diễn cho hội đồng.
-              </p>
-            </div>
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-amber-100/50 border-2 border-amber-400/80 rounded-2xl p-4 sm:p-5 flex items-center gap-3.5 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+            <Lock className="w-5 h-5" />
           </div>
-          <button
-            type="button"
-            onClick={handleResetDemo}
-            className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-rose-600/20 hover:shadow-lg transition-all cursor-pointer shrink-0"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Làm Lại Bài Khảo Sát (Reset Demo)</span>
-          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-950 font-extrabold text-[10px] uppercase tracking-wider">
+                Đã khóa an toàn
+              </span>
+              <h4 className="text-sm font-extrabold text-amber-950 m-0">
+                HỒ SƠ KHẢO SÁT ĐÃ HOÀN TẤT (CHẾ ĐỘ CHỈ XEM ĐỂ TRÌNH BÀY)
+              </h4>
+            </div>
+            <p className="text-xs text-amber-900/80 m-0 mt-1 font-medium leading-relaxed">
+              Toàn bộ dữ liệu 3 bước đã được lưu trữ cố định và khóa thay đổi. Bạn có thể tự do bấm chuyển các Bước 1, 2, 3 để trình diễn cho hội đồng.
+            </p>
+          </div>
         </div>
       )}
 
@@ -984,18 +1005,20 @@ export const SurveyPage: React.FC = () => {
                     Thông số Doanh thu & Vốn điều lệ
                   </span>
                 </div>
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+                <label className={`flex items-center gap-2 text-xs font-medium select-none ${isSurveyCompleted ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 cursor-pointer'}`}>
                   <input
                     type="checkbox"
+                    disabled={isSurveyCompleted}
                     checked={baseProfile.isNewlyEstablished || false}
                     onChange={(e) => {
+                      if (isSurveyCompleted) return;
                       const checked = e.target.checked;
                       updateBaseProfile({
                         isNewlyEstablished: checked,
                         annualRevenue: checked ? 0 : (baseProfile.annualRevenue || 0),
                       });
                     }}
-                    className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                    className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <span>Doanh nghiệp mới thành lập năm nay</span>
                 </label>
@@ -1010,14 +1033,15 @@ export const SurveyPage: React.FC = () => {
                   <div className="relative">
                     <input
                       type="text"
-                      disabled={baseProfile.isNewlyEstablished}
+                      disabled={baseProfile.isNewlyEstablished || isSurveyCompleted}
                       value={baseProfile.isNewlyEstablished ? '0' : Number(baseProfile.annualRevenue || 0).toLocaleString('vi-VN')}
                       onChange={(e) => {
+                        if (isSurveyCompleted) return;
                         const rawDigits = e.target.value.replace(/\D/g, '');
                         updateBaseProfile({ annualRevenue: Number(rawDigits) || 0 });
                       }}
                       placeholder="VD: 18,500,000,000"
-                      className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                      className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                     <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">
                       VNĐ
@@ -1038,13 +1062,15 @@ export const SurveyPage: React.FC = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      disabled={isSurveyCompleted}
                       value={Number(baseProfile.charterCapital || 0).toLocaleString('vi-VN')}
                       onChange={(e) => {
+                        if (isSurveyCompleted) return;
                         const rawDigits = e.target.value.replace(/\D/g, '');
                         updateBaseProfile({ charterCapital: Number(rawDigits) || 0 });
                       }}
                       placeholder="VD: 5,000,000,000"
-                      className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                      className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                     <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">
                       VNĐ
@@ -1068,9 +1094,11 @@ export const SurveyPage: React.FC = () => {
                   <input
                     type="text"
                     inputMode="numeric"
+                    disabled={isSurveyCompleted}
                     value={baseProfile.employeeCount ? String(baseProfile.employeeCount) : ''}
                     placeholder="VD: 25"
                     onChange={(e) => {
+                      if (isSurveyCompleted) return;
                       const rawDigits = e.target.value.replace(/\D/g, '');
                       const count = rawDigits === '' ? 0 : parseInt(rawDigits, 10);
                       updateBaseProfile({
@@ -1078,7 +1106,7 @@ export const SurveyPage: React.FC = () => {
                         employeeScale: count < 10 ? 'under_10' : count <= 50 ? '10_to_50' : 'over_50',
                       });
                     }}
-                    className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none shadow-sm"
+                    className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                   />
                   <span className="absolute right-3.5 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
                     người
@@ -1243,10 +1271,18 @@ export const SurveyPage: React.FC = () => {
                   return (
                     <div
                       key={tag.id}
-                      onClick={() => handleToggleIndustryTag(tag.id)}
-                      className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                      onClick={() => {
+                        if (!isSurveyCompleted) handleToggleIndustryTag(tag.id);
+                      }}
+                      className={`p-3.5 rounded-xl border text-xs transition-all ${
+                        isSurveyCompleted
+                          ? 'cursor-not-allowed opacity-90'
+                          : 'cursor-pointer'
+                      } ${
                         isSelected
                           ? 'bg-teal-50/80 border-teal-500 shadow-sm ring-1 ring-teal-500'
+                          : isSurveyCompleted
+                          ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
                           : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
                       }`}
                     >
@@ -1613,15 +1649,26 @@ export const SurveyPage: React.FC = () => {
                 <span>Quay lại</span>
               </button>
 
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={finishDynamicSurvey}
-                className="w-full sm:w-auto px-6 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <span>{submitting ? 'Đang kích hoạt...' : 'Xác nhận & Kích hoạt Bối cảnh'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {isSurveyCompleted ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-90"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Hồ sơ khảo sát đã kích hoạt &amp; Khóa an toàn</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={finishDynamicSurvey}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <span>{submitting ? 'Đang kích hoạt...' : 'Xác nhận & Kích hoạt Bối cảnh'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>

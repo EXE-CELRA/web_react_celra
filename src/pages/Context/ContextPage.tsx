@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useContextStore } from '../../store/useContextStore';
@@ -28,7 +28,7 @@ import {
 import { message, Modal, Form, Input, Select, Tooltip } from 'antd';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan', 'phap_ly_von'];
+export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan'];
 
 
 
@@ -380,7 +380,7 @@ export const ContextPage: React.FC = () => {
 
           if (!isEnabled) {
             return (
-              <Tooltip key={g.key} title="Phân hệ tạm khóa theo lộ trình, hiện tại chỉ mở Thuế & Hồ sơ pháp lý">
+              <Tooltip key={g.key} title="Phân hệ tạm khóa theo lộ trình, hiện tại CELRA chỉ mở rà soát cho phân hệ Thuế Doanh Nghiệp">
                 <button
                   type="button"
                   disabled
