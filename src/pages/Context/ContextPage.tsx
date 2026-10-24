@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { useOrgStore } from '../../store/useOrgStore';
-import { ContextComplianceAuditModal } from '../../components/common/ContextComplianceAuditModal';
 import type { ContextFact, ContextGroupConfig } from '../../interfaces';
 import { 
   Database, 
@@ -36,9 +36,9 @@ export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan'];
 export const CONTEXT_GROUPS: ContextGroupConfig[] = [
   {
     key: 'thue_ke_toan',
-    label: 'Thuế Doanh Nghiệp',
-    shortLabel: 'Thuế',
-    tag: 'THUẾ DOANH NGHIỆP',
+    label: 'Thuế TNDN',
+    shortLabel: 'Thuế TNDN',
+    tag: 'THUẾ TNDN',
     icon: Receipt,
     badgeClass: 'text-blue-700 bg-blue-50 border border-blue-200',
   },
@@ -109,10 +109,11 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
 ];
 
 export const ContextPage: React.FC = () => {
+  const navigate = useNavigate();
   const { activeOrg } = useOrgStore();
   const { facts, fetchFacts, updateFact, createFact } = useContextStore();
 
-  const [selectedTab, setSelectedTab] = useState<string>('all');
+  const [selectedTab, setSelectedTab] = useState<string>('thue_ke_toan');
   const [activeFactForHistory, setActiveFactForHistory] = useState<ContextFact | null>(null);
 
   // Edit value modal
@@ -129,21 +130,15 @@ export const ContextPage: React.FC = () => {
   const [conflictFact, setConflictFact] = useState<ContextFact | null>(null);
   const [agreedValue, setAgreedValue] = useState('');
 
-  // Compliance Audit Modal
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [auditTargetGroup, setAuditTargetGroup] = useState<string | null>(null);
-
   useEffect(() => {
     if (activeOrg?.id) {
       fetchFacts();
     }
   }, [activeOrg?.id]);
 
-// Lọc dữ kiện: Chỉ hiển thị dữ kiện thuộc 2 phân hệ đang mở (Thuế & Pháp lý)
+  // Lọc dữ kiện: Chỉ hiển thị dữ kiện thuộc phân hệ đang chọn
   const enabledFacts = facts.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
-  const filteredFacts = selectedTab === 'all'
-    ? enabledFacts
-    : enabledFacts.filter((f) => f.group === selectedTab);
+  const filteredFacts = enabledFacts.filter((f) => f.group === selectedTab);
   // Group metadata helper for module classification
   const getGroupMeta = (group: string) => {
     const found = CONTEXT_GROUPS.find((g) => g.key === group);
@@ -317,7 +312,7 @@ export const ContextPage: React.FC = () => {
           <button
             onClick={() => {
               createForm.resetFields();
-              createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'thue_ke_toan' });
+              createForm.setFieldsValue({ group: selectedTab || 'thue_ke_toan' });
               setIsCreateModalOpen(true);
             }}
             className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-300 shadow-xs"
@@ -327,23 +322,19 @@ export const ContextPage: React.FC = () => {
             <span>Thêm dữ kiện mới</span>
           </button>
 
-          {(selectedTab === 'all' || ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab)) && (
+          {ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) && (
             <button
+              type="button"
               onClick={() => {
-                setAuditTargetGroup(selectedTab !== 'all' ? selectedTab : 'all');
-                setShowAuditModal(true);
+                navigate(`/context/audit?group=${selectedTab}`);
               }}
               className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
-              title="Rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
+              title="Chuyển sang trang rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
             >
               <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
-              <span>
-                {selectedTab !== 'all'
-                  ? `Rà soát lĩnh vực ${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.shortLabel || ''}`
-                  : 'Rà soát tuân thủ'}
-              </span>
+              <span>Rà soát tuân thủ</span>
               <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-                {selectedTab !== 'all' ? `${filteredFacts.length} thẻ` : `${facts.length} thẻ`}
+                {`${filteredFacts.length} thẻ`}
               </span>
             </button>
           )}
@@ -352,57 +343,11 @@ export const ContextPage: React.FC = () => {
 
       {/* TABS PHÂN LOẠI 9 NHÓM BỐI CẢNH DOANH NGHIỆP ĐỘNG */}
       <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-2 overflow-x-auto">
-        {/* TAB TẤT CẢ DỮ KIỆN */}
-        <button
-          type="button"
-          onClick={() => setSelectedTab('all')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            selectedTab === 'all'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-700 hover:bg-slate-100 bg-slate-50 border border-slate-200'
-          }`}
-        >
-          <Database className="w-3.5 h-3.5" />
-          <span>Tất cả dữ kiện</span>
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-              selectedTab === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
-            }`}
-          >
-            {facts.length}
-          </span>
-        </button>
-
-        {/* 9 NHÓM CONTEXT DYNAMIC TỪ DATABASE */}
-        {CONTEXT_GROUPS.map((g) => {
-          const isEnabled = ENABLED_CONTEXT_GROUP_KEYS.includes(g.key);
+        {/* CÁC PHÂN HỆ ĐANG HOẠT ĐỘNG (THUẾ DOANH NGHIỆP) */}
+        {CONTEXT_GROUPS.filter((g) => ENABLED_CONTEXT_GROUP_KEYS.includes(g.key)).map((g) => {
           const count = facts.filter((f) => f.group === g.key).length;
           const isSelected = selectedTab === g.key;
           const IconComponent = g.icon;
-
-          if (!isEnabled) {
-            return (
-              <button
-                key={g.key}
-                type="button"
-                onClick={() => setSelectedTab(g.key)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-slate-800 text-white shadow-xs'
-                    : 'bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-600'
-                }`}
-                title={`Phân hệ ${g.label} (Chưa kích hoạt - Chờ lập trình viên mở rộng)`}
-              >
-                <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
-                <span>{g.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  Chưa kích hoạt
-                </span>
-              </button>
-            );
-          }
 
           return (
             <button
@@ -435,7 +380,7 @@ export const ContextPage: React.FC = () => {
 
 
       {/* NẾU PHÂN HỆ ĐƯỢC CHỌN CHƯA KÍCH HOẠT */}
-      {selectedTab !== 'all' && !ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
+      {!ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
         <div className="bg-white p-8 sm:p-12 rounded-2xl border border-dashed border-slate-300 text-center space-y-5 shadow-xs">
           <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto border border-slate-200 shadow-inner">
             {(() => {
@@ -452,7 +397,7 @@ export const ContextPage: React.FC = () => {
               Phân Hệ {CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab} Chưa Kích Hoạt
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              CELRA hiện tại đang chuyên sâu và chỉ rà soát cho phân hệ <strong>Thuế Doanh Nghiệp</strong>.
+              CELRA hiện tại đang chuyên sâu và chỉ rà soát cho phân hệ <strong>Thuế TNDN</strong>.
               <br />
               Để kích hoạt phân hệ này, lập trình viên sẽ cấu hình bộ câu hỏi độc lập tại thư mục <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-800 text-[11px]">src/data/questionServey/</code> và kết nối vào hệ sinh thái CELRA.
             </p>
@@ -472,7 +417,7 @@ export const ContextPage: React.FC = () => {
               onClick={() => setSelectedTab('thue_ke_toan')}
               className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
-              Quay lại phân hệ Thuế
+              Quay lại phân hệ Thuế TNDN
             </button>
           </div>
         </div>
@@ -483,9 +428,7 @@ export const ContextPage: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-slate-800">
-              {selectedTab === 'all'
-                ? 'Chưa có dữ kiện bối cảnh nào'
-                : `Chưa có dữ kiện nào thuộc nhóm "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab}"`}
+              {`Chưa có dữ kiện nào thuộc nhóm "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab}"`}
             </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               Doanh nghiệp có thể thêm dữ kiện mới cho nhóm này hoặc hoàn tất Khảo sát doanh nghiệp để đồng bộ dữ liệu tự động.
@@ -495,7 +438,7 @@ export const ContextPage: React.FC = () => {
             <button
               onClick={() => {
                 createForm.resetFields();
-                createForm.setFieldsValue({ group: selectedTab !== 'all' ? selectedTab : 'thue_ke_toan' });
+                createForm.setFieldsValue({ group: selectedTab || 'thue_ke_toan' });
                 setIsCreateModalOpen(true);
               }}
               className="px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
@@ -503,14 +446,6 @@ export const ContextPage: React.FC = () => {
               <Plus className="w-4 h-4" />
               Thêm dữ kiện cho nhóm này
             </button>
-            {selectedTab !== 'all' && (
-              <button
-                onClick={() => setSelectedTab('all')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-              >
-                Xem tất cả ({facts.length})
-              </button>
-            )}
           </div>
         </div>
       ) : (
@@ -782,17 +717,6 @@ export const ContextPage: React.FC = () => {
         </div>,
         document.body
       )}
-
-      {/* Context Compliance Audit Modal */}
-      <ContextComplianceAuditModal
-        isOpen={showAuditModal}
-        onClose={() => {
-          setShowAuditModal(false);
-          setAuditTargetGroup(null);
-        }}
-        initialSelectedGroup={auditTargetGroup}
-        onSuccess={() => fetchFacts()}
-      />
 
       {/* CREATE NEW CONTEXT FACT MODAL */}
       <Modal
