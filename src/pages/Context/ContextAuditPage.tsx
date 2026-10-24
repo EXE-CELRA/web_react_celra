@@ -203,6 +203,8 @@ export const ContextAuditPage: React.FC = () => {
       const parsed = await parseCitExcelFile(file);
       // Tự động bóc tách Quý & Năm từ dữ liệu ngày trong file Excel nếu có
       const detected = detectPeriodFromCitData(parsed.revenues, parsed.expenses);
+      const effectiveYear = detected.year || taxYear;
+      const effectiveQuarter = detected.quarter || taxQuarter;
       if (detected.year) {
         setTaxYear(detected.year);
       }
@@ -213,8 +215,35 @@ export const ContextAuditPage: React.FC = () => {
       const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
       setCitCalcResult(res);
       setParsedExcelData(parsed);
+
+      // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', `Bảng kê Doanh thu & Chi phí (${effectiveQuarter === 'ALL' ? `Cả năm ${effectiveYear}` : `Quý ${effectiveQuarter}/${effectiveYear}`})`);
+        formData.append('category', 'Thuế Doanh Nghiệp');
+        formData.append('tag', 'Bảng kê thu - chi');
+        formData.append('quarter', String(effectiveQuarter));
+        formData.append('year', String(effectiveYear));
+        formData.append('metadata', JSON.stringify({
+          quarter: effectiveQuarter,
+          year: effectiveYear,
+          tag: 'Bảng kê thu - chi',
+          documentType: 'BẢNG KÊ THU CHI TNDN',
+          totalRevenue: res.totalRevenue,
+          totalExpense: res.totalAccountingExpense,
+          estimatedTax: res.estimatedTaxAmount,
+        }));
+
+        await apiClient.post('/evidence-documents/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } catch (uploadErr) {
+        console.warn('Lưu hồ sơ bằng chứng tự động gặp lỗi:', uploadErr);
+      }
+
       const periodTag = detected.quarter && detected.year ? ` (Tự động nhận diện: Quý ${detected.quarter}/${detected.year})` : '';
-      message.success(`Đã phân tích thành công ${parsed.revenues.length} khoản thu và ${parsed.expenses.length} khoản chi!${periodTag}`);
+      message.success(`Đã phân tích thành công và tự động lưu vào mục Hồ Sơ & Bằng Chứng!${periodTag}`);
     } catch (err: any) {
       console.error(err);
       message.error('Không thể đọc file Excel. Vui lòng tải đúng file mẫu chuẩn 2 Sheet của CELRA!');

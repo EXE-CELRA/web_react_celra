@@ -47,8 +47,11 @@ export const VerificationStatusTag: React.FC<{ status: VerificationStatus }> = (
     PENDING: { color: 'warning', text: 'Chờ duyệt' },
     VERIFIED: { color: 'success', text: 'Hợp lệ' },
     REJECTED: { color: 'error', text: 'Từ chối' },
+    unverified: { color: 'warning', text: 'Chờ duyệt' },
+    accepted: { color: 'success', text: 'Hợp lệ' },
+    rejected: { color: 'error', text: 'Từ chối' },
   };
 
-  const item = map[status] || { color: 'default', text: status };
+  const item = (map as any)[status] || { color: 'default', text: status };
   return <Tag color={item.color}>{item.text}</Tag>;
 };
