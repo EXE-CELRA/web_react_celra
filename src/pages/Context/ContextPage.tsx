@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import type { ContextFact, ContextGroupConfig } from '../../interfaces';
@@ -24,7 +24,7 @@ import {
   Briefcase,
   HardDrive,
   Plus,
-  Sparkles
+  ArrowRight
 } from 'lucide-react';
 import { message, Modal, Form, Input, Select } from 'antd';
 import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
@@ -224,10 +224,19 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
 
 export const ContextPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rawGroup = searchParams.get('group');
   const { activeOrg } = useOrgStore();
   const { facts, fetchFacts, updateFact, createFact } = useContextStore();
 
   const [selectedTab, setSelectedTab] = useState<string>('boi_canh_co_so');
+
+  // Nếu truy cập hoặc chọn phân hệ Thuế TNDN: Vào thẳng trang rà soát, không hiện thẻ trung gian
+  useEffect(() => {
+    if (rawGroup === 'thue_ke_toan' || selectedTab === 'thue_ke_toan') {
+      navigate('/context/audit?group=thue_ke_toan', { replace: true });
+    }
+  }, [rawGroup, selectedTab, navigate]);
   const [activeFactForHistory, setActiveFactForHistory] = useState<ContextFact | null>(null);
 
   // Edit value modal
@@ -249,9 +258,12 @@ export const ContextPage: React.FC = () => {
 
   const handleStartComplianceAudit = () => {
     const targetGroup = selectedTab === 'boi_canh_co_so' ? 'thue_ke_toan' : selectedTab;
+    if (targetGroup === 'thue_ke_toan') {
+      navigate('/context/audit?group=thue_ke_toan');
+      return;
+    }
     const isCompleted = isGroupSurveyCompleted(facts, targetGroup);
     if (!isCompleted) {
-      setSelectedTab('thue_ke_toan');
       setIsSurveyModalOpen(true);
     } else {
       navigate(`/context/audit?group=${targetGroup}`);
@@ -537,30 +549,26 @@ export const ContextPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* Nút tính năng: Rà soát tuân thủ (Chỉ hiển thị khi ở tab Thuế TNDN) */}
-        {selectedTab === 'thue_ke_toan' && (
-          <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
-            <button
-              type="button"
-              onClick={handleStartComplianceAudit}
-              className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
-              title="Chuyển sang trang rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
-              <span>Rà soát tuân thủ</span>
-              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-                {`${taxFacts.length} thẻ`}
-              </span>
-            </button>
-          </div>
-        )}
+        {/* Nút tính năng: Rà soát Thuế TNDN (Vào thẳng trang rà soát) */}
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={handleStartComplianceAudit}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
+            title="Chuyển sang trang rà soát sổ thu chi và tính thuế TNDN"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
+            <span>Rà soát Thuế TNDN (Sổ Thu Chi)</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* TABS PHÂN LOẠI 9 NHÓM BỐI CẢNH DOANH NGHIỆP ĐỘNG */}
       <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-2 overflow-x-auto">
         {/* CÁC PHÂN HỆ ĐANG HOẠT ĐỘNG (THUẾ DOANH NGHIỆP) */}
         {CONTEXT_GROUPS.filter((g) => ENABLED_CONTEXT_GROUP_KEYS.includes(g.key)).map((g) => {
-          const count = g.key === 'boi_canh_co_so' ? baseProfileFacts.length : g.key === 'thue_ke_toan' ? taxFacts.length : facts.filter((f) => f.group === g.key).length;
+          const count = g.key === 'boi_canh_co_so' ? baseProfileFacts.length : g.key === 'thue_ke_toan' ? 'Excel' : facts.filter((f) => f.group === g.key).length;
           const isSelected = selectedTab === g.key;
           const IconComponent = g.icon;
 
@@ -568,7 +576,13 @@ export const ContextPage: React.FC = () => {
             <button
               key={g.key}
               type="button"
-              onClick={() => setSelectedTab(g.key)}
+              onClick={() => {
+                if (g.key === 'thue_ke_toan') {
+                  navigate('/context/audit?group=thue_ke_toan');
+                  return;
+                }
+                setSelectedTab(g.key);
+              }}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                 isSelected
                   ? 'bg-blue-600 text-white shadow-xs'
@@ -581,7 +595,7 @@ export const ContextPage: React.FC = () => {
                 className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
                   isSelected
                     ? 'bg-white/20 text-white'
-                    : count > 0
+                    : count === 'Excel' || (typeof count === 'number' && count > 0)
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-slate-200 text-slate-500'
                 }`}
@@ -623,35 +637,6 @@ export const ContextPage: React.FC = () => {
         </div>
       )}
 
-      {/* NHẮC NHỞ KHẢO SÁT TÌNH HUỐNG NẾU PHÂN HỆ THUẾ TNDN CHƯA HOÀN TẤT */}
-      {selectedTab === 'thue_ke_toan' && !isGroupSurveyCompleted(facts, 'thue_ke_toan') && (
-        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-amber-700" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                <span>Chưa hoàn tất khảo sát tình huống: Thuế TNDN</span>
-                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold uppercase">Cần thiết</span>
-              </h4>
-              <p className="text-[11px] text-amber-900 leading-relaxed mt-0.5">
-                Trả lời nhanh 8 câu hỏi tình huống (~2 phút) để hệ thống thu thập bối cảnh thực tế trước khi rà soát luật và dự toán thuế.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsSurveyModalOpen(true)}
-            className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 flex items-center gap-1.5 cursor-pointer self-stretch sm:self-auto justify-center"
-          >
-            <ShieldCheck className="w-4 h-4 text-amber-100" />
-            <span>Làm khảo sát tình huống ngay</span>
-          </button>
-        </div>
-      )}
-
-      {/* NẾU PHÂN HỆ ĐƯỢC CHỌN CHƯA KÍCH HOẠT */}
       {!ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
         <div className="bg-white p-8 sm:p-12 rounded-2xl border border-dashed border-slate-300 text-center space-y-5 shadow-xs">
           <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto border border-slate-200 shadow-inner">
@@ -686,7 +671,7 @@ export const ContextPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setSelectedTab('thue_ke_toan')}
+              onClick={() => navigate('/context/audit?group=thue_ke_toan')}
               className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               Quay lại phân hệ Thuế TNDN

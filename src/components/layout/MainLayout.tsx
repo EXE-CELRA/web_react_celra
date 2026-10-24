@@ -34,6 +34,7 @@ const { Text } = Typography;
 const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Bảng Điều Khiển',
   '/context': 'Context Doanh Nghiệp',
+  '/context/audit': 'Rà Soát Tuân Thủ & Thuế TNDN',
   '/survey': 'Hồ Sơ Doanh Nghiệp',
   '/onboarding': 'Hồ Sơ Doanh Nghiệp',
   '/tasks': 'Danh Sách Tác Vụ Tuân Thủ',
