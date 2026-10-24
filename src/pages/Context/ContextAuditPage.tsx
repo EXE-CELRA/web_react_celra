@@ -141,80 +141,6 @@ export type PeriodStore = Record<string, PeriodFinancialData>;
 // Khởi tạo ban đầu trống 100% cho Phân hệ Thuế TNDN (Zero-data canvas)
 export const DEFAULT_REVENUE_ROWS: RevenueRow[] = [];
 export const DEFAULT_EXPENSE_ROWS: ExpenseRow[] = [];
-// Dữ liệu mẫu khởi tạo ban đầu cho Phân hệ Thuế TNDN (Chuẩn hóa để rà soát rủi ro thuế)
-// eslint-disable-next-line react-refresh/only-export-components
-export const DEFAULT_REVENUE_ROWS: RevenueRow[] = [
-  {
-    date: '15/01/2025',
-    invoiceNo: 'HD000128',
-    description: 'Cung cấp dịch vụ tư vấn doanh nghiệp cho Cty An Bình',
-    amount: 120000000,
-  },
-  {
-    date: '28/02/2025',
-    invoiceNo: 'HD000129',
-    description: 'Thực hiện hợp đồng cung ứng gói phần mềm số đợt 1',
-    amount: 250000000,
-  },
-  {
-    date: '20/03/2025',
-    invoiceNo: 'HD000130',
-    description: 'Bán lẻ hàng hóa qua kênh thương mại điện tử',
-    amount: 85000000,
-  },
-];
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const DEFAULT_EXPENSE_ROWS: ExpenseRow[] = [
-  {
-    date: '10/01/2025',
-    category: 'Tiền thuê mặt bằng văn phòng làm việc',
-    amount: 30000000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Có',
-    note: 'Hóa đơn tiền thuê nhà số 00412 chuyển khoản qua NH Vietcombank',
-  },
-  {
-    date: '18/01/2025',
-    category: 'Lương Chủ tịch kiêm Giám đốc (Công ty TNHH 1TV)',
-    amount: 25000000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Không',
-    note: 'Thù lao điều hành của chủ sở hữu cá nhân (Rủi ro bị loại B4)',
-  },
-  {
-    date: '05/02/2025',
-    category: 'Mua thiết bị máy tính văn phòng',
-    amount: 22000000,
-    paymentMethod: 'Tiền mặt',
-    hasInvoice: 'Có',
-    note: 'Hóa đơn > 20 triệu nhưng trả tiền mặt (Rủi ro bị loại B4 Điều 4 TT 96/2015/TT-BTC)',
-  },
-  {
-    date: '15/02/2025',
-    category: 'Chi phí quảng cáo Facebook Ads trực tiếp qua thẻ',
-    amount: 15000000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Không',
-    note: 'Dịch vụ nước ngoài xuyên biên giới (Cần nộp thuế nhà thầu FCT)',
-  },
-  {
-    date: '22/02/2025',
-    category: 'Mua văn phòng phẩm, giấy in lặt vặt tiếp khách',
-    amount: 4500000,
-    paymentMethod: 'Tiền mặt',
-    hasInvoice: 'Không',
-    note: 'Chi phí không có hóa đơn chứng từ hợp lệ (Rủi ro bị loại B4)',
-  },
-  {
-    date: '10/03/2025',
-    category: 'Thanh toán cước Internet và điện thoại công ty',
-    amount: 3500000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Có',
-    note: 'Hóa đơn điện tử VNPT đầy đủ',
-  },
-];
 
 export const ContextAuditPage: React.FC = () => {
   const navigate = useNavigate();
@@ -378,9 +304,6 @@ export const ContextAuditPage: React.FC = () => {
                 expenses: parsed.expenses,
               },
             });
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setRevenues(parsed.revenues);
-            setExpenses(parsed.expenses);
             if (parsed.taxQuarter !== undefined) setTaxQuarter(parsed.taxQuarter);
             if (parsed.taxYear) setTaxYear(parsed.taxYear);
             setHasLoadedDbRecords(true);
@@ -539,33 +462,20 @@ export const ContextAuditPage: React.FC = () => {
         return false;
       }
 
-      // Tự động bóc tách Quý & Năm từ dữ liệu ngày trong file Excel nếu có
-      const detected = detectPeriodFromCitData(parsed.revenues, parsed.expenses);
-      const effectiveYear = detected.year || taxYear;
-      const effectiveQuarter = detected.quarter || taxQuarter;
-      if (detected.year) {
-        setTaxYear(detected.year);
-      }
-      if (detected.quarter) {
-        setTaxQuarter(detected.quarter);
-      }
-
       const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
-      setCitCalcResult(res);
-      setParsedExcelData(parsed);
 
       // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
       try {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('title', `Bảng kê Doanh thu & Chi phí (${effectiveQuarter === 'ALL' ? `Cả năm ${effectiveYear}` : `Quý ${effectiveQuarter}/${effectiveYear}`})`);
+        formData.append('title', `Bảng kê Doanh thu & Chi phí (Quý ${taxQuarter}/${taxYear})`);
         formData.append('category', 'Thuế Doanh Nghiệp');
         formData.append('tag', 'Bảng kê thu - chi');
-        formData.append('quarter', String(effectiveQuarter));
-        formData.append('year', String(effectiveYear));
+        formData.append('quarter', String(taxQuarter));
+        formData.append('year', String(taxYear));
         formData.append('metadata', JSON.stringify({
-          quarter: effectiveQuarter,
-          year: effectiveYear,
+          quarter: taxQuarter,
+          year: taxYear,
           tag: 'Bảng kê thu - chi',
           documentType: 'BẢNG KÊ THU CHI TNDN',
           totalRevenue: res.totalRevenue,
@@ -580,8 +490,6 @@ export const ContextAuditPage: React.FC = () => {
         console.warn('Lưu hồ sơ bằng chứng tự động gặp lỗi:', uploadErr);
       }
 
-      const periodTag = detected.quarter && detected.year ? ` (Tự động nhận diện: Quý ${detected.quarter}/${detected.year})` : '';
-      message.success(`Đã phân tích thành công và tự động lưu vào mục Hồ Sơ & Bằng Chứng!${periodTag}`);
       setPendingImportData(parsed);
       setDuplicateRows(null);
       setIsImportConfirmModalOpen(true);
@@ -2263,8 +2171,4 @@ export const ContextAuditPage: React.FC = () => {
 };
 
 export default ContextAuditPage;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function setParsedExcelData(parsed: ParsedCitData) {
-  throw new Error('Function not implemented.');
-}
 
