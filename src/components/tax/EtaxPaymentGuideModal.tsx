@@ -63,24 +63,25 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
             </a>
           </p>
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
               <span className="text-xs text-slate-500">Phân hệ:</span>
               <span className="font-semibold text-slate-800">DOANH NGHIỆP</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
               <span className="text-xs text-slate-500">Tên đăng nhập (kèm đuôi QL):</span>
               <span className="font-mono font-bold text-teal-700 flex items-center gap-1.5">
                 {taxCode}-QL
                 <button
                   type="button"
                   onClick={() => handleCopy(`${taxCode}-QL`, 'Tên đăng nhập')}
-                  className="text-xs text-slate-400 hover:text-teal-600 cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-teal-600 cursor-pointer p-0.5"
+                  title="Sao chép tên đăng nhập"
                 >
                   <CopyOutlined />
                 </button>
               </span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
               <span className="text-xs text-slate-500">Mật khẩu:</span>
               <span className="text-xs text-slate-600 font-medium">Mật khẩu do CQT cấp hoặc DN đã đổi</span>
             </div>
@@ -119,47 +120,47 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
       content: (
         <div className="space-y-3 text-sm">
           <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-3">
-            <div className="flex justify-between items-center pb-2 border-b border-teal-100">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 pb-2 border-b border-teal-100">
               <span className="text-xs text-teal-800 font-medium">Cơ quan quản lý thu:</span>
-              <span className="font-semibold text-teal-950 text-right">{cqtName}</span>
+              <span className="font-semibold text-teal-950 sm:text-right">{cqtName}</span>
             </div>
 
-            <div className="flex justify-between items-center pb-2 border-b border-teal-100">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 pb-2 border-b border-teal-100">
               <div>
                 <span className="text-xs text-teal-800 font-medium block">Mã Tiểu Mục (Kho Bạc):</span>
                 <span className="text-[11px] text-teal-600">Thuế TNDN từ hoạt động SXKD thông thường</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <span className="font-mono text-base font-extrabold text-teal-800 bg-white px-2.5 py-1 rounded-lg border border-teal-300">
                   1052
                 </span>
                 <button
                   type="button"
                   onClick={() => handleCopy('1052', 'Mã tiểu mục')}
-                  className="px-2 py-1 text-xs bg-teal-600 text-white rounded-md hover:bg-teal-700 cursor-pointer"
+                  className="px-2.5 py-1 text-xs bg-teal-600 text-white rounded-md hover:bg-teal-700 cursor-pointer flex items-center gap-1 shadow-2xs"
                 >
-                  <CopyOutlined /> Chép
+                  <CopyOutlined /> Sao chép
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-between items-center pb-2 border-b border-teal-100">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 pb-2 border-b border-teal-100">
               <span className="text-xs text-teal-800 font-medium">Số tiền tạm nộp tối thiểu (80%):</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <span className="font-mono font-bold text-rose-600 text-base">
                   {prepaymentAmount.toLocaleString('vi-VN')} đ
                 </span>
                 <button
                   type="button"
                   onClick={() => handleCopy(String(prepaymentAmount), 'Số tiền')}
-                  className="px-2 py-1 text-xs bg-teal-600 text-white rounded-md hover:bg-teal-700 cursor-pointer"
+                  className="px-2.5 py-1 text-xs bg-teal-600 text-white rounded-md hover:bg-teal-700 cursor-pointer flex items-center gap-1 shadow-2xs"
                 >
-                  <CopyOutlined /> Chép
+                  <CopyOutlined /> Sao chép
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
               <span className="text-xs text-teal-800 font-medium">Kỳ thuế ghi chú:</span>
               <span className="font-semibold text-slate-800">
                 {quarter === 'ALL' ? `Quyết toán năm ${year}` : `Tạm nộp Q${quarter} / Năm ${year}`}
@@ -192,27 +193,49 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
     <Modal
       open={visible}
       onCancel={onClose}
-      footer={null}
-      width={720}
+      centered
+      width="min(760px, 94vw)"
+      style={{ maxWidth: '94vw' }}
+      styles={{
+        body: {
+          maxHeight: 'calc(85vh - 130px)',
+          overflowY: 'auto',
+          paddingRight: '6px',
+        },
+      }}
       title={
-        <div className="flex items-center gap-2.5 pb-2">
-          <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
-            <SafetyCertificateOutlined className="text-lg" />
+        <div className="flex items-start sm:items-center gap-2.5 pb-2 pr-6">
+          <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+            <SafetyCertificateOutlined className="text-base" />
           </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-800 m-0">
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-bold text-slate-800 m-0 leading-snug">
               Hướng Dẫn Thao Tác Nộp Thuế TNDN Trên eTax (Tiểu Mục 1052)
             </h3>
-            <p className="text-xs text-slate-500 m-0">
-              Áp dụng cho doanh nghiệp: <strong>{companyName}</strong> (MST: {taxCode})
+            <p className="text-[11px] sm:text-xs text-slate-500 m-0 mt-0.5 truncate">
+              Doanh nghiệp: <strong className="text-slate-700">{companyName}</strong> (MST: {taxCode})
             </p>
           </div>
         </div>
       }
+      footer={
+        <div className="pt-2.5 pb-1 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-slate-100">
+          <span className="text-[11px] text-slate-400 italic">
+            Cổng Thuế điện tử chính thức: thuedientu.gdt.gov.vn
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition-colors cursor-pointer shadow-xs"
+          >
+            Đã hiểu & Đóng hướng dẫn
+          </button>
+        </div>
+      }
     >
-      <div className="py-2 space-y-6">
-        <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 text-xs text-slate-600 flex items-start gap-2">
-          <InfoCircleOutlined className="text-teal-600 text-sm mt-0.5" />
+      <div className="py-2 space-y-5">
+        <div className="bg-slate-50/80 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 text-xs text-slate-600 flex items-start gap-2">
+          <InfoCircleOutlined className="text-teal-600 text-sm mt-0.5 shrink-0" />
           <span>
             Hệ thống hỗ trợ trích xuất sẵn <strong>Mã tiểu mục 1052</strong> và <strong>Số tiền tạm nộp 80%</strong>. Bạn chỉ cần sao chép nhanh và dán vào biểu mẫu nộp tiền trên cổng eTax.
           </span>
@@ -232,16 +255,6 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
             ),
           }))}
         />
-
-        <div className="pt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-800 text-white font-semibold text-xs hover:bg-slate-900 transition-colors cursor-pointer"
-          >
-            Đã hiểu & Đóng hướng dẫn
-          </button>
-        </div>
       </div>
     </Modal>
   );

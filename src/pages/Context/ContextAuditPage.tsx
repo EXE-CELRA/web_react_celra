@@ -410,11 +410,11 @@ export const ContextAuditPage: React.FC = () => {
       width: 120,
       render: (val: string) =>
         val ? (
-          <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+          <span className="font-mono text-xs font-semibold text-slate-700">
             {val}
           </span>
         ) : (
-          <span className="text-slate-400 italic text-[11px]">-</span>
+          <span className="text-slate-400 italic text-xs">—</span>
         ),
     },
     {
@@ -430,7 +430,7 @@ export const ContextAuditPage: React.FC = () => {
       width: 180,
       align: 'right' as const,
       render: (val: number) => (
-        <span className="font-mono font-bold text-teal-700 whitespace-nowrap text-xs">
+        <span className="font-mono font-bold text-slate-900 whitespace-nowrap text-xs">
           {Number(val || 0).toLocaleString('vi-VN')} đ
         </span>
       ),
@@ -510,16 +510,16 @@ export const ContextAuditPage: React.FC = () => {
       title: 'Thanh toán',
       dataIndex: 'paymentMethod',
       key: 'paymentMethod',
-      width: 110,
+      width: 125,
       align: 'center' as const,
       render: (val: string) => {
         const isCash = (val || '').toLowerCase().includes('tiền mặt') || (val || '').toLowerCase().includes('cash');
         return isCash ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200/80 whitespace-nowrap">
             Tiền mặt
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
             Chuyển khoản
           </span>
         );
@@ -529,16 +529,16 @@ export const ContextAuditPage: React.FC = () => {
       title: 'Hóa đơn',
       dataIndex: 'hasInvoice',
       key: 'hasInvoice',
-      width: 95,
+      width: 110,
       align: 'center' as const,
       render: (val: string) => {
         const hasInv = (val || '').toLowerCase().includes('có') || (val || '').toLowerCase().includes('yes');
         return hasInv ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 whitespace-nowrap">
             Có HĐ
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200/80 whitespace-nowrap">
             Không HĐ
           </span>
         );
@@ -548,10 +548,10 @@ export const ContextAuditPage: React.FC = () => {
       title: 'Số tiền (VNĐ)',
       dataIndex: 'amount',
       key: 'amount',
-      width: 150,
+      width: 160,
       align: 'right' as const,
       render: (val: number, record: any) => (
-        <span className={`font-mono font-bold whitespace-nowrap text-xs ${record.isDisallowedB4 ? 'text-rose-700' : 'text-slate-800'}`}>
+        <span className={`font-mono font-bold whitespace-nowrap text-xs ${record.isDisallowedB4 ? 'text-rose-600' : 'text-slate-900'}`}>
           {Number(val || 0).toLocaleString('vi-VN')} đ
         </span>
       ),
@@ -559,25 +559,25 @@ export const ContextAuditPage: React.FC = () => {
     {
       title: 'Đánh giá tính hợp lý (Mục B4)',
       key: 'b4Evaluation',
-      minWidth: 220,
+      minWidth: 260,
       render: (_: any, record: any) =>
         record.isDisallowedB4 ? (
           <div className="space-y-1">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
-              <WarningOutlined /> BỊ LOẠI (MỤC B4)
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
+              <WarningOutlined /> Bị loại trừ (Mục B4)
             </span>
-            <p className="text-[11px] text-rose-700 m-0 font-bold leading-snug">
+            <p className="text-xs text-slate-800 m-0 font-medium leading-snug">
               {record.disallowedReason || 'Chi phí bị loại trừ theo luật thuế.'}
             </p>
             {record.legalBasis && (
-              <p className="text-[10px] text-rose-600/80 italic m-0">
-                Căn cứ: {record.legalBasis}
+              <p className="text-[11px] text-slate-400 italic m-0">
+                {record.legalBasis}
               </p>
             )}
           </div>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <Check className="w-3 h-3 text-emerald-600" /> Được trừ hợp lý
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+            <Check className="w-3 h-3 text-emerald-600" /> Được trừ hợp lệ
           </span>
         ),
     },
@@ -1398,51 +1398,54 @@ export const ContextAuditPage: React.FC = () => {
 
           {/* 📊 PHÂN HỆ QUẢN LÝ SỔ THU CHI & DỰ TOÁN THUẾ TNDN */}
           {activeTab === 'thue_ke_toan' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5 shadow-xs">
-              {/* HEADER PHÂN HỆ */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-teal-600/20 mt-0.5">
-                    <FileExcelOutlined className="text-xl" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs">
+              {/* HEADER PHÂN HỆ DOANH NGHIỆP */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0 border border-teal-100/70">
+                      <FileExcelOutlined className="text-base" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight m-0">
+                      Sổ Kê Khai Thu Chi & Dự Tính Thuế TNDN
+                    </h3>
+                    <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                      Thông tư 96/2015/TT-BTC
+                    </span>
                   </div>
-                  <div className="space-y-1">
-                    <h4 className="text-sm sm:text-base font-extrabold text-slate-900 m-0">
-                      Sổ Kê Khai Thu Chi, Rà Soát Xuất Toán (Mục B4) & Lợi Nhuận Ròng Thuế TNDN
-                    </h4>
-                    <p className="text-xs text-slate-500 m-0">
-                      Tự động tính thuế TNDN, rà soát chi phí không hợp lệ theo Thông tư 96/2015/TT-BTC và tính lợi nhuận ròng sau thuế theo thời gian thực.
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-500 m-0">
+                    Rà soát chi phí không hợp lệ (Mục B4), dự toán số thuế TNDN và quản trị lợi nhuận ròng sau thuế thời gian thực.
+                  </p>
                 </div>
 
-                {/* VÙNG ƯU ĐÃI THUẾ THEO ĐỊA CHỈ */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 shrink-0 flex items-center gap-2.5 shadow-2xs">
-                  <CompassOutlined className="text-teal-600 text-base" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">Ưu đãi vùng & Thuế suất:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-slate-800">{incentiveInfo.title}</span>
-                      <Tag color={incentiveInfo.tier === 'ZONE_STANDARD' ? 'default' : 'success'} className="font-extrabold text-xs m-0">
-                        {incentiveInfo.taxRatePercentText}
-                      </Tag>
-                    </div>
+                {/* META THÔNG TIN ƯU ĐÃI & HẠN NỘP */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-2xs">
+                    <CompassOutlined className="text-slate-400" />
+                    <span className="text-slate-400 font-medium">Thuế suất:</span>
+                    <span className="font-semibold text-slate-800">{incentiveInfo.title}</span>
+                    <span className="font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded text-[11px] border border-teal-100">
+                      {incentiveInfo.taxRatePercentText}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-2xs">
+                    <ClockCircleOutlined className="text-slate-400" />
+                    <span className="text-slate-400 font-medium">Hạn nộp:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {getQuarterDeadline(taxQuarter, taxYear)}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* 📅 BỘ CHỌN KỲ TÍNH THUẾ (QUÝ VÀ NĂM) & HẠN NỘP */}
-              <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3 sm:px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              {/* 📅 BỘ CHỌN KỲ TÍNH THUẾ (QUÝ VÀ NĂM) & ACTION */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 border border-slate-200/80 rounded-xl px-4 py-2.5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarOutlined className="text-slate-400" />
+                    Kỳ tính thuế:
+                  </span>
                   <div className="flex items-center gap-2">
-                    <CalendarOutlined className="text-teal-600 text-base" />
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                      Kỳ tính thuế:
-                    </span>
-                  </div>
-
-                  {/* CHỌN QUÝ */}
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-xs font-semibold text-slate-600">Quý:</label>
                     <Select
                       value={taxQuarter}
                       onChange={handleQuarterChange}
@@ -1456,171 +1459,107 @@ export const ContextAuditPage: React.FC = () => {
                         { value: 'ALL', label: 'Cả năm' },
                       ]}
                     />
-                  </div>
-
-                  {/* CHỌN NĂM */}
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-xs font-semibold text-slate-600">Năm:</label>
                     <Select
                       value={taxYear}
                       onChange={handleYearChange}
-                      className="w-32"
+                      className="w-36"
                       size="middle"
                       showSearch
                       options={dynamicYearOptions}
                       placeholder="Chọn năm"
                     />
                   </div>
-
-                  {/* NÚT HƯỚNG DẪN ETAX */}
-                  <Button
-                    type="primary"
-                    icon={<CreditCardOutlined />}
-                    onClick={() => setShowEtaxModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-8 border-none shadow-xs flex items-center gap-1.5"
-                  >
-                    Hướng dẫn eTax
-                  </Button>
                 </div>
 
-                {/* HẠN NỘP THEO LUẬT ĐỊNH */}
-                <div className="flex items-center gap-2 text-xs text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shrink-0">
-                  <ClockCircleOutlined className="text-slate-500" />
-                  <span>
-                    Hạn nộp tờ khai & thuế:{' '}
-                    <strong className="font-extrabold text-slate-900 font-mono">
-                      {getQuarterDeadline(taxQuarter, taxYear)}
-                    </strong>
-                  </span>
-                </div>
+                <Button
+                  type="default"
+                  icon={<CreditCardOutlined className="text-blue-600" />}
+                  onClick={() => setShowEtaxModal(true)}
+                  className="text-xs font-semibold rounded-lg h-8 border-slate-300 text-slate-700 hover:text-blue-600 hover:border-blue-400 shadow-2xs"
+                >
+                  Hướng dẫn nộp eTax
+                </Button>
               </div>
 
-              {/* 🌟 4 THẺ THỐNG KÊ TỔNG QUAN / KPI ĐỒNG BỘ FORMAT DASHBOARD */}
+              {/* 🌟 4 THẺ CHỈ SỐ KPI TỐI GIẢN CHUẨN DOANH NGHIỆP */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
-                {/* CARD 1: TỔNG DOANH THU */}
-                <div
-                  className="bg-white rounded-xl border border-teal-100 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
-                  style={{ borderLeft: '5px solid #0d9488' }}
-                >
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-                      boxShadow: '0 4px 12px rgba(13, 148, 136, 0.28)',
-                      outline: '3px solid rgba(13, 148, 136, 0.15)',
-                    }}
-                  >
-                    <DollarSign className="w-5 h-5 text-white" />
+                {/* CARD 1: DOANH THU */}
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-semibold uppercase tracking-wider text-[11px]">Tổng doanh thu</span>
+                    <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-100/60">
+                      <DollarSign className="w-3.5 h-3.5" />
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      1. TỔNG DOANH THU
-                    </div>
-                    <div className="text-lg sm:text-xl font-black font-mono text-teal-800 leading-tight mt-0.5 truncate">
-                      {citSummary.totalRevenue.toLocaleString('vi-VN')} đ
-                    </div>
-                    <div className="text-[10.5px] text-slate-500 mt-1 flex flex-wrap items-center gap-2">
-                      <span>{citSummary.revenueCount} khoản thu</span>
-                      <span className="text-teal-600 font-bold">• 100% doanh thu</span>
-                    </div>
+                  <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-2 truncate">
+                    {citSummary.totalRevenue.toLocaleString('vi-VN')} đ
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span>{citSummary.revenueCount} khoản thu</span>
+                    <span className="font-medium text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded text-[10.5px]">100% doanh thu</span>
                   </div>
                 </div>
 
-                {/* CARD 2: TỔNG CHI PHÍ KẾ TOÁN */}
-                <div
-                  className="bg-white rounded-xl border border-blue-100 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
-                  style={{ borderLeft: '5px solid #2563eb' }}
-                >
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.28)',
-                      outline: '3px solid rgba(37, 99, 235, 0.15)',
-                    }}
-                  >
-                    <FileText className="w-5 h-5 text-white" />
+                {/* CARD 2: CHI PHÍ KẾ TOÁN */}
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-semibold uppercase tracking-wider text-[11px]">Tổng chi phí kế toán</span>
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100/60">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      2. TỔNG CHI PHÍ KẾ TOÁN
-                    </div>
-                    <div className="text-lg sm:text-xl font-black font-mono text-slate-900 leading-tight mt-0.5 truncate">
-                      {citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ
-                    </div>
-                    <div className="text-[10.5px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="text-emerald-700 font-bold whitespace-nowrap">
-                        Được trừ: {citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ
-                      </span>
-                      <span className="text-slate-300">|</span>
-                      <span className="text-rose-600 font-bold whitespace-nowrap">
+                  <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-2 truncate">
+                    {citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1">
+                    <span className="text-emerald-700 font-medium">
+                      Được trừ: {citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ
+                    </span>
+                    {citSummary.totalDisallowedExpense > 0 && (
+                      <span className="text-rose-600 font-medium">
                         Bị loại: -{citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ
                       </span>
-                    </div>
+                    )}
                   </div>
                 </div>
 
                 {/* CARD 3: THUẾ TNDN DỰ KIẾN */}
-                <div
-                  className="bg-white rounded-xl border border-amber-200 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
-                  style={{ borderLeft: '5px solid #ea580c' }}
-                >
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                      boxShadow: '0 4px 12px rgba(234, 88, 12, 0.28)',
-                      outline: '3px solid rgba(234, 88, 12, 0.15)',
-                    }}
-                  >
-                    <AlertTriangle className="w-5 h-5 text-white" />
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-semibold uppercase tracking-wider text-[11px]">Thuế TNDN dự kiến</span>
+                    <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100/60">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      3. THUẾ TNDN DỰ KIẾN
-                    </div>
-                    <div className="text-lg sm:text-xl font-black font-mono text-amber-800 leading-tight mt-0.5 truncate">
-                      {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
-                    </div>
-                    <div className="text-[10.5px] text-amber-900 mt-1 flex flex-wrap items-center justify-between gap-1">
-                      <span className="whitespace-nowrap">Tạm nộp 80%: <strong>{citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ</strong></span>
-                      <Tag color="orange" className="font-extrabold text-[10px] m-0 shrink-0">
-                        {citSummary.taxRate ? (citSummary.taxRate * 100).toFixed(0) + '%' : '20%'}
-                      </Tag>
-                    </div>
+                  <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-2 truncate">
+                    {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <span>Tạm nộp 80%: <strong className="text-slate-700 font-mono">{citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ</strong></span>
+                    <span className="font-bold text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded">
+                      {citSummary.taxRate ? (citSummary.taxRate * 100).toFixed(0) + '%' : '20%'}
+                    </span>
                   </div>
                 </div>
 
                 {/* CARD 4: LỢI NHUẬN RÒNG SAU THUẾ */}
-                <div
-                  className="bg-white rounded-xl border border-emerald-200 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
-                  style={{ borderLeft: '5px solid #16a34a' }}
-                >
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                      boxShadow: '0 4px 12px rgba(22, 163, 74, 0.28)',
-                      outline: '3px solid rgba(22, 163, 74, 0.15)',
-                    }}
-                  >
-                    <TrendingUp className="w-5 h-5 text-white" />
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-semibold uppercase tracking-wider text-[11px]">Lợi nhuận ròng sau thuế</span>
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100/60">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      4. LỢI NHUẬN RÒNG SAU THUẾ
-                    </div>
-                    <div className={`text-lg sm:text-xl font-black font-mono leading-tight mt-0.5 truncate ${citSummary.netProfitAfterTax >= 0 ? 'text-emerald-800' : 'text-rose-600'}`}>
-                      {citSummary.netProfitAfterTax.toLocaleString('vi-VN')} đ
-                    </div>
-                    <div className="text-[10.5px] text-emerald-700 mt-1 flex flex-wrap items-center justify-between gap-1">
-                      <span className="whitespace-nowrap">= Thu - Chi - Thuế</span>
-                      <span className="font-mono font-bold text-emerald-900 shrink-0">
-                        {citSummary.totalRevenue > 0
-                          ? `${((citSummary.netProfitAfterTax / citSummary.totalRevenue) * 100).toFixed(1)}% ROS`
-                          : '0% ROS'}
-                      </span>
-                    </div>
+                  <div className={`text-2xl font-bold font-mono tracking-tight mt-2 truncate ${citSummary.netProfitAfterTax >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {citSummary.netProfitAfterTax.toLocaleString('vi-VN')} đ
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <span className="text-slate-400">= Thu - Chi - Thuế</span>
+                    <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 text-[10.5px]">
+                      {citSummary.totalRevenue > 0
+                        ? `${((citSummary.netProfitAfterTax / citSummary.totalRevenue) * 100).toFixed(1)}% ROS`
+                        : '0% ROS'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1646,45 +1585,45 @@ export const ContextAuditPage: React.FC = () => {
               )}
 
               {/* 📋 2 TABS SỔ THU CHI CHUẨN ANT DESIGN VỚI PHÂN TRANG & TÌM KIẾM SERVER-SIDE */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
                 <Tabs
                   activeKey={financialTab}
                   onChange={(k) => setFinancialTab(k as 'revenue' | 'expense')}
-                  className="px-4 pt-2"
+                  className="px-4 pt-1"
                   items={[
                     {
                       key: 'revenue',
                       label: (
-                        <span className="flex items-center gap-2 font-bold text-sm text-teal-900">
-                          1. Bảng Kê Doanh Thu Ghi Nhận
-                          <Tag color="cyan" className="rounded-full px-2 text-[11px] font-extrabold m-0">
-                            {citSummary.revenueCount} khoản
-                          </Tag>
+                        <span className="font-semibold text-xs sm:text-sm text-slate-800 flex items-center gap-1.5">
+                          Doanh thu ghi nhận
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            {citSummary.revenueCount}
+                          </span>
                         </span>
                       ),
                       children: (
                         <div className="space-y-3 pb-4">
                           {/* Thanh công cụ tìm kiếm và thao tác Tab Doanh thu */}
-                          <div className="flex flex-wrap items-center justify-between gap-3 bg-teal-50/70 p-3 rounded-xl border border-teal-100">
-                            <div className="flex items-center gap-2 flex-1 min-w-[260px] max-w-[420px]">
+                          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/70">
+                            <div className="flex items-center gap-2 flex-1 min-w-[260px] max-w-[380px]">
                               <Input.Search
-                                placeholder="Tìm theo Số HĐ hoặc Khách hàng / Diễn giải..."
+                                placeholder="Tìm theo Số HĐ hoặc Diễn giải..."
                                 allowClear
                                 value={revenueSearch}
                                 onChange={(e) => setRevenueSearch(e.target.value)}
                                 onSearch={() => { setRevenuePage(1); fetchRevenues(); }}
-                                size="small"
+                                size="middle"
                                 className="w-full text-xs"
                               />
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
                                 type="primary"
-                                size="small"
+                                size="middle"
                                 icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
                                 onClick={handleOpenAddRevenue}
                                 disabled={taxQuarter === 'ALL'}
-                                className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 border-none font-bold text-xs rounded-lg"
+                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg border-none shadow-xs"
                                 title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản thu'}
                               >
                                 Thêm khoản thu
@@ -1696,23 +1635,23 @@ export const ContextAuditPage: React.FC = () => {
                                 disabled={isExcelUploading || taxQuarter === 'ALL'}
                               >
                                 <Button
-                                  size="small"
-                                  icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
+                                  size="middle"
+                                  icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1 text-slate-500" />}
                                   loading={isExcelUploading}
                                   disabled={taxQuarter === 'ALL'}
-                                  className="font-bold text-xs rounded-lg"
+                                  className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-2xs"
                                   title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để nạp file' : 'Nạp file Excel Doanh thu'}
                                 >
-                                  Import Excel Doanh thu
+                                  Import Excel
                                 </Button>
                               </Upload>
                               <button
                                 type="button"
                                 onClick={() => downloadRevenueExcelTemplate(taxQuarter, taxYear)}
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
                               >
                                 <DownloadOutlined className="text-emerald-600 text-xs" />
-                                <span>Tải mẫu Excel Doanh thu</span>
+                                <span>Tải mẫu Excel</span>
                               </button>
                             </div>
                           </div>
@@ -1744,22 +1683,22 @@ export const ContextAuditPage: React.FC = () => {
                     {
                       key: 'expense',
                       label: (
-                        <span className="flex items-center gap-2 font-bold text-sm text-slate-900">
-                          2. Bảng Kê Chi Phí & Rà Soát Xuất Toán (Mục B4)
-                          <Tag color="orange" className="rounded-full px-2 text-[11px] font-extrabold m-0">
-                            {citSummary.expenseCount} khoản
-                          </Tag>
+                        <span className="font-semibold text-xs sm:text-sm text-slate-800 flex items-center gap-1.5">
+                          Chi phí & Rà soát Mục B4
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            {citSummary.expenseCount}
+                          </span>
                           {citSummary.disallowedCount > 0 && (
-                            <Tag color="error" className="rounded-full px-2 text-[11px] font-extrabold m-0">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                               {citSummary.disallowedCount} bị loại B4
-                            </Tag>
+                            </span>
                           )}
                         </span>
                       ),
                       children: (
                         <div className="space-y-3 pb-4">
                           {/* Thanh công cụ tìm kiếm, bộ lọc B4 và thao tác Tab Chi phí */}
-                          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100/90 p-3 rounded-xl border border-slate-200">
+                          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/70">
                             <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
                               <Input.Search
                                 placeholder="Tìm theo Khoản mục chi hoặc Ghi chú..."
@@ -1767,8 +1706,8 @@ export const ContextAuditPage: React.FC = () => {
                                 value={expenseSearch}
                                 onChange={(e) => setExpenseSearch(e.target.value)}
                                 onSearch={() => { setExpensePage(1); fetchExpenses(); }}
-                                size="small"
-                                className="w-full sm:w-60 text-xs"
+                                size="middle"
+                                className="w-full sm:w-56 text-xs"
                               />
                               <Radio.Group
                                 value={expenseFilterB4}
@@ -1776,27 +1715,27 @@ export const ContextAuditPage: React.FC = () => {
                                   setExpenseFilterB4(e.target.value);
                                   setExpensePage(1);
                                 }}
-                                size="small"
+                                size="middle"
                                 optionType="button"
                                 buttonStyle="solid"
                               >
                                 <Radio.Button value="ALL">Tất cả ({citSummary.expenseCount})</Radio.Button>
-                                <Radio.Button value="DISALLOWED" className="text-rose-600 font-bold">
-                                  ⚠️ Bị loại B4 ({citSummary.disallowedCount})
+                                <Radio.Button value="DISALLOWED" className="text-rose-600 font-semibold">
+                                  Bị loại B4 ({citSummary.disallowedCount})
                                 </Radio.Button>
-                                <Radio.Button value="DEDUCTIBLE" className="text-emerald-700 font-bold">
-                                  ✅ Được trừ ({citSummary.expenseCount - citSummary.disallowedCount})
+                                <Radio.Button value="DEDUCTIBLE" className="text-emerald-700 font-semibold">
+                                  Được trừ ({citSummary.expenseCount - citSummary.disallowedCount})
                                 </Radio.Button>
                               </Radio.Group>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
                                 type="primary"
-                                size="small"
+                                size="middle"
                                 icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
                                 onClick={handleOpenAddExpense}
                                 disabled={taxQuarter === 'ALL'}
-                                className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 border-none font-bold text-xs rounded-lg"
+                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg border-none shadow-xs"
                                 title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản chi'}
                               >
                                 Thêm khoản chi
@@ -1808,23 +1747,23 @@ export const ContextAuditPage: React.FC = () => {
                                 disabled={isExcelUploading || taxQuarter === 'ALL'}
                               >
                                 <Button
-                                  size="small"
-                                  icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
+                                  size="middle"
+                                  icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1 text-slate-500" />}
                                   loading={isExcelUploading}
                                   disabled={taxQuarter === 'ALL'}
-                                  className="font-bold text-xs rounded-lg"
+                                  className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-2xs"
                                   title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để nạp file' : 'Nạp file Excel Chi phí'}
                                 >
-                                  Import Excel Chi phí
+                                  Import Excel
                                 </Button>
                               </Upload>
                               <button
                                 type="button"
                                 onClick={() => downloadExpenseExcelTemplate(taxQuarter, taxYear)}
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
                               >
                                 <DownloadOutlined className="text-emerald-600 text-xs" />
-                                <span>Tải mẫu Excel Chi phí</span>
+                                <span>Tải mẫu Excel</span>
                               </button>
                             </div>
                           </div>
@@ -1849,8 +1788,8 @@ export const ContextAuditPage: React.FC = () => {
                             }}
                             rowClassName={(record) =>
                               record.isDisallowedB4
-                                ? 'bg-rose-50/70 hover:bg-rose-100/70 border-l-4 border-l-rose-500'
-                                : 'hover:bg-slate-50/80 border-l-4 border-l-transparent'
+                                ? 'bg-rose-50/20 hover:bg-rose-50/40 border-l-2 border-l-rose-400'
+                                : 'hover:bg-slate-50/70 border-l-2 border-l-transparent'
                             }
                             className="border border-slate-200 rounded-xl overflow-hidden"
                             size="small"
@@ -2477,7 +2416,7 @@ export const ContextAuditPage: React.FC = () => {
         onClose={() => setShowEtaxModal(false)}
         taxCode={orgTaxCode}
         companyName={orgName}
-        prepaymentAmount={citCalcResult?.statutoryPrepayment80 || 0}
+        prepaymentAmount={citSummary.statutoryPrepayment80 || citCalcResult?.statutoryPrepayment80 || 0}
         cqtName={orgCity}
         quarter={taxQuarter}
         year={taxYear}
