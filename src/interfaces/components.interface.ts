@@ -57,12 +57,7 @@ export interface ElectronicReceiptModalProps {
   transaction: any | null;
 }
 
-export interface EvidenceUploadModalProps {
-  visible: boolean;
-  taskId?: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}
+export type { EvidenceUploadModalProps } from './evidence.interface';
 
 export interface MandatoryOnboardingModalProps {
   open: boolean;
