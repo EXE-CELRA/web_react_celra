@@ -177,7 +177,7 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
           <p className="m-0 leading-relaxed">
             1. Bấm nút <strong>"Hoàn thành"</strong> để xem lại toàn bộ Giấy nộp tiền.<br />
             2. Cắm Chữ ký số USB Token và bấm <strong>"Ký và Nộp"</strong>.<br />
-            3. Nhập mã PIN của USB Token $\rightarrow$ Chờ thông báo <em>"Nộp thuế thành công"</em>.<br />
+            3. Nhập mã PIN của USB Token → Chờ thông báo <em>"Nộp thuế thành công"</em>.<br />
             4. Tải file Giấy nộp tiền điện tử (PDF/XML) về lưu trữ tại mục <strong>Bằng Chứng (Evidence)</strong> trên CELRA để phục vụ quyết toán thuế năm.
           </p>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">

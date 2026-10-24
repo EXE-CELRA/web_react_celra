@@ -879,7 +879,7 @@ export const ContextAuditPage: React.FC = () => {
               <strong className="text-teal-700 font-mono text-sm">
                 {totalCost.toLocaleString('vi-VN')} Credit
               </strong>{' '}
-              ({selectedFactIds.length} thẻ $\times$ {COST_PER_CARD} Credit).
+              ({selectedFactIds.length} thẻ × {COST_PER_CARD} Credit).
             </div>
 
             <div className="flex items-center gap-2">
