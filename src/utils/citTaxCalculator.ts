@@ -25,6 +25,8 @@ export interface CitCalculationResult {
   taxRate: number;                  // Thuế suất áp dụng (0.10, 0.17 hoặc 0.20)
   estimatedTaxAmount: number;       // Thuế TNDN cả năm dự kiến
   statutoryPrepayment80: number;    // Nghĩa vụ tạm nộp 4 quý tối thiểu 80% (NĐ 91/2022)
+  accountingProfitBeforeTax: number;// Lợi nhuận kế toán trước thuế (Doanh thu - Chi phí)
+  netProfitAfterTax: number;        // Lợi nhuận ròng sau thuế (Doanh thu - Chi phí - Thuế TNDN)
   disallowedItems: DisallowedExpenseFinding[];
   warningAdsItems: DisallowedExpenseFinding[];
   isExemptedIncentive: boolean;
@@ -136,6 +138,8 @@ export function calculateCitTax(
   const assessableIncome = Math.max(0, totalRevenue - totalDeductibleExpense);
   const estimatedTaxAmount = Math.round(assessableIncome * incentiveInfo.taxRate);
   const statutoryPrepayment80 = Math.round(estimatedTaxAmount * 0.8);
+  const accountingProfitBeforeTax = totalRevenue - totalAccountingExpense;
+  const netProfitAfterTax = accountingProfitBeforeTax - estimatedTaxAmount;
 
   return {
     totalRevenue,
@@ -147,6 +151,8 @@ export function calculateCitTax(
     taxRate: incentiveInfo.taxRate,
     estimatedTaxAmount,
     statutoryPrepayment80,
+    accountingProfitBeforeTax,
+    netProfitAfterTax,
     disallowedItems,
     warningAdsItems,
     isExemptedIncentive: incentiveInfo.tier !== 'ZONE_STANDARD'
