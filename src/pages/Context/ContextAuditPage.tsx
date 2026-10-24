@@ -35,7 +35,14 @@ import {
 } from 'lucide-react';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from './ContextPage';
-import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData, type ParsedCitData, type RevenueRow, type ExpenseRow } from '../../utils/excelTaxTemplate';
+import {
+  downloadCitExcelTemplate,
+  parseCitExcelFile,
+  parseRowQuarterYear,
+  type ParsedCitData,
+  type RevenueRow,
+  type ExpenseRow,
+} from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
@@ -121,78 +128,17 @@ const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }>
   },
 ];
 
-// Dữ liệu mẫu khởi tạo ban đầu cho Phân hệ Thuế TNDN (Chuẩn hóa để rà soát rủi ro thuế)
-export const DEFAULT_REVENUE_ROWS: RevenueRow[] = [
-  {
-    date: '15/01/2025',
-    invoiceNo: 'HD000128',
-    description: 'Cung cấp dịch vụ tư vấn doanh nghiệp cho Cty An Bình',
-    amount: 120000000,
-  },
-  {
-    date: '28/02/2025',
-    invoiceNo: 'HD000129',
-    description: 'Thực hiện hợp đồng cung ứng gói phần mềm số đợt 1',
-    amount: 250000000,
-  },
-  {
-    date: '20/03/2025',
-    invoiceNo: 'HD000130',
-    description: 'Bán lẻ hàng hóa qua kênh thương mại điện tử',
-    amount: 85000000,
-  },
-];
+// Cấu trúc dữ liệu sổ thu chi lưu trữ theo từng Kỳ (Phương án A)
+export interface PeriodFinancialData {
+  revenues: RevenueRow[];
+  expenses: ExpenseRow[];
+}
 
-export const DEFAULT_EXPENSE_ROWS: ExpenseRow[] = [
-  {
-    date: '10/01/2025',
-    category: 'Tiền thuê mặt bằng văn phòng làm việc',
-    amount: 30000000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Có',
-    note: 'Hóa đơn tiền thuê nhà số 00412 chuyển khoản qua NH Vietcombank',
-  },
-  {
-    date: '18/01/2025',
-    category: 'Lương Chủ tịch kiêm Giám đốc (Công ty TNHH 1TV)',
-    amount: 25000000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Không',
-    note: 'Thù lao điều hành của chủ sở hữu cá nhân (Rủi ro bị loại B4)',
-  },
-  {
-    date: '05/02/2025',
-    category: 'Mua thiết bị máy tính văn phòng',
-    amount: 22000000,
-    paymentMethod: 'Tiền mặt',
-    hasInvoice: 'Có',
-    note: 'Hóa đơn > 20 triệu nhưng trả tiền mặt (Rủi ro bị loại B4 Điều 4 TT 96/2015/TT-BTC)',
-  },
-  {
-    date: '15/02/2025',
-    category: 'Chi phí quảng cáo Facebook Ads trực tiếp qua thẻ',
-    amount: 15000000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Không',
-    note: 'Dịch vụ nước ngoài xuyên biên giới (Cần nộp thuế nhà thầu FCT)',
-  },
-  {
-    date: '22/02/2025',
-    category: 'Mua văn phòng phẩm, giấy in lặt vặt tiếp khách',
-    amount: 4500000,
-    paymentMethod: 'Tiền mặt',
-    hasInvoice: 'Không',
-    note: 'Chi phí không có hóa đơn chứng từ hợp lệ (Rủi ro bị loại B4)',
-  },
-  {
-    date: '10/03/2025',
-    category: 'Thanh toán cước Internet và điện thoại công ty',
-    amount: 3500000,
-    paymentMethod: 'Chuyển khoản',
-    hasInvoice: 'Có',
-    note: 'Hóa đơn điện tử VNPT đầy đủ',
-  },
-];
+export type PeriodStore = Record<string, PeriodFinancialData>;
+
+// Khởi tạo ban đầu trống 100% cho Phân hệ Thuế TNDN (Zero-data canvas)
+export const DEFAULT_REVENUE_ROWS: RevenueRow[] = [];
+export const DEFAULT_EXPENSE_ROWS: ExpenseRow[] = [];
 
 export const ContextAuditPage: React.FC = () => {
   const navigate = useNavigate();
@@ -231,17 +177,47 @@ export const ContextAuditPage: React.FC = () => {
     }
   }, [facts, activeTab, isLoading]);
 
-  // 🏢 DỮ LIỆU DOANH NGHIỆP & SỔ THU CHI THUẾ TNDN
+  // 🏢 DỮ LIỆU DOANH NGHIỆP & SỔ THU CHI THUẾ TNDN (PHÂN BỔ THEO KỲ PHƯƠNG ÁN A)
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const currentQuarter = useMemo(() => Math.floor(new Date().getMonth() / 3) + 1, []);
   const [taxQuarter, setTaxQuarter] = useState<number | 'ALL'>(currentQuarter);
   const [taxYear, setTaxYear] = useState<number>(currentYear);
-  const [revenues, setRevenues] = useState<RevenueRow[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+  const [periodStore, setPeriodStore] = useState<PeriodStore>({});
   const [hasLoadedDbRecords, setHasLoadedDbRecords] = useState<boolean>(false);
   const [citCalcResult, setCitCalcResult] = useState<CitCalculationResult | null>(null);
   const [isExcelUploading, setIsExcelUploading] = useState(false);
   const [showEtaxModal, setShowEtaxModal] = useState(false);
+
+  // Trích xuất doanh thu & chi phí hiện hành dựa trên Quý/Năm đang chọn
+  // Nếu là 'ALL' (Cả năm): Tự động gộp dữ liệu từ 4 Quý (Q1 + Q2 + Q3 + Q4) của năm đó theo chuẩn kế toán
+  const { revenues, expenses } = useMemo(() => {
+    if (taxQuarter === 'ALL') {
+      const q1 = periodStore[`${taxYear}_Q1`] || { revenues: [], expenses: [] };
+      const q2 = periodStore[`${taxYear}_Q2`] || { revenues: [], expenses: [] };
+      const q3 = periodStore[`${taxYear}_Q3`] || { revenues: [], expenses: [] };
+      const q4 = periodStore[`${taxYear}_Q4`] || { revenues: [], expenses: [] };
+      return {
+        revenues: [
+          ...(q1.revenues || []),
+          ...(q2.revenues || []),
+          ...(q3.revenues || []),
+          ...(q4.revenues || []),
+        ],
+        expenses: [
+          ...(q1.expenses || []),
+          ...(q2.expenses || []),
+          ...(q3.expenses || []),
+          ...(q4.expenses || []),
+        ],
+      };
+    }
+    const currentKey = `${taxYear}_Q${taxQuarter}`;
+    const period = periodStore[currentKey] || { revenues: [], expenses: [] };
+    return {
+      revenues: period.revenues || [],
+      expenses: period.expenses || [],
+    };
+  }, [periodStore, taxQuarter, taxYear]);
 
   // State Modal Import Excel & Chống Trùng Lặp
   const [pendingImportData, setPendingImportData] = useState<ParsedCitData | null>(null);
@@ -307,9 +283,25 @@ export const ContextAuditPage: React.FC = () => {
       if (citFact && citFact.currentValue) {
         try {
           const parsed = JSON.parse(citFact.currentValue);
+          // Định dạng theo Period Key Map mới: { periods: { "2026_Q1": ... } }
+          if (parsed.periods && typeof parsed.periods === 'object') {
+            setPeriodStore(parsed.periods);
+            if (parsed.lastQuarter !== undefined) setTaxQuarter(parsed.lastQuarter);
+            if (parsed.lastYear) setTaxYear(parsed.lastYear);
+            setHasLoadedDbRecords(true);
+            return;
+          }
+          // Tương thích ngược: dữ liệu cũ dạng phẳng { revenues: [...], expenses: [...] }
           if (Array.isArray(parsed.revenues) && Array.isArray(parsed.expenses)) {
-            setRevenues(parsed.revenues);
-            setExpenses(parsed.expenses);
+            const q = parsed.taxQuarter || currentQuarter;
+            const y = parsed.taxYear || currentYear;
+            const periodKey = q === 'ALL' ? `${y}_Q1` : `${y}_Q${q}`;
+            setPeriodStore({
+              [periodKey]: {
+                revenues: parsed.revenues,
+                expenses: parsed.expenses,
+              },
+            });
             if (parsed.taxQuarter !== undefined) setTaxQuarter(parsed.taxQuarter);
             if (parsed.taxYear) setTaxYear(parsed.taxYear);
             setHasLoadedDbRecords(true);
@@ -319,34 +311,31 @@ export const ContextAuditPage: React.FC = () => {
           console.error('Lỗi đọc cit_financial_records từ cơ sở dữ liệu:', e);
         }
       }
-      // Nếu chưa có fact trong Database, khởi tạo bằng bộ dữ liệu chuẩn
+      // Nếu chưa có fact trong Database, khởi tạo rỗng (Zero demo data)
       if (!hasLoadedDbRecords) {
-        setRevenues(DEFAULT_REVENUE_ROWS);
-        setExpenses(DEFAULT_EXPENSE_ROWS);
+        setPeriodStore({});
         setHasLoadedDbRecords(true);
       }
     }
-  }, [facts, isLoading, hasLoadedDbRecords]);
+  }, [facts, isLoading, hasLoadedDbRecords, currentQuarter, currentYear]);
 
   // 2. LƯU DỮ LIỆU VÀO DATABASE (POSTGRESQL QUA NESTJS API)
   const saveRecordsToDb = async (
-    newRevenues: RevenueRow[],
-    newExpenses: ExpenseRow[],
+    newStore: PeriodStore,
     quarter: number | 'ALL' = taxQuarter,
     year: number = taxYear,
     quiet = false
   ) => {
     try {
       const payloadString = JSON.stringify({
-        revenues: newRevenues,
-        expenses: newExpenses,
-        taxQuarter: quarter,
-        taxYear: year,
+        periods: newStore,
+        lastQuarter: quarter,
+        lastYear: year,
         updatedAt: new Date().toISOString(),
       });
       const existingFact = facts.find((f) => f.key === 'cit_financial_records');
       if (existingFact?.id) {
-        await updateFact(existingFact.id, payloadString, 'Cập nhật sổ thu chi thuế TNDN');
+        await updateFact(existingFact.id, payloadString, 'Cập nhật sổ thu chi thuế TNDN theo quý');
       } else {
         await createFact({
           key: 'cit_financial_records',
@@ -365,6 +354,29 @@ export const ContextAuditPage: React.FC = () => {
     }
   };
 
+  // Helper cập nhật dữ liệu Quý hiện hành an toàn
+  const updateCurrentQuarterRecords = async (
+    updater: (prev: PeriodFinancialData) => PeriodFinancialData,
+    successMsg?: string
+  ) => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Kỳ Cả năm là chế độ tổng hợp số liệu từ 4 Quý. Vui lòng chuyển sang Quý tương ứng để chỉnh sửa giao dịch!');
+      return;
+    }
+    const currentKey = `${taxYear}_Q${taxQuarter}`;
+    const currentPeriod = periodStore[currentKey] || { revenues: [], expenses: [] };
+    const updatedPeriod = updater(currentPeriod);
+    const newStore: PeriodStore = {
+      ...periodStore,
+      [currentKey]: updatedPeriod,
+    };
+    setPeriodStore(newStore);
+    await saveRecordsToDb(newStore, taxQuarter, taxYear, true);
+    if (successMsg) {
+      message.success(successMsg);
+    }
+  };
+
   // 3. TÍNH TOÁN LẠI NGHĨA VỤ THUẾ & LỢI NHUẬN RÒNG SAU THUẾ TỨC THÌ MỖI KHI DỮ LIỆU ĐỔI
   useEffect(() => {
     const res = calculateCitTax(revenues, expenses, incentiveInfo, orgModel);
@@ -374,19 +386,79 @@ export const ContextAuditPage: React.FC = () => {
   // Thay đổi Quý / Năm
   const handleQuarterChange = (val: number | 'ALL') => {
     setTaxQuarter(val);
-    saveRecordsToDb(revenues, expenses, val, taxYear, true);
+    saveRecordsToDb(periodStore, val, taxYear, true);
   };
 
   const handleYearChange = (val: number) => {
     setTaxYear(val);
-    saveRecordsToDb(revenues, expenses, taxQuarter, val, true);
+    saveRecordsToDb(periodStore, taxQuarter, val, true);
   };
 
-  // 4. IMPORT EXCEL & QUY TRÌNH CONFIRM CHỐNG TRÙNG LẶP DỮ LIỆU
+  // 4. IMPORT EXCEL & QUY TRÌNH CONFIRM CHỐNG TRÙNG LẶP + CHẶN NGHIÊM NGẶT NGÀY THÁNG
   const handleExcelUpload = async (file: File) => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Kỳ Cả năm là chế độ tổng hợp tự động từ 4 Quý. Vui lòng chọn Quý 1, 2, 3 hoặc 4 trước khi nạp file Excel!');
+      return false;
+    }
     setIsExcelUploading(true);
     try {
       const parsed = await parseCitExcelFile(file);
+
+      // 🔍 KIỂM TRA NGHIÊM NGẶT NGÀY THÁNG ĐỐI VỚI QUÝ ĐANG CHỌN (STRICT DATE FILTER)
+      const invalidRows: { type: 'revenue' | 'expense'; date: string; index: number; reason: string }[] = [];
+
+      parsed.revenues.forEach((r, idx) => {
+        const parsedDate = parseRowQuarterYear(r.date);
+        if (!parsedDate) {
+          invalidRows.push({ type: 'revenue', date: r.date, index: idx + 1, reason: 'Định dạng ngày không hợp lệ' });
+        } else if (parsedDate.year !== taxYear || parsedDate.quarter !== taxQuarter) {
+          invalidRows.push({
+            type: 'revenue',
+            date: r.date,
+            index: idx + 1,
+            reason: `Thuộc Quý ${parsedDate.quarter}/${parsedDate.year} (Không khớp Quý ${taxQuarter}/${taxYear})`,
+          });
+        }
+      });
+
+      parsed.expenses.forEach((e, idx) => {
+        const parsedDate = parseRowQuarterYear(e.date);
+        if (!parsedDate) {
+          invalidRows.push({ type: 'expense', date: e.date, index: idx + 1, reason: 'Định dạng ngày không hợp lệ' });
+        } else if (parsedDate.year !== taxYear || parsedDate.quarter !== taxQuarter) {
+          invalidRows.push({
+            type: 'expense',
+            date: e.date,
+            index: idx + 1,
+            reason: `Thuộc Quý ${parsedDate.quarter}/${parsedDate.year} (Không khớp Quý ${taxQuarter}/${taxYear})`,
+          });
+        }
+      });
+
+      if (invalidRows.length > 0) {
+        const firstErr = invalidRows[0];
+        const tableType = firstErr.type === 'revenue' ? 'Doanh thu' : 'Chi phí';
+        Modal.error({
+          title: 'Hủy nạp: Ngày tháng không khớp kỳ kế toán!',
+          width: 520,
+          content: (
+            <div className="space-y-2 text-xs">
+              <p className="text-rose-600 font-bold m-0">
+                Phát hiện {invalidRows.length} dòng dữ liệu không thuộc Quý {taxQuarter} / Năm {taxYear}.
+              </p>
+              <div className="bg-slate-100 p-2.5 rounded-lg border border-slate-200">
+                Ví dụ tại bảng <strong>{tableType}</strong>, dòng <strong>#{firstErr.index}</strong>: ngày <strong>"{firstErr.date}"</strong> ({firstErr.reason}).
+              </div>
+              <p className="text-slate-600 m-0 leading-relaxed">
+                Theo nguyên tắc kế toán thuế, mỗi Quý chỉ ghi nhận các nghiệp vụ kinh tế phát sinh trong Quý đó. Vui lòng chuyển sang đúng Quý hoặc điều chỉnh ngày tháng trong file Excel trước khi nạp lại!
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu',
+        });
+        return false;
+      }
+
       setPendingImportData(parsed);
       setDuplicateRows(null);
       setIsImportConfirmModalOpen(true);
@@ -399,31 +471,36 @@ export const ContextAuditPage: React.FC = () => {
     return false;
   };
 
-  // Lựa chọn 1: Xóa dữ liệu cũ & Ghi đè toàn bộ
+  // Lựa chọn 1: Xóa dữ liệu cũ & Ghi đè toàn bộ Quý hiện tại
   const handleConfirmOverwrite = async () => {
-    if (!pendingImportData) return;
-    const detected = detectPeriodFromCitData(pendingImportData.revenues, pendingImportData.expenses);
-    const newQuarter = detected.quarter || taxQuarter;
-    const newYear = detected.year || taxYear;
-    if (detected.quarter) setTaxQuarter(detected.quarter);
-    if (detected.year) setTaxYear(detected.year);
-
-    setRevenues(pendingImportData.revenues);
-    setExpenses(pendingImportData.expenses);
+    if (!pendingImportData || taxQuarter === 'ALL') return;
+    const periodKey = `${taxYear}_Q${taxQuarter}`;
+    const newStore: PeriodStore = {
+      ...periodStore,
+      [periodKey]: {
+        revenues: pendingImportData.revenues,
+        expenses: pendingImportData.expenses,
+      },
+    };
+    setPeriodStore(newStore);
     setIsImportConfirmModalOpen(false);
-    await saveRecordsToDb(pendingImportData.revenues, pendingImportData.expenses, newQuarter, newYear, true);
-    message.success(`Đã xóa dữ liệu cũ và nạp mới toàn bộ (${pendingImportData.revenues.length} khoản thu, ${pendingImportData.expenses.length} khoản chi)!`);
+    await saveRecordsToDb(newStore, taxQuarter, taxYear, true);
+    message.success(`Đã xóa dữ liệu cũ Quý ${taxQuarter}/${taxYear} và nạp mới toàn bộ (${pendingImportData.revenues.length} khoản thu, ${pendingImportData.expenses.length} khoản chi)!`);
     setPendingImportData(null);
     setDuplicateRows(null);
   };
 
-  // Lựa chọn 2: Giữ dữ liệu cũ & Nối thêm mới (Kiểm tra trùng lặp)
+  // Lựa chọn 2: Giữ dữ liệu cũ & Nối thêm mới vào Quý hiện tại (Kiểm tra trùng lặp)
   const handleConfirmAppend = async () => {
-    if (!pendingImportData) return;
+    if (!pendingImportData || taxQuarter === 'ALL') return;
+    const periodKey = `${taxYear}_Q${taxQuarter}`;
+    const currentPeriod = periodStore[periodKey] || { revenues: [], expenses: [] };
+    const curRevenues = currentPeriod.revenues || [];
+    const curExpenses = currentPeriod.expenses || [];
 
     // Kiểm tra trùng lặp Doanh thu (Trùng Ngày + Số HĐ + Số tiền, hoặc Trùng Ngày + Diễn giải + Số tiền)
     const dupRevenues = pendingImportData.revenues.filter((newRev) =>
-      revenues.some(
+      curRevenues.some(
         (cur) =>
           cur.date.trim() === newRev.date.trim() &&
           ((cur.invoiceNo && newRev.invoiceNo && cur.invoiceNo.trim().toLowerCase() === newRev.invoiceNo.trim().toLowerCase()) ||
@@ -434,7 +511,7 @@ export const ContextAuditPage: React.FC = () => {
 
     // Kiểm tra trùng lặp Chi phí (Trùng Ngày + Khoản mục + Số tiền)
     const dupExpenses = pendingImportData.expenses.filter((newExp) =>
-      expenses.some(
+      curExpenses.some(
         (cur) =>
           cur.date.trim() === newExp.date.trim() &&
           cur.category.trim().toLowerCase() === newExp.category.trim().toLowerCase() &&
@@ -447,32 +524,36 @@ export const ContextAuditPage: React.FC = () => {
       // ⚠️ CHẶN HOÀN TOÀN KHÔNG CHO IMPORT KHI TRÙNG DỮ LIỆU
       setDuplicateRows({ revenues: dupRevenues, expenses: dupExpenses });
       message.error(
-        `Phát hiện ${totalDuplicates} dòng dữ liệu bị trùng lặp với bảng hiện tại! Hệ thống đã chặn nạp dữ liệu. Vui lòng chọn "Xóa dữ liệu cũ & Ghi đè" hoặc làm sạch file Excel!`
+        `Phát hiện ${totalDuplicates} dòng dữ liệu bị trùng lặp với Quý ${taxQuarter}/${taxYear}! Hệ thống đã chặn nạp dữ liệu. Vui lòng chọn "Xóa dữ liệu cũ & Ghi đè" hoặc làm sạch file Excel!`
       );
       return;
     }
 
     // Nếu không có trùng lặp, tiến hành nối thêm
-    const mergedRevenues = [...revenues, ...pendingImportData.revenues];
-    const mergedExpenses = [...expenses, ...pendingImportData.expenses];
+    const mergedRevenues = [...curRevenues, ...pendingImportData.revenues];
+    const mergedExpenses = [...curExpenses, ...pendingImportData.expenses];
 
-    const detected = detectPeriodFromCitData(pendingImportData.revenues, pendingImportData.expenses);
-    const newQuarter = detected.quarter || taxQuarter;
-    const newYear = detected.year || taxYear;
-    if (detected.quarter) setTaxQuarter(detected.quarter);
-    if (detected.year) setTaxYear(detected.year);
-
-    setRevenues(mergedRevenues);
-    setExpenses(mergedExpenses);
+    const newStore: PeriodStore = {
+      ...periodStore,
+      [periodKey]: {
+        revenues: mergedRevenues,
+        expenses: mergedExpenses,
+      },
+    };
+    setPeriodStore(newStore);
     setIsImportConfirmModalOpen(false);
-    await saveRecordsToDb(mergedRevenues, mergedExpenses, newQuarter, newYear, true);
-    message.success(`Đã nối thêm ${pendingImportData.revenues.length} khoản thu và ${pendingImportData.expenses.length} khoản chi thành công!`);
+    await saveRecordsToDb(newStore, taxQuarter, taxYear, true);
+    message.success(`Đã nối thêm ${pendingImportData.revenues.length} khoản thu và ${pendingImportData.expenses.length} khoản chi vào Quý ${taxQuarter}/${taxYear} thành công!`);
     setPendingImportData(null);
     setDuplicateRows(null);
   };
 
   // 5. THAO TÁC THÊM / SỬA / XÓA THỦ CÔNG DOANH THU
   const handleOpenAddRevenue = () => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chọn Quý 1, 2, 3 hoặc 4 để thêm khoản thu!');
+      return;
+    }
     revenueForm.resetFields();
     revenueForm.setFieldsValue({
       date: new Date().toLocaleDateString('vi-VN'),
@@ -483,6 +564,10 @@ export const ContextAuditPage: React.FC = () => {
   };
 
   const handleOpenEditRevenue = (index: number) => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để sửa khoản thu!');
+      return;
+    }
     setEditingRevenueIndex(index);
     revenueForm.setFieldsValue(revenues[index]);
     setIsRevenueModalOpen(true);
@@ -497,29 +582,46 @@ export const ContextAuditPage: React.FC = () => {
         description: values.description,
         amount: Number(values.amount),
       };
-      let updated: RevenueRow[];
-      if (editingRevenueIndex !== null) {
-        updated = revenues.map((r, i) => (i === editingRevenueIndex ? row : r));
-      } else {
-        updated = [row, ...revenues];
-      }
-      setRevenues(updated);
+
+      await updateCurrentQuarterRecords((prev) => {
+        let updated: RevenueRow[];
+        if (editingRevenueIndex !== null) {
+          updated = (prev.revenues || []).map((r, i) => (i === editingRevenueIndex ? row : r));
+        } else {
+          updated = [row, ...(prev.revenues || [])];
+        }
+        return {
+          ...prev,
+          revenues: updated,
+        };
+      }, editingRevenueIndex !== null ? 'Cập nhật khoản thu thành công!' : 'Thêm khoản thu thành công!');
+
       setIsRevenueModalOpen(false);
-      await saveRecordsToDb(updated, expenses);
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleDeleteRevenue = async (index: number) => {
-    const updated = revenues.filter((_, i) => i !== index);
-    setRevenues(updated);
-    await saveRecordsToDb(updated, expenses);
-    message.success('Đã xóa khoản thu thành công!');
+    if (taxQuarter === 'ALL') {
+      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để xóa giao dịch!');
+      return;
+    }
+    await updateCurrentQuarterRecords((prev) => {
+      const updated = (prev.revenues || []).filter((_, i) => i !== index);
+      return {
+        ...prev,
+        revenues: updated,
+      };
+    }, 'Đã xóa khoản thu thành công!');
   };
 
   // 6. THAO TÁC THÊM / SỬA / XÓA THỦ CÔNG CHI PHÍ
   const handleOpenAddExpense = () => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chọn Quý 1, 2, 3 hoặc 4 để thêm khoản chi!');
+      return;
+    }
     expenseForm.resetFields();
     expenseForm.setFieldsValue({
       date: new Date().toLocaleDateString('vi-VN'),
@@ -532,6 +634,10 @@ export const ContextAuditPage: React.FC = () => {
   };
 
   const handleOpenEditExpense = (index: number) => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để sửa khoản chi!');
+      return;
+    }
     setEditingExpenseIndex(index);
     expenseForm.setFieldsValue(expenses[index]);
     setIsExpenseModalOpen(true);
@@ -548,25 +654,38 @@ export const ContextAuditPage: React.FC = () => {
         hasInvoice: values.hasInvoice,
         note: values.note || '',
       };
-      let updated: ExpenseRow[];
-      if (editingExpenseIndex !== null) {
-        updated = expenses.map((e, i) => (i === editingExpenseIndex ? row : e));
-      } else {
-        updated = [row, ...expenses];
-      }
-      setExpenses(updated);
+
+      await updateCurrentQuarterRecords((prev) => {
+        let updated: ExpenseRow[];
+        if (editingExpenseIndex !== null) {
+          updated = (prev.expenses || []).map((e, i) => (i === editingExpenseIndex ? row : e));
+        } else {
+          updated = [row, ...(prev.expenses || [])];
+        }
+        return {
+          ...prev,
+          expenses: updated,
+        };
+      }, editingExpenseIndex !== null ? 'Cập nhật khoản chi thành công!' : 'Thêm khoản chi thành công!');
+
       setIsExpenseModalOpen(false);
-      await saveRecordsToDb(revenues, updated);
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleDeleteExpense = async (index: number) => {
-    const updated = expenses.filter((_, i) => i !== index);
-    setExpenses(updated);
-    await saveRecordsToDb(revenues, updated);
-    message.success('Đã xóa khoản chi thành công!');
+    if (taxQuarter === 'ALL') {
+      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để xóa khoản chi!');
+      return;
+    }
+    await updateCurrentQuarterRecords((prev) => {
+      const updated = (prev.expenses || []).filter((_, i) => i !== index);
+      return {
+        ...prev,
+        expenses: updated,
+      };
+    }, 'Đã xóa khoản chi thành công!');
   };
 
   useEffect(() => {
@@ -970,6 +1089,26 @@ export const ContextAuditPage: React.FC = () => {
                 </div>
               )}
 
+              {/* THÔNG BÁO CHẾ ĐỘ CẢ NĂM (TỰ ĐỘNG GỘP 4 QUÝ CHUẨN KẾ TOÁN) */}
+              {taxQuarter === 'ALL' && (
+                <Alert
+                  message={`Chế Độ Tổng Hợp Quyết Toán Cả Năm ${taxYear} (Chuẩn Kế Toán)`}
+                  description={
+                    <div className="space-y-1 text-xs text-blue-900">
+                      <p className="m-0 font-medium">
+                        Bảng số liệu dưới đây đang <strong>tự động gộp dữ liệu từ 4 Quý (Q1, Q2, Q3, Q4)</strong> của năm tài chính {taxYear} để tính nghĩa vụ quyết toán thuế TNDN và Lợi nhuận ròng cả năm.
+                      </p>
+                      <p className="m-0 text-slate-500 italic">
+                        * Chế độ Cả năm là chế độ xem tổng hợp. Để thêm mới, chỉnh sửa hoặc nạp file Excel cho từng giao dịch, vui lòng chọn Quý cụ thể (Quý 1, 2, 3 hoặc 4) ở thanh chọn phía trên.
+                      </p>
+                    </div>
+                  }
+                  type="info"
+                  showIcon
+                  className="rounded-2xl border-blue-200 bg-blue-50/70"
+                />
+              )}
+
               {/* 📋 BẢNG 1: BẢNG KÊ DOANH THU GHI NHẬN */}
               <div className="bg-white rounded-2xl border border-teal-200 overflow-hidden shadow-xs">
                 <div className="bg-teal-50/90 px-4 py-3 border-b border-teal-200 flex flex-wrap items-center justify-between gap-2">
@@ -985,7 +1124,9 @@ export const ContextAuditPage: React.FC = () => {
                       size="small"
                       icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
                       onClick={handleOpenAddRevenue}
-                      className="bg-teal-600 hover:bg-teal-700 border-none font-bold text-xs rounded-lg"
+                      disabled={taxQuarter === 'ALL'}
+                      className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed border-none font-bold text-xs rounded-lg"
+                      title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản thu'}
                     >
                       Thêm khoản thu
                     </Button>
@@ -994,13 +1135,15 @@ export const ContextAuditPage: React.FC = () => {
                       multiple={false}
                       beforeUpload={handleExcelUpload}
                       showUploadList={false}
-                      disabled={isExcelUploading}
+                      disabled={isExcelUploading || taxQuarter === 'ALL'}
                     >
                       <Button
                         size="small"
                         icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
-                        className="font-bold text-xs rounded-lg"
+                        className="font-bold text-xs rounded-lg disabled:opacity-40"
                         loading={isExcelUploading}
+                        disabled={taxQuarter === 'ALL'}
+                        title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để import Excel' : 'Nạp file Excel'}
                       >
                         Import Excel
                       </Button>
@@ -1060,8 +1203,9 @@ export const ContextAuditPage: React.FC = () => {
                                   size="small"
                                   icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
                                   onClick={() => handleOpenEditRevenue(idx)}
-                                  className="hover:bg-blue-50"
-                                  title="Sửa khoản thu"
+                                  disabled={taxQuarter === 'ALL'}
+                                  className="hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để sửa' : 'Sửa khoản thu'}
                                 />
                                 <Popconfirm
                                   title="Xác nhận xóa"
@@ -1070,13 +1214,15 @@ export const ContextAuditPage: React.FC = () => {
                                   okText="Xóa"
                                   cancelText="Hủy"
                                   okButtonProps={{ danger: true }}
+                                  disabled={taxQuarter === 'ALL'}
                                 >
                                   <Button
                                     type="text"
                                     size="small"
                                     icon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
-                                    className="hover:bg-rose-50"
-                                    title="Xóa khoản thu"
+                                    disabled={taxQuarter === 'ALL'}
+                                    className="hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để xóa' : 'Xóa khoản thu'}
                                   />
                                 </Popconfirm>
                               </div>
@@ -1115,7 +1261,9 @@ export const ContextAuditPage: React.FC = () => {
                       size="small"
                       icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
                       onClick={handleOpenAddExpense}
-                      className="bg-amber-600 hover:bg-amber-700 border-none font-bold text-xs rounded-lg"
+                      disabled={taxQuarter === 'ALL'}
+                      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed border-none font-bold text-xs rounded-lg"
+                      title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản chi'}
                     >
                       Thêm khoản chi
                     </Button>
@@ -1124,13 +1272,15 @@ export const ContextAuditPage: React.FC = () => {
                       multiple={false}
                       beforeUpload={handleExcelUpload}
                       showUploadList={false}
-                      disabled={isExcelUploading}
+                      disabled={isExcelUploading || taxQuarter === 'ALL'}
                     >
                       <Button
                         size="small"
                         icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
-                        className="font-bold text-xs rounded-lg"
+                        className="font-bold text-xs rounded-lg disabled:opacity-40"
                         loading={isExcelUploading}
+                        disabled={taxQuarter === 'ALL'}
+                        title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để import Excel' : 'Import Excel'}
                       >
                         Import Excel
                       </Button>
@@ -1247,8 +1397,9 @@ export const ContextAuditPage: React.FC = () => {
                                     size="small"
                                     icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
                                     onClick={() => handleOpenEditExpense(idx)}
-                                    className="hover:bg-blue-50"
-                                    title="Sửa dòng chi phí"
+                                    disabled={taxQuarter === 'ALL'}
+                                    className="hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để sửa' : 'Sửa dòng chi phí'}
                                   />
                                   <Popconfirm
                                     title="Xác nhận xóa"
@@ -1257,13 +1408,15 @@ export const ContextAuditPage: React.FC = () => {
                                     okText="Xóa"
                                     cancelText="Hủy"
                                     okButtonProps={{ danger: true }}
+                                    disabled={taxQuarter === 'ALL'}
                                   >
                                     <Button
                                       type="text"
                                       size="small"
                                       icon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
-                                      className="hover:bg-rose-50"
-                                      title="Xóa dòng chi phí"
+                                      disabled={taxQuarter === 'ALL'}
+                                      className="hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                                      title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để xóa' : 'Xóa dòng chi phí'}
                                     />
                                   </Popconfirm>
                                 </div>
@@ -1747,11 +1900,11 @@ export const ContextAuditPage: React.FC = () => {
             )}
 
             <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 text-xs text-amber-950 space-y-1">
-              <span className="font-bold block">Bạn muốn xử lý dữ liệu hiện có trên bảng như thế nào?</span>
+              <span className="font-bold block">Bạn muốn xử lý dữ liệu hiện có của Quý {taxQuarter} / Năm {taxYear} như thế nào?</span>
               <p className="m-0 text-[11px] text-slate-600">
-                • <strong>Xóa dữ liệu cũ & Ghi đè:</strong> Xóa toàn bộ số liệu hiện tại trên bảng và nạp 100% từ file Excel mới.
+                • <strong>Xóa dữ liệu cũ & Ghi đè:</strong> Xóa toàn bộ số liệu của riêng Quý {taxQuarter}/{taxYear} và nạp 100% từ file Excel mới (các Quý khác vẫn được giữ nguyên an toàn).
                 <br />
-                • <strong>Giữ dữ liệu cũ & Nối thêm mới:</strong> Kiểm tra nghiêm ngặt trùng lặp; nếu có bất kỳ dòng nào bị trùng sẽ bị chặn ngay lập tức.
+                • <strong>Giữ dữ liệu cũ & Nối thêm mới:</strong> Kiểm tra nghiêm ngặt trùng lặp với Quý {taxQuarter}; nếu có bất kỳ dòng nào bị trùng sẽ bị chặn ngay lập tức.
               </p>
             </div>
 

@@ -145,6 +145,64 @@ export function downloadCitExcelTemplate(quarter: number | 'ALL' = 1, year: numb
 }
 
 /**
+ * 🛠️ CHUẨN HÓA VÀ BÓC TÁCH NGÀY THÁNG THÀNH QUÝ & NĂM CHÍNH XÁC
+ * Hỗ trợ các định dạng: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, Excel Serial Number
+ */
+export function parseRowQuarterYear(dateRaw: any): { quarter: number; year: number; rawFormatted: string } | null {
+  if (dateRaw === null || dateRaw === undefined || dateRaw === '') return null;
+  let s = String(dateRaw).trim();
+
+  // Xử lý trường hợp số Serial Date của Excel (ví dụ 45312)
+  if (typeof dateRaw === 'number' || (!isNaN(Number(s)) && Number(s) > 30000 && Number(s) < 65000)) {
+    const num = Number(dateRaw);
+    const dateObj = new Date(Math.round((num - 25569) * 86400 * 1000));
+    if (!isNaN(dateObj.getTime())) {
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const y = dateObj.getFullYear();
+      const monthNum = dateObj.getMonth() + 1;
+      return {
+        quarter: Math.floor((monthNum - 1) / 3) + 1,
+        year: y,
+        rawFormatted: `${d}/${m}/${y}`,
+      };
+    }
+  }
+
+  // DD/MM/YYYY hoặc DD-MM-YYYY (hoặc D/M/YYYY)
+  const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (dmy) {
+    const d = parseInt(dmy[1], 10);
+    const m = parseInt(dmy[2], 10);
+    const y = parseInt(dmy[3], 10);
+    if (m >= 1 && m <= 12 && y >= 1900 && y <= 2100) {
+      return {
+        quarter: Math.floor((m - 1) / 3) + 1,
+        year: y,
+        rawFormatted: `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
+      };
+    }
+  }
+
+  // YYYY-MM-DD hoặc YYYY/MM/DD
+  const ymd = s.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymd) {
+    const y = parseInt(ymd[1], 10);
+    const m = parseInt(ymd[2], 10);
+    const d = parseInt(ymd[3], 10);
+    if (m >= 1 && m <= 12 && y >= 1900 && y <= 2100) {
+      return {
+        quarter: Math.floor((m - 1) / 3) + 1,
+        year: y,
+        rawFormatted: `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * 📂 ĐỌC VÀ BÓC TÁCH FILE EXCEL UPLOAD
  */
 export async function parseCitExcelFile(file: File): Promise<ParsedCitData> {
@@ -166,13 +224,15 @@ export async function parseCitExcelFile(file: File): Promise<ParsedCitData> {
 
   // Chuẩn hóa dữ liệu Doanh thu
   const revenues: RevenueRow[] = rawRevenues.map((row: any) => {
-    const date = row['Ngày ghi nhận (DD/MM/YYYY)'] || row['Ngày'] || row['Ngay'] || '';
+    const rawDate = row['Ngày ghi nhận (DD/MM/YYYY)'] || row['Ngày'] || row['Ngay'] || '';
+    const parsedDate = parseRowQuarterYear(rawDate);
+    const dateFormatted = parsedDate ? parsedDate.rawFormatted : String(rawDate || '');
     const invoiceNo = String(row['Số hóa đơn'] || row['Số HĐ'] || row['So HD'] || '');
     const description = String(row['Diễn giải / Khách hàng'] || row['Diễn giải'] || row['Khách hàng'] || '');
     const amountVal = Number(row['Doanh thu chưa thuế (VNĐ)'] || row['Doanh thu'] || row['Số tiền'] || 0);
 
     return {
-      date: String(date),
+      date: dateFormatted,
       invoiceNo,
       description,
       amount: isNaN(amountVal) ? 0 : amountVal,
@@ -181,7 +241,9 @@ export async function parseCitExcelFile(file: File): Promise<ParsedCitData> {
 
   // Chuẩn hóa dữ liệu Chi phí
   const expenses: ExpenseRow[] = rawExpenses.map((row: any) => {
-    const date = row['Ngày chi (DD/MM/YYYY)'] || row['Ngày'] || row['Ngay'] || '';
+    const rawDate = row['Ngày chi (DD/MM/YYYY)'] || row['Ngày'] || row['Ngay'] || '';
+    const parsedDate = parseRowQuarterYear(rawDate);
+    const dateFormatted = parsedDate ? parsedDate.rawFormatted : String(rawDate || '');
     const category = String(row['Khoản mục chi'] || row['Nội dung'] || row['Khoản mục'] || '');
     const amountVal = Number(row['Số tiền (VNĐ)'] || row['Số tiền'] || row['Chi phí'] || 0);
     const paymentMethod = String(row['Phương thức thanh toán'] || row['Thanh toán'] || 'Chuyển khoản');
@@ -189,7 +251,7 @@ export async function parseCitExcelFile(file: File): Promise<ParsedCitData> {
     const note = String(row['Ghi chú'] || '');
 
     return {
-      date: String(date),
+      date: dateFormatted,
       category,
       amount: isNaN(amountVal) ? 0 : amountVal,
       paymentMethod,
