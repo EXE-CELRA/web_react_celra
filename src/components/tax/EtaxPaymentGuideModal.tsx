@@ -15,6 +15,8 @@ interface EtaxPaymentGuideModalProps {
   companyName?: string;
   prepaymentAmount?: number;
   cqtName?: string;
+  quarter?: number | 'ALL';
+  year?: number;
 }
 
 export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
@@ -23,12 +25,25 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
   taxCode = 'MST_DOANH_NGHIEP',
   companyName = 'Doanh nghiệp',
   prepaymentAmount = 0,
-  cqtName = 'Cơ quan thuế quản lý trực tiếp'
+  cqtName = 'Cơ quan thuế quản lý trực tiếp',
+  quarter = 1,
+  year = new Date().getFullYear(),
 }) => {
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     message.success(`Đã sao chép ${label}: ${text}`);
   };
+
+  const quarterDeadline = (() => {
+    switch (quarter) {
+      case 1: return `30/04/${year}`;
+      case 2: return `31/07/${year}`;
+      case 3: return `31/10/${year}`;
+      case 4: return `31/01/${year + 1}`;
+      case 'ALL': return `31/03/${year + 1}`;
+      default: return `30/01/${year + 1}`;
+    }
+  })();
 
   const steps = [
     {
@@ -146,7 +161,9 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
 
             <div className="flex justify-between items-center">
               <span className="text-xs text-teal-800 font-medium">Kỳ thuế ghi chú:</span>
-              <span className="font-semibold text-slate-800">Tạm nộp Q4 / Năm hiện tại</span>
+              <span className="font-semibold text-slate-800">
+                {quarter === 'ALL' ? `Quyết toán năm ${year}` : `Tạm nộp Q${quarter} / Năm ${year}`}
+              </span>
             </div>
           </div>
         </div>
@@ -164,7 +181,7 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
             4. Tải file Giấy nộp tiền điện tử (PDF/XML) về lưu trữ tại mục <strong>Bằng Chứng (Evidence)</strong> trên CELRA để phục vụ quyết toán thuế năm.
           </p>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-            <CalendarOutlined className="text-base" /> Hạn chót tạm nộp 4 quý tối thiểu 80%: <strong>Chậm nhất ngày 30/01 năm sau</strong> (Khoản 3 Điều 1 NĐ 91/2022/NĐ-CP).
+            <CalendarOutlined className="text-base" /> Hạn chót nộp {quarter === 'ALL' ? `quyết toán năm ${year}` : `Quý ${quarter}/${year}`}: <strong>Chậm nhất ngày {quarterDeadline}</strong> (Theo Luật Quản lý thuế số 38/2019/QH14 & NĐ 91/2022/NĐ-CP).
           </div>
         </div>
       ),

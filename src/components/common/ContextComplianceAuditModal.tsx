@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import apiClient from '../../api/client';
-import { message, Upload, Button, Tag } from 'antd';
+import { message, Upload, Button, Tag, Select } from 'antd';
 import {
   InboxOutlined,
   DownloadOutlined,
@@ -13,9 +13,11 @@ import {
   FileExcelOutlined,
   CreditCardOutlined,
   CompassOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useOrgStore } from '../../store/useOrgStore';
-import { downloadCitExcelTemplate, parseCitExcelFile, type ParsedCitData } from '../../utils/excelTaxTemplate';
+import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData, type ParsedCitData } from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
 import { EtaxPaymentGuideModal } from '../tax/EtaxPaymentGuideModal';
@@ -249,10 +251,41 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
   // 🏢 DỮ LIỆU DOANH NGHIỆP & DỰ TOÁN THUẾ TNDN QUA EXCEL
   const { activeOrg } = useOrgStore();
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const currentQuarter = useMemo(() => Math.floor(new Date().getMonth() / 3) + 1, []);
+  const [taxQuarter, setTaxQuarter] = useState<number | 'ALL'>(currentQuarter);
+  const [taxYear, setTaxYear] = useState<number>(currentYear);
   const [citCalcResult, setCitCalcResult] = useState<CitCalculationResult | null>(null);
   const [parsedExcelData, setParsedExcelData] = useState<ParsedCitData | null>(null);
   const [isExcelUploading, setIsExcelUploading] = useState(false);
   const [showEtaxModal, setShowEtaxModal] = useState(false);
+
+  // Sinh danh sách năm động linh hoạt: từ (currentYear + 2) lùi về (currentYear - 5)
+  const dynamicYearOptions = useMemo(() => {
+    const years: number[] = [];
+    const startYear = currentYear + 2;
+    const endYear = currentYear - 5;
+    for (let y = startYear; y >= endYear; y--) {
+      years.push(y);
+    }
+    if (taxYear && !years.includes(taxYear)) {
+      years.push(taxYear);
+      years.sort((a, b) => b - a);
+    }
+    return years.map((y) => ({ value: y, label: `Năm ${y}` }));
+  }, [currentYear, taxYear]);
+
+  // Helper tính hạn nộp tờ khai và tiền thuế theo Luật Quản lý thuế số 38/2019/QH14 & NĐ 91/2022/NĐ-CP
+  const getQuarterDeadline = (quarter: number | 'ALL', year: number) => {
+    switch (quarter) {
+      case 1: return `30/04/${year}`;
+      case 2: return `31/07/${year}`;
+      case 3: return `31/10/${year}`;
+      case 4: return `31/01/${year + 1}`;
+      case 'ALL': return `31/03/${year + 1}`;
+      default: return `30/01/${year + 1}`;
+    }
+  };
 
   const orgAddress = activeOrg?.address || activeOrg?.diaChi || 'Quận Ninh Kiều, TP. Cần Thơ';
   const orgTaxCode = activeOrg?.taxCode || activeOrg?.maSoThue || '0101234567';
@@ -268,10 +301,20 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     setIsExcelUploading(true);
     try {
       const parsed = await parseCitExcelFile(file);
+      // Tự động bóc tách Quý & Năm từ dữ liệu ngày trong file Excel nếu có
+      const detected = detectPeriodFromCitData(parsed.revenues, parsed.expenses);
+      if (detected.year) {
+        setTaxYear(detected.year);
+      }
+      if (detected.quarter) {
+        setTaxQuarter(detected.quarter);
+      }
+
       const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
       setCitCalcResult(res);
       setParsedExcelData(parsed);
-      message.success(`Đã phân tích thành công ${parsed.revenues.length} khoản thu và ${parsed.expenses.length} khoản chi!`);
+      const periodTag = detected.quarter && detected.year ? ` (Tự động nhận diện: Quý ${detected.quarter}/${detected.year})` : '';
+      message.success(`Đã phân tích thành công ${parsed.revenues.length} khoản thu và ${parsed.expenses.length} khoản chi!${periodTag}`);
     } catch (err: any) {
       console.error(err);
       message.error('Không thể đọc file Excel. Vui lòng tải đúng file mẫu chuẩn 2 Sheet của CELRA!');
@@ -551,11 +594,11 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                         <div>
                           <button
                             type="button"
-                            onClick={downloadCitExcelTemplate}
+                            onClick={() => downloadCitExcelTemplate(taxQuarter, taxYear)}
                             className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer bg-transparent border-none p-0 transition-colors"
                           >
                             <DownloadOutlined className="text-xs" />
-                            <span>tải xuống file mẫu excel</span>
+                            <span>tải xuống file mẫu excel {taxQuarter === 'ALL' ? `(Cả năm ${taxYear})` : `(Quý ${taxQuarter}/${taxYear})`}</span>
                           </button>
                         </div>
                       </div>
@@ -573,6 +616,61 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                           </Tag>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* 📅 BỘ CHỌN KỲ TÍNH THUẾ (QUÝ VÀ NĂM) */}
+                  <div className="bg-white/95 border border-amber-200/90 rounded-xl p-3 sm:px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                      <div className="flex items-center gap-2">
+                        <CalendarOutlined className="text-amber-600 text-base" />
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Kỳ tính thuế:
+                        </span>
+                      </div>
+
+                      {/* CHỌN QUÝ */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-semibold text-slate-600">Quý:</label>
+                        <Select
+                          value={taxQuarter}
+                          onChange={(val) => setTaxQuarter(val)}
+                          className="w-32"
+                          size="middle"
+                          options={[
+                            { value: 1, label: 'Quý 1 (Q1)' },
+                            { value: 2, label: 'Quý 2 (Q2)' },
+                            { value: 3, label: 'Quý 3 (Q3)' },
+                            { value: 4, label: 'Quý 4 (Q4)' },
+                            { value: 'ALL', label: 'Cả năm' },
+                          ]}
+                        />
+                      </div>
+
+                      {/* CHỌN NĂM */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-semibold text-slate-600">Năm:</label>
+                        <Select
+                          value={taxYear}
+                          onChange={(val) => setTaxYear(Number(val))}
+                          className="w-32"
+                          size="middle"
+                          showSearch
+                          options={dynamicYearOptions}
+                          placeholder="Chọn năm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* HẠN NỘP THEO LUẬT ĐỊNH */}
+                    <div className="flex items-center gap-2 text-xs text-amber-900 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200/80 shrink-0">
+                      <ClockCircleOutlined className="text-amber-600" />
+                      <span>
+                        Hạn nộp tờ khai & thuế:{' '}
+                        <strong className="font-extrabold text-amber-950 font-mono">
+                          {getQuarterDeadline(taxQuarter, taxYear)}
+                        </strong>
+                      </span>
                     </div>
                   </div>
 
@@ -594,7 +692,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                         Kéo thả file Excel thu - chi vào đây để hệ thống tự động bóc tách
                       </p>
                       <p className="ant-upload-hint text-[11px] text-slate-500 m-0 mt-0.5">
-                        Hỗ trợ định dạng .xlsx tiêu chuẩn, tự động phân loại chi phí hợp lệ / bị loại trong 1 giây
+                        Hỗ trợ định dạng .xlsx tiêu chuẩn ({taxQuarter === 'ALL' ? `Cả năm ${taxYear}` : `Quý ${taxQuarter}/${taxYear}`}), tự động phân loại chi phí hợp lệ / bị loại trong 1 giây
                       </p>
                     </Upload.Dragger>
                   </div>
@@ -1243,6 +1341,8 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
             companyName={orgName}
             prepaymentAmount={citCalcResult?.statutoryPrepayment80 || 0}
             cqtName={orgCity}
+            quarter={taxQuarter}
+            year={taxYear}
           />
         </div>
       </div>
