@@ -303,3 +303,333 @@ export function detectPeriodFromCitData(
   }
   return {};
 }
+
+
+/**
+ * 📥 TẢI FILE MẪU EXCEL RIÊNG CHO DOANH THU
+ */
+export function downloadRevenueExcelTemplate(quarter: number | 'ALL' = 1, year: number = new Date().getFullYear()): void {
+  const wb = XLSX.utils.book_new();
+  let m1 = '01', m2 = '02', m3 = '03';
+  if (quarter === 2) { m1 = '04'; m2 = '05'; m3 = '06'; }
+  else if (quarter === 3) { m1 = '07'; m2 = '08'; m3 = '09'; }
+  else if (quarter === 4) { m1 = '10'; m2 = '11'; m3 = '12'; }
+  else if (quarter === 'ALL') { m1 = '02'; m2 = '06'; m3 = '10'; }
+
+  const revenueData = [
+    {
+      'Ngày ghi nhận (DD/MM/YYYY)': `15/${m1}/${year}`,
+      'Số hóa đơn': 'HD000128',
+      'Diễn giải / Khách hàng': 'Cung cấp dịch vụ tư vấn doanh nghiệp cho Cty An Bình',
+      'Doanh thu chưa thuế (VNĐ)': 120000000,
+    },
+    {
+      'Ngày ghi nhận (DD/MM/YYYY)': `28/${m2}/${year}`,
+      'Số hóa đơn': 'HD000129',
+      'Diễn giải / Khách hàng': 'Thực hiện hợp đồng cung ứng gói phần mềm số đợt 1',
+      'Doanh thu chưa thuế (VNĐ)': 250000000,
+    },
+    {
+      'Ngày ghi nhận (DD/MM/YYYY)': `20/${m3}/${year}`,
+      'Số hóa đơn': 'HD000130',
+      'Diễn giải / Khách hàng': 'Bán lẻ hàng hóa qua kênh thương mại điện tử',
+      'Doanh thu chưa thuế (VNĐ)': 85000000,
+    },
+  ];
+
+  const wsRevenue = XLSX.utils.json_to_sheet(revenueData);
+  wsRevenue['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 45 }, { wch: 25 }];
+  XLSX.utils.book_append_sheet(wb, wsRevenue, 'DOANH_THU');
+
+  const filePeriod = quarter === 'ALL' ? `Nam_${year}` : `Q${quarter}_${year}`;
+  XLSX.writeFile(wb, `CELRA_Mau_Doanh_Thu_TNDN_${filePeriod}.xlsx`);
+}
+
+/**
+ * 📥 TẢI FILE MẪU EXCEL RIÊNG CHO CHI PHÍ
+ */
+export function downloadExpenseExcelTemplate(quarter: number | 'ALL' = 1, year: number = new Date().getFullYear()): void {
+  const wb = XLSX.utils.book_new();
+  let m1 = '01', m2 = '02', m3 = '03';
+  if (quarter === 2) { m1 = '04'; m2 = '05'; m3 = '06'; }
+  else if (quarter === 3) { m1 = '07'; m2 = '08'; m3 = '09'; }
+  else if (quarter === 4) { m1 = '10'; m2 = '11'; m3 = '12'; }
+  else if (quarter === 'ALL') { m1 = '02'; m2 = '06'; m3 = '10'; }
+
+  const expenseData = [
+    {
+      'Ngày chi (DD/MM/YYYY)': `10/${m1}/${year}`,
+      'Khoản mục chi': 'Tiền thuê mặt bằng văn phòng làm việc',
+      'Số tiền (VNĐ)': 30000000,
+      'Phương thức thanh toán': 'Chuyển khoản',
+      'Có hóa đơn GTGT?': 'Có',
+      'Ghi chú': 'Hóa đơn tiền thuê nhà số 00412 chuyển khoản qua NH Vietcombank',
+    },
+    {
+      'Ngày chi (DD/MM/YYYY)': `18/${m1}/${year}`,
+      'Khoản mục chi': 'Lương Chủ tịch kiêm Giám đốc (Công ty TNHH 1TV)',
+      'Số tiền (VNĐ)': 25000000,
+      'Phương thức thanh toán': 'Chuyển khoản',
+      'Có hóa đơn GTGT?': 'Không',
+      'Ghi chú': 'Thù lao điều hành của chủ sở hữu cá nhân (Rủi ro bị loại B4)',
+    },
+    {
+      'Ngày chi (DD/MM/YYYY)': `05/${m2}/${year}`,
+      'Khoản mục chi': 'Mua thiết bị máy tính văn phòng',
+      'Số tiền (VNĐ)': 22000000,
+      'Phương thức thanh toán': 'Tiền mặt',
+      'Có hóa đơn GTGT?': 'Có',
+      'Ghi chú': 'Hóa đơn > 20 triệu nhưng trả tiền mặt (Rủi ro bị loại B4 Điều 4 TT 96/2015/TT-BTC)',
+    },
+    {
+      'Ngày chi (DD/MM/YYYY)': `15/${m2}/${year}`,
+      'Khoản mục chi': 'Chi phí quảng cáo Facebook Ads trực tiếp qua thẻ',
+      'Số tiền (VNĐ)': 15000000,
+      'Phương thức thanh toán': 'Chuyển khoản',
+      'Có hóa đơn GTGT?': 'Không',
+      'Ghi chú': 'Dịch vụ nước ngoài xuyên biên giới (Cần nộp thuế nhà thầu FCT)',
+    },
+    {
+      'Ngày chi (DD/MM/YYYY)': `22/${m2}/${year}`,
+      'Khoản mục chi': 'Mua văn phòng phẩm, giấy in lặt vặt tiếp khách',
+      'Số tiền (VNĐ)': 4500000,
+      'Phương thức thanh toán': 'Tiền mặt',
+      'Có hóa đơn GTGT?': 'Không',
+      'Ghi chú': 'Chi phí không có hóa đơn chứng từ hợp lệ (Rủi ro bị loại B4)',
+    },
+    {
+      'Ngày chi (DD/MM/YYYY)': `10/${m3}/${year}`,
+      'Khoản mục chi': 'Thanh toán cước Internet và điện thoại công ty',
+      'Số tiền (VNĐ)': 3500000,
+      'Phương thức thanh toán': 'Chuyển khoản',
+      'Có hóa đơn GTGT?': 'Có',
+      'Ghi chú': 'Hóa đơn điện tử VNPT đầy đủ',
+    },
+  ];
+
+  const wsExpense = XLSX.utils.json_to_sheet(expenseData);
+  wsExpense['!cols'] = [
+    { wch: 22 }, { wch: 40 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 45 }
+  ];
+  XLSX.utils.book_append_sheet(wb, wsExpense, 'CHI_PHI');
+
+  const filePeriod = quarter === 'ALL' ? `Nam_${year}` : `Q${quarter}_${year}`;
+  XLSX.writeFile(wb, `CELRA_Mau_Chi_Phi_TNDN_${filePeriod}.xlsx`);
+}
+
+/**
+ * 📂 ĐỌC VÀ BÓC TÁCH FILE EXCEL CHỈ CHỨA DOANH THU (KIỂM TRA CHẶT CHẼ ĐỦ DỮ LIỆU & ĐÚNG KỲ KÊ KHAI)
+ */
+export async function parseRevenueExcelOnly(
+  file: File,
+  targetQuarter?: number | 'ALL',
+  targetYear?: number
+): Promise<RevenueRow[]> {
+  const buffer = await file.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array' });
+
+  const sheetName = wb.SheetNames.find(
+    (name) => name.toUpperCase().includes('DOANH_THU') || name.toUpperCase().includes('REVENUE')
+  ) || wb.SheetNames[0];
+
+  const rawRevenues: any[] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName] || {});
+  if (!rawRevenues || rawRevenues.length === 0) {
+    throw new Error('Dữ liệu của bạn còn thiếu không thể import! File Excel không có dòng dữ liệu nào.');
+  }
+
+  const results: RevenueRow[] = [];
+  const invalidPeriodRows: string[] = [];
+
+  for (let i = 0; i < rawRevenues.length; i++) {
+    const row = rawRevenues[i];
+    const rowNum = i + 2; // Dòng 1 là tiêu đề
+
+    // Kiểm tra hàng có dữ liệu hay không
+    const rowValues = Object.values(row).map((v) => String(v ?? '').trim()).filter(Boolean);
+    if (rowValues.length === 0) {
+      continue; // Bỏ qua dòng trống
+    }
+
+    // Khi hàng có dữ liệu, tất cả các trường đều phải có đủ
+    const missingFields: string[] = [];
+
+    const rawDate = row['Ngày ghi nhận (DD/MM/YYYY)'] || row['Ngày ghi nhận'] || row['Ngày'] || row['Ngay'];
+    const parsedDate = parseRowQuarterYear(rawDate);
+    if (!rawDate || !parsedDate) {
+      missingFields.push('Ngày ghi nhận (DD/MM/YYYY)');
+    }
+
+    const invoiceNo = String(row['Số hóa đơn'] || row['Số HĐ'] || row['So HD'] || '').trim();
+    if (!invoiceNo) {
+      missingFields.push('Số hóa đơn');
+    }
+
+    const description = String(row['Diễn giải / Khách hàng'] || row['Diễn giải'] || row['Khách hàng'] || '').trim();
+    if (!description) {
+      missingFields.push('Diễn giải / Khách hàng');
+    }
+
+    const rawAmount = row['Doanh thu chưa thuế (VNĐ)'] || row['Doanh thu chưa thuế'] || row['Doanh thu'] || row['Số tiền'];
+    const amountVal = Number(rawAmount);
+    if (rawAmount === undefined || rawAmount === null || rawAmount === '' || isNaN(amountVal) || amountVal <= 0) {
+      missingFields.push('Doanh thu chưa thuế (phải là số > 0)');
+    }
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Dữ liệu của bạn còn thiếu không thể import! Tại dòng #${rowNum} còn thiếu: ${missingFields.join(', ')}.`
+      );
+    }
+
+    // 🔍 Kiểm tra thời gian hóa đơn có khớp với Quý / Năm đang chọn hay không
+    if (targetQuarter !== undefined && targetYear !== undefined && parsedDate) {
+      if (targetQuarter !== 'ALL') {
+        if (parsedDate.quarter !== Number(targetQuarter) || parsedDate.year !== Number(targetYear)) {
+          invalidPeriodRows.push(
+            `• Dòng #${rowNum}: Số HĐ "${invoiceNo}", ngày ${parsedDate.rawFormatted} (thuộc Quý ${parsedDate.quarter}/${parsedDate.year})`
+          );
+        }
+      } else {
+        if (parsedDate.year !== Number(targetYear)) {
+          invalidPeriodRows.push(
+            `• Dòng #${rowNum}: Số HĐ "${invoiceNo}", ngày ${parsedDate.rawFormatted} (thuộc năm ${parsedDate.year})`
+          );
+        }
+      }
+    }
+
+    results.push({
+      date: parsedDate!.rawFormatted,
+      invoiceNo,
+      description,
+      amount: amountVal,
+    });
+  }
+
+  if (invalidPeriodRows.length > 0) {
+    const periodLabel = targetQuarter === 'ALL' ? `năm ${targetYear}` : `Quý ${targetQuarter}/${targetYear}`;
+    const displayedErrors = invalidPeriodRows.slice(0, 5).join('\n');
+    const extraCount = invalidPeriodRows.length > 5 ? `\n... và còn ${invalidPeriodRows.length - 5} hóa đơn khác.` : '';
+    throw new Error(
+      `Phát hiện hóa đơn không nằm trong ${periodLabel} đang chọn:\n${displayedErrors}${extraCount}\n\nVui lòng kiểm tra lại ngày trên hóa đơn hoặc chọn đúng kỳ kê khai trước khi nạp file!`
+    );
+  }
+
+  if (results.length === 0) {
+    throw new Error('Dữ liệu của bạn còn thiếu không thể import! Không tìm thấy dòng dữ liệu hợp lệ.');
+  }
+
+  return results;
+}
+
+/**
+ * 📂 ĐỌC VÀ BÓC TÁCH FILE EXCEL CHỈ CHỨA CHI PHÍ (KIỂM TRA CHẶT CHẼ ĐỦ DỮ LIỆU & ĐÚNG KỲ KÊ KHAI)
+ */
+export async function parseExpenseExcelOnly(
+  file: File,
+  targetQuarter?: number | 'ALL',
+  targetYear?: number
+): Promise<ExpenseRow[]> {
+  const buffer = await file.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array' });
+
+  const sheetName = wb.SheetNames.find(
+    (name) => name.toUpperCase().includes('CHI_PHI') || name.toUpperCase().includes('EXPENSE')
+  ) || wb.SheetNames[0];
+
+  const rawExpenses: any[] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName] || {});
+  if (!rawExpenses || rawExpenses.length === 0) {
+    throw new Error('Dữ liệu của bạn còn thiếu không thể import! File Excel không có dòng dữ liệu nào.');
+  }
+
+  const results: ExpenseRow[] = [];
+  const invalidPeriodRows: string[] = [];
+
+  for (let i = 0; i < rawExpenses.length; i++) {
+    const row = rawExpenses[i];
+    const rowNum = i + 2;
+
+    const rowValues = Object.values(row).map((v) => String(v ?? '').trim()).filter(Boolean);
+    if (rowValues.length === 0) {
+      continue;
+    }
+
+    const missingFields: string[] = [];
+
+    const rawDate = row['Ngày chi (DD/MM/YYYY)'] || row['Ngày chi'] || row['Ngày'] || row['Ngay'];
+    const parsedDate = parseRowQuarterYear(rawDate);
+    if (!rawDate || !parsedDate) {
+      missingFields.push('Ngày chi (DD/MM/YYYY)');
+    }
+
+    const category = String(row['Khoản mục chi'] || row['Nội dung'] || row['Khoản mục'] || '').trim();
+    if (!category) {
+      missingFields.push('Khoản mục chi');
+    }
+
+    const rawAmount = row['Số tiền (VNĐ)'] || row['Số tiền'] || row['Chi phí'];
+    const amountVal = Number(rawAmount);
+    if (rawAmount === undefined || rawAmount === null || rawAmount === '' || isNaN(amountVal) || amountVal <= 0) {
+      missingFields.push('Số tiền chi phí (phải là số > 0)');
+    }
+
+    const paymentMethod = String(row['Phương thức thanh toán'] || row['Thanh toán'] || '').trim();
+    if (!paymentMethod) {
+      missingFields.push('Phương thức thanh toán');
+    }
+
+    const hasInvoice = String(row['Có hóa đơn GTGT?'] || row['Có hóa đơn'] || '').trim();
+    if (!hasInvoice) {
+      missingFields.push('Tình trạng hóa đơn');
+    }
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Dữ liệu của bạn còn thiếu không thể import! Tại dòng #${rowNum} còn thiếu: ${missingFields.join(', ')}.`
+      );
+    }
+
+    // 🔍 Kiểm tra thời gian chi phí có khớp với Quý / Năm đang chọn hay không
+    if (targetQuarter !== undefined && targetYear !== undefined && parsedDate) {
+      if (targetQuarter !== 'ALL') {
+        if (parsedDate.quarter !== Number(targetQuarter) || parsedDate.year !== Number(targetYear)) {
+          invalidPeriodRows.push(
+            `• Dòng #${rowNum}: "${category}", ngày ${parsedDate.rawFormatted} (thuộc Quý ${parsedDate.quarter}/${parsedDate.year})`
+          );
+        }
+      } else {
+        if (parsedDate.year !== Number(targetYear)) {
+          invalidPeriodRows.push(
+            `• Dòng #${rowNum}: "${category}", ngày ${parsedDate.rawFormatted} (thuộc năm ${parsedDate.year})`
+          );
+        }
+      }
+    }
+
+    const note = String(row['Ghi chú'] || '').trim();
+
+    results.push({
+      date: parsedDate!.rawFormatted,
+      category,
+      amount: amountVal,
+      paymentMethod,
+      hasInvoice,
+      note,
+    });
+  }
+
+  if (invalidPeriodRows.length > 0) {
+    const periodLabel = targetQuarter === 'ALL' ? `năm ${targetYear}` : `Quý ${targetQuarter}/${targetYear}`;
+    const displayedErrors = invalidPeriodRows.slice(0, 5).join('\n');
+    const extraCount = invalidPeriodRows.length > 5 ? `\n... và còn ${invalidPeriodRows.length - 5} khoản chi khác.` : '';
+    throw new Error(
+      `Phát hiện khoản chi không nằm trong ${periodLabel} đang chọn:\n${displayedErrors}${extraCount}\n\nVui lòng kiểm tra lại ngày chi hoặc chọn đúng kỳ kê khai trước khi nạp file!`
+    );
+  }
+
+  if (results.length === 0) {
+    throw new Error('Dữ liệu của bạn còn thiếu không thể import! Không tìm thấy dòng dữ liệu hợp lệ.');
+  }
+
+  return results;
+}

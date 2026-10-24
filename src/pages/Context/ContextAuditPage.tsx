@@ -1,12 +1,13 @@
+import dayjs from 'dayjs';
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import apiClient from '../../api/client';
-import { message, Upload, Button, Tag, Select, Modal, Form, Input, InputNumber, Radio, Popconfirm, Alert } from 'antd';
+import { message, Upload, Button, Tag, Select, Modal, Form, Input, InputNumber, Radio, Popconfirm, Alert, Table, Tabs, DatePicker } from 'antd';
 import {
   DownloadOutlined,
   WarningOutlined,
@@ -38,7 +39,11 @@ import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from './ContextPage';
 import {
   downloadCitExcelTemplate,
+  downloadRevenueExcelTemplate,
+  downloadExpenseExcelTemplate,
   parseCitExcelFile,
+  parseRevenueExcelOnly,
+  parseExpenseExcelOnly,
   parseRowQuarterYear,
   type ParsedCitData,
   type RevenueRow,
@@ -189,6 +194,431 @@ export const ContextAuditPage: React.FC = () => {
   const [citCalcResult, setCitCalcResult] = useState<CitCalculationResult | null>(null);
   const [isExcelUploading, setIsExcelUploading] = useState(false);
   const [showEtaxModal, setShowEtaxModal] = useState(false);
+
+  // 📑 TÁCH TAB SỔ THU CHI & QUẢN LÝ DỮ LIỆU SERVER-SIDE
+  const [financialTab, setFinancialTab] = useState<'revenue' | 'expense'>('revenue');
+
+  // KPI TỔNG HỢP TOÀN KỲ TÍNH TỪ BACKEND NESTJS / POSTGRESQL (GRAND TOTAL)
+  const [citSummary, setCitSummary] = useState({
+    totalRevenue: 0,
+    revenueCount: 0,
+    totalAccountingExpense: 0,
+    expenseCount: 0,
+    totalDisallowedExpense: 0,
+    disallowedCount: 0,
+    totalDeductibleExpense: 0,
+    assessableIncome: 0,
+    taxRate: 0.20,
+    estimatedTaxAmount: 0,
+    statutoryPrepayment80: 0,
+    accountingProfitBeforeTax: 0,
+    netProfitAfterTax: 0,
+  });
+
+  // PHÂN TRANG, TÌM KIẾM BẢNG DOANH THU (SERVER-SIDE)
+  const [revenuesData, setRevenuesData] = useState<any[]>([]);
+  const [revenuesTotal, setRevenuesTotal] = useState<number>(0);
+  const [revenuePage, setRevenuePage] = useState<number>(1);
+  const [revenueLimit, setRevenueLimit] = useState<number>(20);
+  const [revenueSearch, setRevenueSearch] = useState<string>('');
+  const [isRevenueLoading, setIsRevenueLoading] = useState<boolean>(false);
+  const [editingRevenueId, setEditingRevenueId] = useState<string | null>(null);
+
+  // PHÂN TRANG, TÌM KIẾM & BỘ LỌC B4 BẢNG CHI PHÍ (SERVER-SIDE)
+  const [expensesData, setExpensesData] = useState<any[]>([]);
+  const [expensesTotal, setExpensesTotal] = useState<number>(0);
+  const [expensePage, setExpensePage] = useState<number>(1);
+  const [expenseLimit, setExpenseLimit] = useState<number>(20);
+  const [expenseSearch, setExpenseSearch] = useState<string>('');
+  const [expenseFilterB4, setExpenseFilterB4] = useState<'ALL' | 'DISALLOWED' | 'DEDUCTIBLE'>('ALL');
+  const [isExpenseLoading, setIsExpenseLoading] = useState<boolean>(false);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+
+  // API 1: TẢI KPI TỔNG HỢP TỪ BACKEND (XỬ LÝ UNWRAP TỰ ĐỘNG CỦA APICLIENT)
+  const fetchCitSummary = useCallback(async () => {
+    try {
+      const res: any = await apiClient.get('/cit-ledger/summary', {
+        params: { year: taxYear, quarter: taxQuarter },
+      });
+      const summary = res?.data !== undefined && !res.totalRevenue ? res.data : res;
+      if (summary) {
+        setCitSummary(summary);
+      }
+    } catch (err) {
+      console.warn('Lỗi tải KPI tổng hợp CIT:', err);
+    }
+  }, [taxYear, taxQuarter]);
+
+  // API 2: TẢI DANH SÁCH DOANH THU PHÂN TRANG & TÌM KIẾM
+  const fetchRevenues = useCallback(async () => {
+    setIsRevenueLoading(true);
+    try {
+      const res: any = await apiClient.get('/cit-ledger/revenues', {
+        params: {
+          year: taxYear,
+          quarter: taxQuarter,
+          page: revenuePage,
+          limit: revenueLimit,
+          search: revenueSearch,
+        },
+      });
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []));
+      const total = typeof res?.total === 'number' ? res.total : (typeof res?.data?.total === 'number' ? res.data.total : list.length);
+      setRevenuesData(list);
+      setRevenuesTotal(total);
+    } catch (err) {
+      console.warn('Lỗi tải doanh thu:', err);
+    } finally {
+      setIsRevenueLoading(false);
+    }
+  }, [taxYear, taxQuarter, revenuePage, revenueLimit, revenueSearch]);
+
+  // API 3: TẢI DANH SÁCH CHI PHÍ PHÂN TRANG, TÌM KIẾM & LỌC B4
+  const fetchExpenses = useCallback(async () => {
+    setIsExpenseLoading(true);
+    try {
+      const res: any = await apiClient.get('/cit-ledger/expenses', {
+        params: {
+          year: taxYear,
+          quarter: taxQuarter,
+          page: expensePage,
+          limit: expenseLimit,
+          search: expenseSearch,
+          filterB4: expenseFilterB4,
+        },
+      });
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []));
+      const total = typeof res?.total === 'number' ? res.total : (typeof res?.data?.total === 'number' ? res.data.total : list.length);
+      setExpensesData(list);
+      setExpensesTotal(total);
+    } catch (err) {
+      console.warn('Lỗi tải chi phí:', err);
+    } finally {
+      setIsExpenseLoading(false);
+    }
+  }, [taxYear, taxQuarter, expensePage, expenseLimit, expenseSearch, expenseFilterB4]);
+
+  // TỰ ĐỘNG GỌI API KHI ĐỔI KỲ (QUÝ / NĂM)
+  useEffect(() => {
+    fetchCitSummary();
+    fetchRevenues();
+    fetchExpenses();
+  }, [fetchCitSummary, fetchRevenues, fetchExpenses]);
+
+  // 📥 NẠP FILE EXCEL DOANH THU RIÊNG (TAB DOANH THU)
+  const handleUploadRevenueExcel = async (file: File) => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Vui lòng chọn Quý 1, 2, 3 hoặc 4 để nạp file Excel Doanh thu!');
+      return false;
+    }
+    setIsExcelUploading(true);
+    try {
+      const rows = await parseRevenueExcelOnly(file, taxQuarter, taxYear);
+      if (!rows || rows.length === 0) {
+        message.error('Không tìm thấy dòng doanh thu hợp lệ trong file Excel');
+        return false;
+      }
+      await apiClient.post('/cit-ledger/revenues/import', {
+        year: taxYear,
+        quarter: Number(taxQuarter),
+        items: rows,
+      });
+      message.success(`Nạp thành công ${rows.length} khoản doanh thu vào Quý ${taxQuarter}/${taxYear}!`);
+      fetchCitSummary();
+      fetchRevenues();
+    } catch (err: any) {
+      const errMsg = err.message || (err.response?.data?.message) || 'Dữ liệu của bạn còn thiếu không thể import';
+      Modal.error({
+        title: 'Không thể Import Excel Doanh thu',
+        content: (
+          <div className="whitespace-pre-line text-sm text-slate-700 font-sans leading-relaxed pt-2">
+            {errMsg}
+          </div>
+        ),
+        okText: 'Đã hiểu',
+        width: 520,
+      });
+    } finally {
+      setIsExcelUploading(false);
+    }
+    return false;
+  };
+
+  // 📥 NẠP FILE EXCEL CHI PHÍ RIÊNG (TAB CHI PHÍ)
+  const handleUploadExpenseExcel = async (file: File) => {
+    if (taxQuarter === 'ALL') {
+      message.warning('Vui lòng chọn Quý 1, 2, 3 hoặc 4 để nạp file Excel Chi phí!');
+      return false;
+    }
+    setIsExcelUploading(true);
+    try {
+      const rows = await parseExpenseExcelOnly(file, taxQuarter, taxYear);
+      if (!rows || rows.length === 0) {
+        message.error('Không tìm thấy dòng chi phí hợp lệ trong file Excel');
+        return false;
+      }
+      await apiClient.post('/cit-ledger/expenses/import', {
+        year: taxYear,
+        quarter: Number(taxQuarter),
+        items: rows,
+      });
+      message.success(`Nạp thành công ${rows.length} khoản chi phí vào Quý ${taxQuarter}/${taxYear}!`);
+      fetchCitSummary();
+      fetchExpenses();
+    } catch (err: any) {
+      const errMsg = err.message || (err.response?.data?.message) || 'Dữ liệu của bạn còn thiếu không thể import';
+      Modal.error({
+        title: 'Không thể Import Excel Chi phí',
+        content: (
+          <div className="whitespace-pre-line text-sm text-slate-700 font-sans leading-relaxed pt-2">
+            {errMsg}
+          </div>
+        ),
+        okText: 'Đã hiểu',
+        width: 520,
+      });
+    } finally {
+      setIsExcelUploading(false);
+    }
+    return false;
+  };
+
+  // CỘT BẢNG DOANH THU (ANT DESIGN TABLE)
+  const revenueColumns = [
+    {
+      title: '#',
+      key: 'index',
+      width: 55,
+      align: 'center' as const,
+      render: (_: any, __: any, index: number) => (
+        <span className="font-mono text-slate-400 font-semibold text-xs">
+          {(revenuePage - 1) * revenueLimit + index + 1}
+        </span>
+      ),
+    },
+    {
+      title: 'Ngày ghi nhận',
+      dataIndex: 'date',
+      key: 'date',
+      width: 120,
+      render: (val: string) => <span className="text-slate-700 font-medium text-xs whitespace-nowrap">{val}</span>,
+    },
+    {
+      title: 'Số hóa đơn',
+      dataIndex: 'invoiceNo',
+      key: 'invoiceNo',
+      width: 120,
+      render: (val: string) =>
+        val ? (
+          <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            {val}
+          </span>
+        ) : (
+          <span className="text-slate-400 italic text-[11px]">-</span>
+        ),
+    },
+    {
+      title: 'Diễn giải / Khách hàng',
+      dataIndex: 'description',
+      key: 'description',
+      render: (val: string) => <span className="text-slate-800 font-medium text-xs">{val}</span>,
+    },
+    {
+      title: 'Doanh thu chưa thuế (VNĐ)',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 180,
+      align: 'right' as const,
+      render: (val: number) => (
+        <span className="font-mono font-bold text-teal-700 whitespace-nowrap text-xs">
+          {Number(val || 0).toLocaleString('vi-VN')} đ
+        </span>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 90,
+      align: 'center' as const,
+      render: (_: any, record: any) => (
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            type="text"
+            size="small"
+            icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
+            onClick={() => handleOpenEditRevenue(record)}
+            disabled={taxQuarter === 'ALL'}
+            className="hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed p-1 h-7 w-7"
+            title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để sửa' : 'Sửa khoản thu'}
+          />
+          <Popconfirm
+            title="Xác nhận xóa"
+            description="Bạn có chắc chắn muốn xóa khoản thu này không?"
+            onConfirm={() => handleDeleteRevenue(record.id)}
+            okText="Xóa"
+            cancelText="Hủy"
+            okButtonProps={{ danger: true }}
+            disabled={taxQuarter === 'ALL'}
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
+              disabled={taxQuarter === 'ALL'}
+              className="hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed p-1 h-7 w-7"
+              title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để xóa' : 'Xóa khoản thu'}
+            />
+          </Popconfirm>
+        </div>
+      ),
+    },
+  ];
+
+  // CỘT BẢNG CHI PHÍ & RÀ SOÁT MỤC B4 (ANT DESIGN TABLE)
+  const expenseColumns = [
+    {
+      title: '#',
+      key: 'index',
+      width: 55,
+      align: 'center' as const,
+      render: (_: any, __: any, index: number) => (
+        <span className="font-mono text-slate-400 font-semibold text-xs">
+          {(expensePage - 1) * expenseLimit + index + 1}
+        </span>
+      ),
+    },
+    {
+      title: 'Ngày chi',
+      dataIndex: 'date',
+      key: 'date',
+      width: 110,
+      render: (val: string) => <span className="text-slate-700 font-medium text-xs whitespace-nowrap">{val}</span>,
+    },
+    {
+      title: 'Khoản mục chi',
+      dataIndex: 'category',
+      key: 'category',
+      minWidth: 180,
+      render: (val: string, record: any) => (
+        <div>
+          <span className="font-semibold text-slate-800 text-xs block">{val}</span>
+          {record.note && <span className="text-[11px] text-slate-400 italic block mt-0.5">{record.note}</span>}
+        </div>
+      ),
+    },
+    {
+      title: 'Thanh toán',
+      dataIndex: 'paymentMethod',
+      key: 'paymentMethod',
+      width: 110,
+      align: 'center' as const,
+      render: (val: string) => {
+        const isCash = (val || '').toLowerCase().includes('tiền mặt') || (val || '').toLowerCase().includes('cash');
+        return isCash ? (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+            Tiền mặt
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+            Chuyển khoản
+          </span>
+        );
+      },
+    },
+    {
+      title: 'Hóa đơn',
+      dataIndex: 'hasInvoice',
+      key: 'hasInvoice',
+      width: 95,
+      align: 'center' as const,
+      render: (val: string) => {
+        const hasInv = (val || '').toLowerCase().includes('có') || (val || '').toLowerCase().includes('yes');
+        return hasInv ? (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Có HĐ
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+            Không HĐ
+          </span>
+        );
+      },
+    },
+    {
+      title: 'Số tiền (VNĐ)',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 150,
+      align: 'right' as const,
+      render: (val: number, record: any) => (
+        <span className={`font-mono font-bold whitespace-nowrap text-xs ${record.isDisallowedB4 ? 'text-rose-700' : 'text-slate-800'}`}>
+          {Number(val || 0).toLocaleString('vi-VN')} đ
+        </span>
+      ),
+    },
+    {
+      title: 'Đánh giá tính hợp lý (Mục B4)',
+      key: 'b4Evaluation',
+      minWidth: 220,
+      render: (_: any, record: any) =>
+        record.isDisallowedB4 ? (
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+              <WarningOutlined /> BỊ LOẠI (MỤC B4)
+            </span>
+            <p className="text-[11px] text-rose-700 m-0 font-bold leading-snug">
+              {record.disallowedReason || 'Chi phí bị loại trừ theo luật thuế.'}
+            </p>
+            {record.legalBasis && (
+              <p className="text-[10px] text-rose-600/80 italic m-0">
+                Căn cứ: {record.legalBasis}
+              </p>
+            )}
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <Check className="w-3 h-3 text-emerald-600" /> Được trừ hợp lý
+          </span>
+        ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 90,
+      align: 'center' as const,
+      render: (_: any, record: any) => (
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            type="text"
+            size="small"
+            icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
+            onClick={() => handleOpenEditExpense(record)}
+            disabled={taxQuarter === 'ALL'}
+            className="hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed p-1 h-7 w-7"
+            title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để sửa' : 'Sửa khoản chi'}
+          />
+          <Popconfirm
+            title="Xác nhận xóa"
+            description="Bạn có chắc chắn muốn xóa khoản chi này không?"
+            onConfirm={() => handleDeleteExpense(record.id)}
+            okText="Xóa"
+            cancelText="Hủy"
+            okButtonProps={{ danger: true }}
+            disabled={taxQuarter === 'ALL'}
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
+              disabled={taxQuarter === 'ALL'}
+              className="hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed p-1 h-7 w-7"
+              title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để xóa' : 'Xóa khoản chi'}
+            />
+          </Popconfirm>
+        </div>
+      ),
+    },
+  ];
 
   // Trích xuất doanh thu & chi phí hiện hành dựa trên Quý/Năm đang chọn
   // Nếu là 'ALL' (Cả năm): Tự động gộp dữ liệu từ 4 Quý (Q1 + Q2 + Q3 + Q4) của năm đó theo chuẩn kế toán
@@ -587,64 +1017,69 @@ export const ContextAuditPage: React.FC = () => {
     }
     revenueForm.resetFields();
     revenueForm.setFieldsValue({
-      date: new Date().toLocaleDateString('vi-VN'),
+      date: dayjs(),
       amount: 10000000,
     });
-    setEditingRevenueIndex(null);
+    setEditingRevenueId(null);
     setIsRevenueModalOpen(true);
   };
 
-  const handleOpenEditRevenue = (index: number) => {
+  const handleOpenEditRevenue = (record: any) => {
     if (taxQuarter === 'ALL') {
-      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để sửa khoản thu!');
+      message.warning('Số liệu Cả năm là chế độ xem tổng hợp. Vui lòng chuyển về đúng Quý phát sinh để chỉnh sửa!');
       return;
     }
-    setEditingRevenueIndex(index);
-    revenueForm.setFieldsValue(revenues[index]);
+    setEditingRevenueId(record.id);
+    const parsedDate = record.date ? (dayjs(record.date, 'DD/MM/YYYY').isValid() ? dayjs(record.date, 'DD/MM/YYYY') : dayjs(record.date)) : dayjs();
+    revenueForm.setFieldsValue({
+      date: parsedDate,
+      invoiceNo: record.invoiceNo,
+      description: record.description,
+      amount: record.amount,
+    });
     setIsRevenueModalOpen(true);
   };
 
   const handleSaveRevenue = async () => {
     try {
       const values = await revenueForm.validateFields();
-      const row: RevenueRow = {
-        date: values.date,
-        invoiceNo: values.invoiceNo || '',
-        description: values.description,
-        amount: Number(values.amount),
-      };
-
-      await updateCurrentQuarterRecords((prev) => {
-        let updated: RevenueRow[];
-        if (editingRevenueIndex !== null) {
-          updated = (prev.revenues || []).map((r, i) => (i === editingRevenueIndex ? row : r));
-        } else {
-          updated = [row, ...(prev.revenues || [])];
-        }
-        return {
-          ...prev,
-          revenues: updated,
-        };
-      }, editingRevenueIndex !== null ? 'Cập nhật khoản thu thành công!' : 'Thêm khoản thu thành công!');
-
+      const dateStr = values.date ? (typeof values.date.format === 'function' ? values.date.format('DD/MM/YYYY') : String(values.date)) : dayjs().format('DD/MM/YYYY');
+      if (editingRevenueId) {
+        await apiClient.put(`/cit-ledger/revenues/${editingRevenueId}`, {
+          date: dateStr,
+          invoiceNo: values.invoiceNo || '',
+          description: values.description,
+          amount: Number(values.amount),
+        });
+        message.success('Cập nhật khoản thu thành công!');
+      } else {
+        await apiClient.post('/cit-ledger/revenues', {
+          year: taxYear,
+          quarter: Number(taxQuarter),
+          date: dateStr,
+          invoiceNo: values.invoiceNo || '',
+          description: values.description,
+          amount: Number(values.amount),
+        });
+        message.success('Thêm khoản thu thành công!');
+      }
       setIsRevenueModalOpen(false);
+      fetchCitSummary();
+      fetchRevenues();
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteRevenue = async (index: number) => {
-    if (taxQuarter === 'ALL') {
-      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để xóa giao dịch!');
-      return;
+  const handleDeleteRevenue = async (id: string) => {
+    try {
+      await apiClient.delete(`/cit-ledger/revenues/${id}`);
+      message.success('Đã xóa khoản thu thành công!');
+      fetchCitSummary();
+      fetchRevenues();
+    } catch (err) {
+      message.error('Lỗi xóa khoản thu');
     }
-    await updateCurrentQuarterRecords((prev) => {
-      const updated = (prev.revenues || []).filter((_, i) => i !== index);
-      return {
-        ...prev,
-        revenues: updated,
-      };
-    }, 'Đã xóa khoản thu thành công!');
   };
 
   // 6. THAO TÁC THÊM / SỬA / XÓA THỦ CÔNG CHI PHÍ
@@ -655,68 +1090,77 @@ export const ContextAuditPage: React.FC = () => {
     }
     expenseForm.resetFields();
     expenseForm.setFieldsValue({
-      date: new Date().toLocaleDateString('vi-VN'),
+      date: dayjs(),
       paymentMethod: 'Chuyển khoản',
       hasInvoice: 'Có',
       amount: 5000000,
     });
-    setEditingExpenseIndex(null);
+    setEditingExpenseId(null);
     setIsExpenseModalOpen(true);
   };
 
-  const handleOpenEditExpense = (index: number) => {
+  const handleOpenEditExpense = (record: any) => {
     if (taxQuarter === 'ALL') {
-      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để sửa khoản chi!');
+      message.warning('Số liệu Cả năm là chế độ xem tổng hợp. Vui lòng chuyển về đúng Quý phát sinh để chỉnh sửa!');
       return;
     }
-    setEditingExpenseIndex(index);
-    expenseForm.setFieldsValue(expenses[index]);
+    setEditingExpenseId(record.id);
+    const parsedDate = record.date ? (dayjs(record.date, 'DD/MM/YYYY').isValid() ? dayjs(record.date, 'DD/MM/YYYY') : dayjs(record.date)) : dayjs();
+    expenseForm.setFieldsValue({
+      date: parsedDate,
+      category: record.category,
+      amount: record.amount,
+      paymentMethod: record.paymentMethod,
+      hasInvoice: record.hasInvoice,
+      note: record.note,
+    });
     setIsExpenseModalOpen(true);
   };
 
   const handleSaveExpense = async () => {
     try {
       const values = await expenseForm.validateFields();
-      const row: ExpenseRow = {
-        date: values.date,
-        category: values.category,
-        amount: Number(values.amount),
-        paymentMethod: values.paymentMethod,
-        hasInvoice: values.hasInvoice,
-        note: values.note || '',
-      };
-
-      await updateCurrentQuarterRecords((prev) => {
-        let updated: ExpenseRow[];
-        if (editingExpenseIndex !== null) {
-          updated = (prev.expenses || []).map((e, i) => (i === editingExpenseIndex ? row : e));
-        } else {
-          updated = [row, ...(prev.expenses || [])];
-        }
-        return {
-          ...prev,
-          expenses: updated,
-        };
-      }, editingExpenseIndex !== null ? 'Cập nhật khoản chi thành công!' : 'Thêm khoản chi thành công!');
-
+      const dateStr = values.date ? (typeof values.date.format === 'function' ? values.date.format('DD/MM/YYYY') : String(values.date)) : dayjs().format('DD/MM/YYYY');
+      if (editingExpenseId) {
+        await apiClient.put(`/cit-ledger/expenses/${editingExpenseId}`, {
+          date: dateStr,
+          category: values.category,
+          amount: Number(values.amount),
+          paymentMethod: values.paymentMethod,
+          hasInvoice: values.hasInvoice,
+          note: values.note || '',
+        });
+        message.success('Cập nhật khoản chi thành công!');
+      } else {
+        await apiClient.post('/cit-ledger/expenses', {
+          year: taxYear,
+          quarter: Number(taxQuarter),
+          date: dateStr,
+          category: values.category,
+          amount: Number(values.amount),
+          paymentMethod: values.paymentMethod,
+          hasInvoice: values.hasInvoice,
+          note: values.note || '',
+        });
+        message.success('Thêm khoản chi thành công!');
+      }
       setIsExpenseModalOpen(false);
+      fetchCitSummary();
+      fetchExpenses();
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteExpense = async (index: number) => {
-    if (taxQuarter === 'ALL') {
-      message.warning('Số liệu Cả năm được tự động tổng hợp từ 4 Quý. Vui lòng chuyển về đúng Quý phát sinh để xóa khoản chi!');
-      return;
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await apiClient.delete(`/cit-ledger/expenses/${id}`);
+      message.success('Đã xóa khoản chi thành công!');
+      fetchCitSummary();
+      fetchExpenses();
+    } catch (err) {
+      message.error('Lỗi xóa khoản chi');
     }
-    await updateCurrentQuarterRecords((prev) => {
-      const updated = (prev.expenses || []).filter((_, i) => i !== index);
-      return {
-        ...prev,
-        expenses: updated,
-      };
-    }, 'Đã xóa khoản chi thành công!');
   };
 
   useEffect(() => {
@@ -888,6 +1332,9 @@ export const ContextAuditPage: React.FC = () => {
     }
   };
 
+  // Bảo lưu các helper cũ theo nguyên tắc bảo toàn mã nguồn
+  void [downloadCitExcelTemplate, editingRevenueIndex, setEditingRevenueIndex, editingExpenseIndex, setEditingExpenseIndex, updateCurrentQuarterRecords, handleExcelUpload, ShieldCheck];
+
   return (
     <div className="w-full space-y-6 pb-24">
       {/* ========================================================= */}
@@ -951,25 +1398,25 @@ export const ContextAuditPage: React.FC = () => {
 
           {/* 📊 PHÂN HỆ QUẢN LÝ SỔ THU CHI & DỰ TOÁN THUẾ TNDN */}
           {activeTab === 'thue_ke_toan' && (
-            <div className="bg-linear-to-br from-amber-500/10 via-amber-50/60 to-orange-50/40 border-2 border-amber-300 rounded-2xl p-5 space-y-5 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5 shadow-xs">
               {/* HEADER PHÂN HỆ */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/20 mt-0.5">
+                  <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-teal-600/20 mt-0.5">
                     <FileExcelOutlined className="text-xl" />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-sm sm:text-base font-extrabold text-amber-950 m-0">
+                    <h4 className="text-sm sm:text-base font-extrabold text-slate-900 m-0">
                       Sổ Kê Khai Thu Chi, Rà Soát Xuất Toán (Mục B4) & Lợi Nhuận Ròng Thuế TNDN
                     </h4>
-                    <p className="text-xs text-slate-600 m-0">
+                    <p className="text-xs text-slate-500 m-0">
                       Tự động tính thuế TNDN, rà soát chi phí không hợp lệ theo Thông tư 96/2015/TT-BTC và tính lợi nhuận ròng sau thuế theo thời gian thực.
                     </p>
                   </div>
                 </div>
 
                 {/* VÙNG ƯU ĐÃI THUẾ THEO ĐỊA CHỈ */}
-                <div className="bg-white/95 border border-amber-200/90 rounded-xl px-3.5 py-2 shrink-0 flex items-center gap-2.5 shadow-xs">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 shrink-0 flex items-center gap-2.5 shadow-2xs">
                   <CompassOutlined className="text-teal-600 text-base" />
                   <div>
                     <span className="text-[10px] text-slate-500 font-bold uppercase block">Ưu đãi vùng & Thuế suất:</span>
@@ -984,10 +1431,10 @@ export const ContextAuditPage: React.FC = () => {
               </div>
 
               {/* 📅 BỘ CHỌN KỲ TÍNH THUẾ (QUÝ VÀ NĂM) & HẠN NỘP */}
-              <div className="bg-white/95 border border-amber-200/90 rounded-xl p-3 sm:px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+              <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3 sm:px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
-                    <CalendarOutlined className="text-amber-600 text-base" />
+                    <CalendarOutlined className="text-teal-600 text-base" />
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
                       Kỳ tính thuế:
                     </span>
@@ -1024,101 +1471,159 @@ export const ContextAuditPage: React.FC = () => {
                       placeholder="Chọn năm"
                     />
                   </div>
+
+                  {/* NÚT HƯỚNG DẪN ETAX */}
+                  <Button
+                    type="primary"
+                    icon={<CreditCardOutlined />}
+                    onClick={() => setShowEtaxModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-8 border-none shadow-xs flex items-center gap-1.5"
+                  >
+                    Hướng dẫn eTax
+                  </Button>
                 </div>
 
                 {/* HẠN NỘP THEO LUẬT ĐỊNH */}
-                <div className="flex items-center gap-2 text-xs text-amber-900 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200/80 shrink-0">
-                  <ClockCircleOutlined className="text-amber-600" />
+                <div className="flex items-center gap-2 text-xs text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shrink-0">
+                  <ClockCircleOutlined className="text-slate-500" />
                   <span>
                     Hạn nộp tờ khai & thuế:{' '}
-                    <strong className="font-extrabold text-amber-950 font-mono">
+                    <strong className="font-extrabold text-slate-900 font-mono">
                       {getQuarterDeadline(taxQuarter, taxYear)}
                     </strong>
                   </span>
                 </div>
               </div>
 
-              {/* 🌟 4 THẺ THỐNG KÊ TỔNG QUAN / KPI TRỰC QUAN */}
-              {citCalcResult && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                  {/* CARD 1: TỔNG DOANH THU */}
-                  <div className="bg-white rounded-2xl p-4 border border-teal-200 shadow-xs flex flex-col justify-between hover:border-teal-400 transition-colors">
-                    <div className="flex items-center justify-between text-slate-500 mb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">1. Tổng Doanh Thu</span>
-                      <span className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
-                        <DollarSign className="w-4 h-4" />
-                      </span>
+              {/* 🌟 4 THẺ THỐNG KÊ TỔNG QUAN / KPI ĐỒNG BỘ FORMAT DASHBOARD */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                {/* CARD 1: TỔNG DOANH THU */}
+                <div
+                  className="bg-white rounded-xl border border-teal-100 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
+                  style={{ borderLeft: '5px solid #0d9488' }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+                      boxShadow: '0 4px 12px rgba(13, 148, 136, 0.28)',
+                      outline: '3px solid rgba(13, 148, 136, 0.15)',
+                    }}
+                  >
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      1. TỔNG DOANH THU
                     </div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-teal-800">
-                      {citCalcResult.totalRevenue.toLocaleString('vi-VN')} đ
+                    <div className="text-lg sm:text-xl font-black font-mono text-teal-800 leading-tight mt-0.5 truncate">
+                      {citSummary.totalRevenue.toLocaleString('vi-VN')} đ
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-                      <span>{revenues.length} khoản thu ghi nhận</span>
-                      <span className="text-teal-700 font-semibold font-mono">100% doanh thu</span>
+                    <div className="text-[10.5px] text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                      <span>{citSummary.revenueCount} khoản thu</span>
+                      <span className="text-teal-600 font-bold">• 100% doanh thu</span>
                     </div>
                   </div>
+                </div>
 
-                  {/* CARD 2: TỔNG CHI PHÍ KẾ TOÁN */}
-                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between hover:border-slate-400 transition-colors">
-                    <div className="flex items-center justify-between text-slate-500 mb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">2. Tổng Chi Phí Kế Toán</span>
-                      <span className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
-                        <FileText className="w-4 h-4" />
-                      </span>
+                {/* CARD 2: TỔNG CHI PHÍ KẾ TOÁN */}
+                <div
+                  className="bg-white rounded-xl border border-blue-100 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
+                  style={{ borderLeft: '5px solid #2563eb' }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.28)',
+                      outline: '3px solid rgba(37, 99, 235, 0.15)',
+                    }}
+                  >
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      2. TỔNG CHI PHÍ KẾ TOÁN
                     </div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-slate-900">
-                      {citCalcResult.totalAccountingExpense.toLocaleString('vi-VN')} đ
+                    <div className="text-lg sm:text-xl font-black font-mono text-slate-900 leading-tight mt-0.5 truncate">
+                      {citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ
                     </div>
-                    <div className="text-[11px] flex flex-wrap items-center gap-1.5 mt-1">
-                      <span className="text-emerald-700 font-semibold">
-                        Được trừ: {citCalcResult.totalDeductibleExpense.toLocaleString('vi-VN')} đ
+                    <div className="text-[10.5px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="text-emerald-700 font-bold whitespace-nowrap">
+                        Được trừ: {citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ
                       </span>
                       <span className="text-slate-300">|</span>
-                      <span className="text-rose-600 font-bold">
-                        Bị loại (B4): -{citCalcResult.totalDisallowedExpense.toLocaleString('vi-VN')} đ
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* CARD 3: THUẾ TNDN DỰ KIẾN */}
-                  <div className="bg-white rounded-2xl p-4 border border-amber-300 shadow-xs flex flex-col justify-between hover:border-amber-400 transition-colors">
-                    <div className="flex items-center justify-between text-slate-500 mb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">3. Thuế TNDN Dự Kiến</span>
-                      <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
-                        <AlertTriangle className="w-4 h-4" />
-                      </span>
-                    </div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-amber-800">
-                      {citCalcResult.estimatedTaxAmount.toLocaleString('vi-VN')} đ
-                    </div>
-                    <div className="text-[11px] text-amber-900 font-medium mt-1 flex items-center justify-between">
-                      <span>Tạm nộp 80%: <strong className="font-mono">{citCalcResult.statutoryPrepayment80.toLocaleString('vi-VN')} đ</strong></span>
-                      <Tag color="orange" className="font-extrabold text-[10px] m-0">Thuế suất {citCalcResult.incentiveInfo.taxRatePercentText}</Tag>
-                    </div>
-                  </div>
-
-                  {/* CARD 4: LỢI NHUẬN RÒNG SAU THUẾ (NET PROFIT AFTER TAX) */}
-                  <div className="bg-linear-to-br from-emerald-500/10 via-teal-50/70 to-emerald-50/60 rounded-2xl p-4 border-2 border-emerald-500 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between text-emerald-800 mb-1">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950">4. Lợi Nhuận Ròng Sau Thuế</span>
-                      <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
-                        <TrendingUp className="w-4 h-4" />
-                      </span>
-                    </div>
-                    <div className={`text-xl sm:text-2xl font-black font-mono ${citCalcResult.netProfitAfterTax >= 0 ? 'text-emerald-800' : 'text-rose-600'}`}>
-                      {citCalcResult.netProfitAfterTax.toLocaleString('vi-VN')} đ
-                    </div>
-                    <div className="text-[11px] font-semibold text-emerald-700 mt-1 flex items-center justify-between">
-                      <span>= Doanh thu - Chi phí - Thuế</span>
-                      <span className="text-emerald-900 font-bold font-mono">
-                        {citCalcResult.totalRevenue > 0
-                          ? `${((citCalcResult.netProfitAfterTax / citCalcResult.totalRevenue) * 100).toFixed(1)}% ROS`
-                          : '0%'}
+                      <span className="text-rose-600 font-bold whitespace-nowrap">
+                        Bị loại: -{citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ
                       </span>
                     </div>
                   </div>
                 </div>
-              )}
+
+                {/* CARD 3: THUẾ TNDN DỰ KIẾN */}
+                <div
+                  className="bg-white rounded-xl border border-amber-200 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
+                  style={{ borderLeft: '5px solid #ea580c' }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                      boxShadow: '0 4px 12px rgba(234, 88, 12, 0.28)',
+                      outline: '3px solid rgba(234, 88, 12, 0.15)',
+                    }}
+                  >
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      3. THUẾ TNDN DỰ KIẾN
+                    </div>
+                    <div className="text-lg sm:text-xl font-black font-mono text-amber-800 leading-tight mt-0.5 truncate">
+                      {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
+                    </div>
+                    <div className="text-[10.5px] text-amber-900 mt-1 flex flex-wrap items-center justify-between gap-1">
+                      <span className="whitespace-nowrap">Tạm nộp 80%: <strong>{citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ</strong></span>
+                      <Tag color="orange" className="font-extrabold text-[10px] m-0 shrink-0">
+                        {citSummary.taxRate ? (citSummary.taxRate * 100).toFixed(0) + '%' : '20%'}
+                      </Tag>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 4: LỢI NHUẬN RÒNG SAU THUẾ */}
+                <div
+                  className="bg-white rounded-xl border border-emerald-200 shadow-xs p-3.5 flex items-center gap-3.5 transition-all hover:shadow-sm"
+                  style={{ borderLeft: '5px solid #16a34a' }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                      boxShadow: '0 4px 12px rgba(22, 163, 74, 0.28)',
+                      outline: '3px solid rgba(22, 163, 74, 0.15)',
+                    }}
+                  >
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      4. LỢI NHUẬN RÒNG SAU THUẾ
+                    </div>
+                    <div className={`text-lg sm:text-xl font-black font-mono leading-tight mt-0.5 truncate ${citSummary.netProfitAfterTax >= 0 ? 'text-emerald-800' : 'text-rose-600'}`}>
+                      {citSummary.netProfitAfterTax.toLocaleString('vi-VN')} đ
+                    </div>
+                    <div className="text-[10.5px] text-emerald-700 mt-1 flex flex-wrap items-center justify-between gap-1">
+                      <span className="whitespace-nowrap">= Thu - Chi - Thuế</span>
+                      <span className="font-mono font-bold text-emerald-900 shrink-0">
+                        {citSummary.totalRevenue > 0
+                          ? `${((citSummary.netProfitAfterTax / citSummary.totalRevenue) * 100).toFixed(1)}% ROS`
+                          : '0% ROS'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* THÔNG BÁO CHẾ ĐỘ CẢ NĂM (TỰ ĐỘNG GỘP 4 QUÝ CHUẨN KẾ TOÁN) */}
               {taxQuarter === 'ALL' && (
@@ -1140,403 +1645,224 @@ export const ContextAuditPage: React.FC = () => {
                 />
               )}
 
-              {/* 📋 BẢNG 1: BẢNG KÊ DOANH THU GHI NHẬN */}
-              <div className="bg-white rounded-2xl border border-teal-200 overflow-hidden shadow-xs">
-                <div className="bg-teal-50/90 px-4 py-3 border-b border-teal-200 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-teal-600"></span>
-                    <h5 className="text-xs sm:text-sm font-extrabold text-teal-950 uppercase m-0 tracking-wider">
-                      1. Bảng Kê Doanh Thu Ghi Nhận ({revenues.length} khoản)
-                    </h5>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
-                      onClick={handleOpenAddRevenue}
-                      disabled={taxQuarter === 'ALL'}
-                      className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed border-none font-bold text-xs rounded-lg"
-                      title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản thu'}
-                    >
-                      Thêm khoản thu
-                    </Button>
-                    <Upload
-                      accept=".xlsx, .xls"
-                      multiple={false}
-                      beforeUpload={handleExcelUpload}
-                      showUploadList={false}
-                      disabled={isExcelUploading || taxQuarter === 'ALL'}
-                    >
-                      <Button
-                        size="small"
-                        icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
-                        className="font-bold text-xs rounded-lg disabled:opacity-40"
-                        loading={isExcelUploading}
-                        disabled={taxQuarter === 'ALL'}
-                        title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để import Excel' : 'Nạp file Excel'}
-                      >
-                        Import Excel
-                      </Button>
-                    </Upload>
-                    <button
-                      type="button"
-                      onClick={() => downloadCitExcelTemplate(taxQuarter, taxYear)}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
-                    >
-                      <DownloadOutlined className="text-xs" />
-                      <span>Tải file mẫu Excel</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                        <th className="py-2.5 px-3 text-center w-12">#</th>
-                        <th className="py-2.5 px-3 w-28">Ngày ghi nhận</th>
-                        <th className="py-2.5 px-3 w-28">Số hóa đơn</th>
-                        <th className="py-2.5 px-3">Diễn giải / Khách hàng</th>
-                        <th className="py-2.5 px-4 text-right w-44">Doanh thu chưa thuế (VNĐ)</th>
-                        <th className="py-2.5 px-3 text-center w-24">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {revenues.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-6 text-center text-slate-400 italic">
-                            Chưa có khoản doanh thu nào. Bấm "+ Thêm khoản thu" hoặc "Import Excel" để bắt đầu.
-                          </td>
-                        </tr>
-                      ) : (
-                        revenues.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-2.5 px-3 text-center font-mono text-slate-400 font-semibold">{idx + 1}</td>
-                            <td className="py-2.5 px-3 text-slate-700 font-medium whitespace-nowrap">{row.date}</td>
-                            <td className="py-2.5 px-3">
-                              {row.invoiceNo ? (
-                                <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                  {row.invoiceNo}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 italic text-[11px]">-</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-800 font-medium">{row.description}</td>
-                            <td className="py-2.5 px-4 text-right font-mono font-bold text-teal-700 whitespace-nowrap">
-                              {row.amount.toLocaleString('vi-VN')} đ
-                            </td>
-                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  type="text"
-                                  size="small"
-                                  icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
-                                  onClick={() => handleOpenEditRevenue(idx)}
-                                  disabled={taxQuarter === 'ALL'}
-                                  className="hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để sửa' : 'Sửa khoản thu'}
-                                />
-                                <Popconfirm
-                                  title="Xác nhận xóa"
-                                  description="Bạn có chắc chắn muốn xóa khoản thu này không?"
-                                  onConfirm={() => handleDeleteRevenue(idx)}
-                                  okText="Xóa"
-                                  cancelText="Hủy"
-                                  okButtonProps={{ danger: true }}
-                                  disabled={taxQuarter === 'ALL'}
-                                >
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
-                                    disabled={taxQuarter === 'ALL'}
-                                    className="hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để xóa' : 'Xóa khoản thu'}
-                                  />
-                                </Popconfirm>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-teal-50/80 border-t-2 border-teal-300 font-bold text-xs">
-                        <td colSpan={4} className="py-3 px-4 text-right uppercase tracking-wider font-extrabold text-teal-950">
-                          Tổng Doanh Thu Ghi Nhận:
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm sm:text-base font-black text-teal-800 whitespace-nowrap">
-                          {citCalcResult ? citCalcResult.totalRevenue.toLocaleString('vi-VN') : 0} đ
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-
-              {/* 📋 BẢNG 2: BẢNG KÊ CHI PHÍ KẾ TOÁN & RÀ SOÁT XUẤT TOÁN (MỤC B4) */}
+              {/* 📋 2 TABS SỔ THU CHI CHUẨN ANT DESIGN VỚI PHÂN TRANG & TÌM KIẾM SERVER-SIDE */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="bg-slate-100/90 px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    <h5 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase m-0 tracking-wider">
-                      2. Bảng Kê Chi Phí Kế Toán & Rà Soát Xuất Toán ({expenses.length} khoản)
-                    </h5>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
-                      onClick={handleOpenAddExpense}
-                      disabled={taxQuarter === 'ALL'}
-                      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed border-none font-bold text-xs rounded-lg"
-                      title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản chi'}
-                    >
-                      Thêm khoản chi
-                    </Button>
-                    <Upload
-                      accept=".xlsx, .xls"
-                      multiple={false}
-                      beforeUpload={handleExcelUpload}
-                      showUploadList={false}
-                      disabled={isExcelUploading || taxQuarter === 'ALL'}
-                    >
-                      <Button
-                        size="small"
-                        icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
-                        className="font-bold text-xs rounded-lg disabled:opacity-40"
-                        loading={isExcelUploading}
-                        disabled={taxQuarter === 'ALL'}
-                        title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để import Excel' : 'Import Excel'}
-                      >
-                        Import Excel
-                      </Button>
-                    </Upload>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                        <th className="py-2.5 px-3 text-center w-12">#</th>
-                        <th className="py-2.5 px-3 w-24">Ngày chi</th>
-                        <th className="py-2.5 px-3 min-w-[180px]">Khoản mục chi</th>
-                        <th className="py-2.5 px-3 w-28 text-center">Thanh toán</th>
-                        <th className="py-2.5 px-3 w-24 text-center">Hóa đơn</th>
-                        <th className="py-2.5 px-4 text-right w-36">Số tiền (VNĐ)</th>
-                        <th className="py-2.5 px-4 min-w-[240px]">Đánh giá tính hợp lý (Mục B4)</th>
-                        <th className="py-2.5 px-3 text-center w-24">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {expenses.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-6 text-center text-slate-400 italic">
-                            Chưa có khoản chi phí nào. Bấm "+ Thêm khoản chi" hoặc "Import Excel" để bắt đầu.
-                          </td>
-                        </tr>
-                      ) : (
-                        expenses.map((row, idx) => {
-                          const disallowed = citCalcResult?.disallowedItems.find(
-                            (d) => d.id.endsWith(`_${idx}`) || (d.date === row.date && d.category === row.category && d.amount === row.amount)
-                          );
-                          const isCash = row.paymentMethod.toLowerCase().includes('tiền mặt') || row.paymentMethod.toLowerCase().includes('cash');
-                          const hasInv = row.hasInvoice.toLowerCase().includes('có') || row.hasInvoice.toLowerCase().includes('yes');
-                          const hasNoInv = !hasInv;
-                          const isCashOver20M = isCash && row.amount >= 20000000;
-                          const isOwnerSalary = orgModel === 'TAG_TNHH_1TV' && (
-                            row.category.toLowerCase().includes('lương chủ') ||
-                            row.category.toLowerCase().includes('lương giám đốc') ||
-                            row.category.toLowerCase().includes('lương chủ tịch')
-                          );
-                          const isDisallowed = Boolean(disallowed || isCashOver20M || hasNoInv || isOwnerSalary);
-
-                          return (
-                            <tr
-                              key={idx}
-                              className={`transition-colors ${
-                                isDisallowed
-                                  ? 'bg-rose-50/70 hover:bg-rose-100/70 border-l-4 border-l-rose-500'
-                                  : 'hover:bg-slate-50/80 border-l-4 border-l-transparent'
-                              }`}
-                            >
-                              <td className="py-2.5 px-3 text-center font-mono text-slate-400 font-semibold">{idx + 1}</td>
-                              <td className="py-2.5 px-3 text-slate-700 font-medium whitespace-nowrap">{row.date}</td>
-                              <td className="py-2.5 px-3">
-                                <span className="font-semibold text-slate-800 block">{row.category}</span>
-                                {row.note && <span className="text-[11px] text-slate-400 italic block mt-0.5">{row.note}</span>}
-                              </td>
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                {isCash ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                    Tiền mặt
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                    Chuyển khoản
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                {hasInv ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Có HĐ
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                                    Không HĐ
-                                  </span>
-                                )}
-                              </td>
-                              <td className={`py-2.5 px-4 text-right font-mono font-bold whitespace-nowrap ${isDisallowed ? 'text-rose-700' : 'text-slate-800'}`}>
-                                {row.amount.toLocaleString('vi-VN')} đ
-                              </td>
-                              <td className="py-2.5 px-4">
-                                {isDisallowed ? (
-                                  <div className="space-y-1">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
-                                      <WarningOutlined /> BỊ LOẠI (MỤC B4)
-                                    </span>
-                                    <p className="text-[11px] text-rose-700 m-0 font-bold leading-snug">
-                                      {isCashOver20M
-                                        ? 'Hóa đơn ≥ 20 triệu thanh toán tiền mặt (không có chứng từ ngân hàng).'
-                                        : hasNoInv
-                                        ? 'Chi phí không có hóa đơn chứng từ hợp pháp.'
-                                        : isOwnerSalary
-                                        ? 'Lương/thù lao của chủ công ty TNHH 1TV do cá nhân làm chủ.'
-                                        : disallowed?.reason || 'Chi phí bị loại trừ theo luật thuế.'}
-                                    </p>
-                                    <p className="text-[10px] text-rose-600/80 italic m-0">
-                                      Căn cứ: {isCashOver20M ? 'Điều 4 Thông tư 96/2015/TT-BTC & Điều 15 TT 219/2013/TT-BTC' : (disallowed?.legalBasis || 'Thông tư 96/2015/TT-BTC')}
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    <Check className="w-3 h-3 text-emerald-600" /> Được trừ hợp lý
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
-                                    onClick={() => handleOpenEditExpense(idx)}
-                                    disabled={taxQuarter === 'ALL'}
-                                    className="hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để sửa' : 'Sửa dòng chi phí'}
-                                  />
-                                  <Popconfirm
-                                    title="Xác nhận xóa"
-                                    description="Bạn có chắc chắn muốn xóa khoản chi này không?"
-                                    onConfirm={() => handleDeleteExpense(idx)}
-                                    okText="Xóa"
-                                    cancelText="Hủy"
-                                    okButtonProps={{ danger: true }}
-                                    disabled={taxQuarter === 'ALL'}
-                                  >
-                                    <Button
-                                      type="text"
-                                      size="small"
-                                      icon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
-                                      disabled={taxQuarter === 'ALL'}
-                                      className="hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                                      title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để xóa' : 'Xóa dòng chi phí'}
-                                    />
-                                  </Popconfirm>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-xs">
-                        <td colSpan={5} className="py-3 px-4 text-right uppercase tracking-wider font-extrabold text-slate-800">
-                          Tổng Chi Phí Kế Toán:
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm sm:text-base font-black text-slate-900 whitespace-nowrap">
-                          {citCalcResult ? citCalcResult.totalAccountingExpense.toLocaleString('vi-VN') : 0} đ
-                        </td>
-                        <td colSpan={2} className="py-3 px-4">
-                          {citCalcResult && (
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                Được trừ: <strong className="font-mono">{citCalcResult.totalDeductibleExpense.toLocaleString('vi-VN')} đ</strong>
-                              </span>
-                              <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                                Bị loại (B4): <strong className="font-mono">-{citCalcResult.totalDisallowedExpense.toLocaleString('vi-VN')} đ</strong>
-                              </span>
+                <Tabs
+                  activeKey={financialTab}
+                  onChange={(k) => setFinancialTab(k as 'revenue' | 'expense')}
+                  className="px-4 pt-2"
+                  items={[
+                    {
+                      key: 'revenue',
+                      label: (
+                        <span className="flex items-center gap-2 font-bold text-sm text-teal-900">
+                          1. Bảng Kê Doanh Thu Ghi Nhận
+                          <Tag color="cyan" className="rounded-full px-2 text-[11px] font-extrabold m-0">
+                            {citSummary.revenueCount} khoản
+                          </Tag>
+                        </span>
+                      ),
+                      children: (
+                        <div className="space-y-3 pb-4">
+                          {/* Thanh công cụ tìm kiếm và thao tác Tab Doanh thu */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 bg-teal-50/70 p-3 rounded-xl border border-teal-100">
+                            <div className="flex items-center gap-2 flex-1 min-w-[260px] max-w-[420px]">
+                              <Input.Search
+                                placeholder="Tìm theo Số HĐ hoặc Khách hàng / Diễn giải..."
+                                allowClear
+                                value={revenueSearch}
+                                onChange={(e) => setRevenueSearch(e.target.value)}
+                                onSearch={() => { setRevenuePage(1); fetchRevenues(); }}
+                                size="small"
+                                className="w-full text-xs"
+                              />
                             </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
+                                onClick={handleOpenAddRevenue}
+                                disabled={taxQuarter === 'ALL'}
+                                className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 border-none font-bold text-xs rounded-lg"
+                                title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản thu'}
+                              >
+                                Thêm khoản thu
+                              </Button>
+                              <Upload
+                                accept=".xlsx, .xls"
+                                showUploadList={false}
+                                beforeUpload={handleUploadRevenueExcel}
+                                disabled={isExcelUploading || taxQuarter === 'ALL'}
+                              >
+                                <Button
+                                  size="small"
+                                  icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
+                                  loading={isExcelUploading}
+                                  disabled={taxQuarter === 'ALL'}
+                                  className="font-bold text-xs rounded-lg"
+                                  title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để nạp file' : 'Nạp file Excel Doanh thu'}
+                                >
+                                  Import Excel Doanh thu
+                                </Button>
+                              </Upload>
+                              <button
+                                type="button"
+                                onClick={() => downloadRevenueExcelTemplate(taxQuarter, taxYear)}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
+                              >
+                                <DownloadOutlined className="text-emerald-600 text-xs" />
+                                <span>Tải mẫu Excel Doanh thu</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Bảng Doanh thu Ant Design Server-side */}
+                          <Table
+                            dataSource={revenuesData}
+                            rowKey="id"
+                            loading={isRevenueLoading}
+                            columns={revenueColumns}
+                            pagination={{
+                              current: revenuePage,
+                              pageSize: revenueLimit,
+                              total: revenuesTotal,
+                              showSizeChanger: true,
+                              pageSizeOptions: ['10', '20', '50', '100'],
+                              showTotal: (total, range) => `${range[0]}-${range[1]} trên tổng số ${total} khoản thu`,
+                              onChange: (page, pageSize) => {
+                                setRevenuePage(page);
+                                setRevenueLimit(pageSize);
+                              },
+                            }}
+                            className="border border-slate-200 rounded-xl overflow-hidden"
+                            size="small"
+                          />
+                        </div>
+                      ),
+                    },
+                    {
+                      key: 'expense',
+                      label: (
+                        <span className="flex items-center gap-2 font-bold text-sm text-slate-900">
+                          2. Bảng Kê Chi Phí & Rà Soát Xuất Toán (Mục B4)
+                          <Tag color="orange" className="rounded-full px-2 text-[11px] font-extrabold m-0">
+                            {citSummary.expenseCount} khoản
+                          </Tag>
+                          {citSummary.disallowedCount > 0 && (
+                            <Tag color="error" className="rounded-full px-2 text-[11px] font-extrabold m-0">
+                              {citSummary.disallowedCount} bị loại B4
+                            </Tag>
                           )}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                        </span>
+                      ),
+                      children: (
+                        <div className="space-y-3 pb-4">
+                          {/* Thanh công cụ tìm kiếm, bộ lọc B4 và thao tác Tab Chi phí */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100/90 p-3 rounded-xl border border-slate-200">
+                            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+                              <Input.Search
+                                placeholder="Tìm theo Khoản mục chi hoặc Ghi chú..."
+                                allowClear
+                                value={expenseSearch}
+                                onChange={(e) => setExpenseSearch(e.target.value)}
+                                onSearch={() => { setExpensePage(1); fetchExpenses(); }}
+                                size="small"
+                                className="w-full sm:w-60 text-xs"
+                              />
+                              <Radio.Group
+                                value={expenseFilterB4}
+                                onChange={(e) => {
+                                  setExpenseFilterB4(e.target.value);
+                                  setExpensePage(1);
+                                }}
+                                size="small"
+                                optionType="button"
+                                buttonStyle="solid"
+                              >
+                                <Radio.Button value="ALL">Tất cả ({citSummary.expenseCount})</Radio.Button>
+                                <Radio.Button value="DISALLOWED" className="text-rose-600 font-bold">
+                                  ⚠️ Bị loại B4 ({citSummary.disallowedCount})
+                                </Radio.Button>
+                                <Radio.Button value="DEDUCTIBLE" className="text-emerald-700 font-bold">
+                                  ✅ Được trừ ({citSummary.expenseCount - citSummary.disallowedCount})
+                                </Radio.Button>
+                              </Radio.Group>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
+                                onClick={handleOpenAddExpense}
+                                disabled={taxQuarter === 'ALL'}
+                                className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 border-none font-bold text-xs rounded-lg"
+                                title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản chi'}
+                              >
+                                Thêm khoản chi
+                              </Button>
+                              <Upload
+                                accept=".xlsx, .xls"
+                                showUploadList={false}
+                                beforeUpload={handleUploadExpenseExcel}
+                                disabled={isExcelUploading || taxQuarter === 'ALL'}
+                              >
+                                <Button
+                                  size="small"
+                                  icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1" />}
+                                  loading={isExcelUploading}
+                                  disabled={taxQuarter === 'ALL'}
+                                  className="font-bold text-xs rounded-lg"
+                                  title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để nạp file' : 'Nạp file Excel Chi phí'}
+                                >
+                                  Import Excel Chi phí
+                                </Button>
+                              </Upload>
+                              <button
+                                type="button"
+                                onClick={() => downloadExpenseExcelTemplate(taxQuarter, taxYear)}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
+                              >
+                                <DownloadOutlined className="text-emerald-600 text-xs" />
+                                <span>Tải mẫu Excel Chi phí</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Bảng Chi phí Ant Design Server-side */}
+                          <Table
+                            dataSource={expensesData}
+                            rowKey="id"
+                            loading={isExpenseLoading}
+                            columns={expenseColumns}
+                            pagination={{
+                              current: expensePage,
+                              pageSize: expenseLimit,
+                              total: expensesTotal,
+                              showSizeChanger: true,
+                              pageSizeOptions: ['10', '20', '50', '100'],
+                              showTotal: (total, range) => `${range[0]}-${range[1]} trên tổng số ${total} khoản chi`,
+                              onChange: (page, pageSize) => {
+                                setExpensePage(page);
+                                setExpenseLimit(pageSize);
+                              },
+                            }}
+                            rowClassName={(record) =>
+                              record.isDisallowedB4
+                                ? 'bg-rose-50/70 hover:bg-rose-100/70 border-l-4 border-l-rose-500'
+                                : 'hover:bg-slate-50/80 border-l-4 border-l-transparent'
+                            }
+                            className="border border-slate-200 rounded-xl overflow-hidden"
+                            size="small"
+                          />
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
               </div>
 
-              {/* KHỐI TỔNG KẾT NGHĨA VỤ THUẾ TNDN & TẠM NỘP 80% */}
-              {citCalcResult && (
-                <div className="bg-linear-to-r from-teal-900 via-slate-900 to-teal-950 text-white rounded-2xl p-5 shadow-lg border border-teal-800/40 space-y-4">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-2.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-lg bg-teal-400/20 text-teal-300 text-xs font-black uppercase tracking-wider border border-teal-400/30">
-                          % Thuế Suất Áp Dụng: {citCalcResult.incentiveInfo.taxRatePercentText}
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-white/10 text-slate-300 text-xs font-medium border border-white/10">
-                          {incentiveInfo.title}
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-amber-400/20 text-amber-300 text-xs font-bold border border-amber-400/30">
-                          Kỳ tính thuế: {taxQuarter === 'ALL' ? `Cả năm ${taxYear}` : `Quý ${taxQuarter} / ${taxYear}`}
-                        </span>
-                        <span className="text-xs text-slate-300">
-                          Thu nhập tính thuế: <strong className="font-mono text-white">{citCalcResult.assessableIncome.toLocaleString('vi-VN')} đ</strong>
-                        </span>
-                      </div>
 
-                      <div className="space-y-1">
-                        <div className="text-xs text-amber-200/80 font-bold uppercase tracking-wider">
-                          Số Tiền Thuế TNDN {taxQuarter === 'ALL' ? `Cả Năm ${taxYear}` : `Quý ${taxQuarter}/${taxYear}`} Dự Kiến Cần Đóng:
-                        </div>
-                        <div className="text-2xl sm:text-3xl font-black font-mono text-amber-300 tracking-tight">
-                          {citCalcResult.estimatedTaxAmount.toLocaleString('vi-VN')} VNĐ
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-teal-100 bg-teal-950/60 border border-teal-500/30 px-3 py-2 rounded-xl">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>
-                          Nghĩa vụ tạm nộp 4 quý tối thiểu 80% (Nghị định 91/2022/NĐ-CP):{' '}
-                          <strong className="text-amber-300 font-mono text-sm font-bold">
-                            {citCalcResult.statutoryPrepayment80.toLocaleString('vi-VN')} VNĐ
-                          </strong>{' '}
-                          (Hạn chót nộp kỳ {taxQuarter === 'ALL' ? `năm ${taxYear}` : `Q${taxQuarter}/${taxYear}`}: <strong>{getQuarterDeadline(taxQuarter, taxYear)}</strong>).
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5 justify-center">
-                      <Button
-                        type="primary"
-                        icon={<CreditCardOutlined />}
-                        onClick={() => setShowEtaxModal(true)}
-                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl h-11 px-5 border-none shadow-md shadow-amber-400/20 flex items-center justify-center gap-2"
-                      >
-                        Hướng Dẫn Nộp Thuế eTax (Tiểu mục 1052)
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1977,13 +2303,13 @@ export const ContextAuditPage: React.FC = () => {
         title={
           <div className="flex items-center gap-2 text-slate-900 font-extrabold text-base">
             <DollarSign className="w-5 h-5 text-teal-600" />
-            <span>{editingRevenueIndex !== null ? 'Chỉnh Sửa Khoản Thu Doanh Thu' : 'Thêm Mới Khoản Thu Doanh Thu'}</span>
+            <span>{editingRevenueId !== null ? 'Chỉnh Sửa Khoản Thu Doanh Thu' : 'Thêm Mới Khoản Thu Doanh Thu'}</span>
           </div>
         }
         open={isRevenueModalOpen}
         onCancel={() => setIsRevenueModalOpen(false)}
         onOk={handleSaveRevenue}
-        okText={editingRevenueIndex !== null ? 'Cập nhật' : 'Thêm vào bảng'}
+        okText={editingRevenueId !== null ? 'Cập nhật' : 'Thêm vào bảng'}
         cancelText="Hủy"
         okButtonProps={{ className: 'bg-teal-600 hover:bg-teal-700 border-none font-bold rounded-xl' }}
         cancelButtonProps={{ className: 'rounded-xl font-semibold' }}
@@ -1994,9 +2320,9 @@ export const ContextAuditPage: React.FC = () => {
           <Form.Item
             name="date"
             label={<span className="text-xs font-bold text-slate-700">Ngày ghi nhận (DD/MM/YYYY)</span>}
-            rules={[{ required: true, message: 'Vui lòng nhập ngày ghi nhận' }]}
+            rules={[{ required: true, message: 'Vui lòng chọn ngày ghi nhận' }]}
           >
-            <Input placeholder="Ví dụ: 15/03/2025" className="rounded-xl" />
+            <DatePicker format="DD/MM/YYYY" placeholder="Chọn ngày ghi nhận (DD/MM/YYYY)" className="w-full rounded-xl" />
           </Form.Item>
 
           <Form.Item
@@ -2038,13 +2364,13 @@ export const ContextAuditPage: React.FC = () => {
         title={
           <div className="flex items-center gap-2 text-slate-900 font-extrabold text-base">
             <FileText className="w-5 h-5 text-amber-600" />
-            <span>{editingExpenseIndex !== null ? 'Chỉnh Sửa Khoản Chi Phí Kế Toán' : 'Thêm Mới Khoản Chi Phí Kế Toán'}</span>
+            <span>{editingExpenseId !== null ? 'Chỉnh Sửa Khoản Chi Phí Kế Toán' : 'Thêm Mới Khoản Chi Phí Kế Toán'}</span>
           </div>
         }
         open={isExpenseModalOpen}
         onCancel={() => setIsExpenseModalOpen(false)}
         onOk={handleSaveExpense}
-        okText={editingExpenseIndex !== null ? 'Cập nhật' : 'Thêm vào bảng'}
+        okText={editingExpenseId !== null ? 'Cập nhật' : 'Thêm vào bảng'}
         cancelText="Hủy"
         okButtonProps={{ className: 'bg-amber-600 hover:bg-amber-700 border-none font-bold rounded-xl' }}
         cancelButtonProps={{ className: 'rounded-xl font-semibold' }}
@@ -2055,9 +2381,9 @@ export const ContextAuditPage: React.FC = () => {
           <Form.Item
             name="date"
             label={<span className="text-xs font-bold text-slate-700">Ngày chi (DD/MM/YYYY)</span>}
-            rules={[{ required: true, message: 'Vui lòng nhập ngày chi' }]}
+            rules={[{ required: true, message: 'Vui lòng chọn ngày chi' }]}
           >
-            <Input placeholder="Ví dụ: 20/03/2025" className="rounded-xl" />
+            <DatePicker format="DD/MM/YYYY" placeholder="Chọn ngày chi (DD/MM/YYYY)" className="w-full rounded-xl" />
           </Form.Item>
 
           <Form.Item
