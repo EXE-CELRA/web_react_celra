@@ -28,25 +28,37 @@ export interface ParsedCitData {
  * 📥 TẠO VÀ TẢI FILE EXCEL MẪU CHUẨN CỦA CELRA
  * Gồm đúng 2 Sheet: DOANH_THU và CHI_PHI
  */
-export function downloadCitExcelTemplate(): void {
+export function downloadCitExcelTemplate(quarter: number | 'ALL' = 1, year: number = new Date().getFullYear()): void {
   const wb = XLSX.utils.book_new();
+
+  // Tạo tháng mẫu theo quý được chọn
+  let m1 = '01', m2 = '02', m3 = '03';
+  if (quarter === 2) {
+    m1 = '04'; m2 = '05'; m3 = '06';
+  } else if (quarter === 3) {
+    m1 = '07'; m2 = '08'; m3 = '09';
+  } else if (quarter === 4) {
+    m1 = '10'; m2 = '11'; m3 = '12';
+  } else if (quarter === 'ALL') {
+    m1 = '02'; m2 = '06'; m3 = '10';
+  }
 
   // 1. Dữ liệu Sheet DOANH_THU
   const revenueData = [
     {
-      'Ngày ghi nhận (DD/MM/YYYY)': '15/01/2026',
+      'Ngày ghi nhận (DD/MM/YYYY)': `15/${m1}/${year}`,
       'Số hóa đơn': 'HD000128',
       'Diễn giải / Khách hàng': 'Cung cấp dịch vụ tư vấn doanh nghiệp cho Cty An Bình',
       'Doanh thu chưa thuế (VNĐ)': 120000000,
     },
     {
-      'Ngày ghi nhận (DD/MM/YYYY)': '28/02/2026',
+      'Ngày ghi nhận (DD/MM/YYYY)': `28/${m2}/${year}`,
       'Số hóa đơn': 'HD000129',
       'Diễn giải / Khách hàng': 'Thực hiện hợp đồng cung ứng gói phần mềm số đợt 1',
       'Doanh thu chưa thuế (VNĐ)': 250000000,
     },
     {
-      'Ngày ghi nhận (DD/MM/YYYY)': '20/03/2026',
+      'Ngày ghi nhận (DD/MM/YYYY)': `20/${m3}/${year}`,
       'Số hóa đơn': 'HD000130',
       'Diễn giải / Khách hàng': 'Bán lẻ hàng hóa qua kênh thương mại điện tử',
       'Doanh thu chưa thuế (VNĐ)': 85000000,
@@ -56,7 +68,7 @@ export function downloadCitExcelTemplate(): void {
   // 2. Dữ liệu Sheet CHI_PHI (Gồm cả chi phí chuẩn và các chi phí mẫu để test rủi ro)
   const expenseData = [
     {
-      'Ngày chi (DD/MM/YYYY)': '10/01/2026',
+      'Ngày chi (DD/MM/YYYY)': `10/${m1}/${year}`,
       'Khoản mục chi': 'Tiền thuê mặt bằng văn phòng làm việc',
       'Số tiền (VNĐ)': 30000000,
       'Phương thức thanh toán': 'Chuyển khoản',
@@ -64,7 +76,7 @@ export function downloadCitExcelTemplate(): void {
       'Ghi chú': 'Hóa đơn tiền thuê nhà số 00412 chuyển khoản qua NH Vietcombank',
     },
     {
-      'Ngày chi (DD/MM/YYYY)': '18/01/2026',
+      'Ngày chi (DD/MM/YYYY)': `18/${m1}/${year}`,
       'Khoản mục chi': 'Lương Chủ tịch kiêm Giám đốc (Công ty TNHH 1TV)',
       'Số tiền (VNĐ)': 25000000,
       'Phương thức thanh toán': 'Chuyển khoản',
@@ -72,7 +84,7 @@ export function downloadCitExcelTemplate(): void {
       'Ghi chú': 'Thù lao điều hành của chủ sở hữu cá nhân (Rủi ro bị loại B4)',
     },
     {
-      'Ngày chi (DD/MM/YYYY)': '05/02/2026',
+      'Ngày chi (DD/MM/YYYY)': `05/${m2}/${year}`,
       'Khoản mục chi': 'Mua thiết bị máy tính văn phòng',
       'Số tiền (VNĐ)': 22000000,
       'Phương thức thanh toán': 'Tiền mặt',
@@ -80,7 +92,7 @@ export function downloadCitExcelTemplate(): void {
       'Ghi chú': 'Hóa đơn > 20 triệu nhưng trả tiền mặt (Rủi ro bị loại B4)',
     },
     {
-      'Ngày chi (DD/MM/YYYY)': '15/02/2026',
+      'Ngày chi (DD/MM/YYYY)': `15/${m2}/${year}`,
       'Khoản mục chi': 'Chi phí quảng cáo Facebook Ads trực tiếp qua thẻ',
       'Số tiền (VNĐ)': 15000000,
       'Phương thức thanh toán': 'Chuyển khoản',
@@ -88,7 +100,7 @@ export function downloadCitExcelTemplate(): void {
       'Ghi chú': 'Dịch vụ nước ngoài xuyên biên giới (Cần nộp thuế nhà thầu FCT)',
     },
     {
-      'Ngày chi (DD/MM/YYYY)': '22/02/2026',
+      'Ngày chi (DD/MM/YYYY)': `22/${m2}/${year}`,
       'Khoản mục chi': 'Mua văn phòng phẩm, giấy in lặt vặt tiếp khách',
       'Số tiền (VNĐ)': 4500000,
       'Phương thức thanh toán': 'Tiền mặt',
@@ -96,7 +108,7 @@ export function downloadCitExcelTemplate(): void {
       'Ghi chú': 'Chi phí không có hóa đơn chứng từ hợp lệ (Rủi ro bị loại B4)',
     },
     {
-      'Ngày chi (DD/MM/YYYY)': '10/03/2026',
+      'Ngày chi (DD/MM/YYYY)': `10/${m3}/${year}`,
       'Khoản mục chi': 'Thanh toán cước Internet và điện thoại công ty',
       'Số tiền (VNĐ)': 3500000,
       'Phương thức thanh toán': 'Chuyển khoản',
@@ -128,7 +140,8 @@ export function downloadCitExcelTemplate(): void {
   XLSX.utils.book_append_sheet(wb, wsRevenue, 'DOANH_THU');
   XLSX.utils.book_append_sheet(wb, wsExpense, 'CHI_PHI');
 
-  XLSX.writeFile(wb, 'CELRA_Mau_Du_Toan_Thu_Chi_TNDN.xlsx');
+  const filePeriod = quarter === 'ALL' ? `Nam_${year}` : `Q${quarter}_${year}`;
+  XLSX.writeFile(wb, `CELRA_Mau_Du_Toan_Thu_Chi_TNDN_${filePeriod}.xlsx`);
 }
 
 /**
@@ -195,4 +208,36 @@ export async function parseCitExcelFile(file: File): Promise<ParsedCitData> {
     totalRawRevenue,
     totalRawExpense,
   };
+}
+
+/**
+ * 🔍 TỰ ĐỘNG BÓC TÁCH KỲ KÊ KHAI (QUÝ & NĂM) TỪ DỮ LIỆU EXCEL UPLOAD
+ */
+export function detectPeriodFromCitData(
+  revenues: RevenueRow[],
+  expenses: ExpenseRow[]
+): { quarter?: number; year?: number } {
+  const sampleDates = [...revenues.map((r) => r.date), ...expenses.map((e) => e.date)].filter(Boolean);
+  for (const dateStr of sampleDates) {
+    const dStr = String(dateStr).trim();
+    // DD/MM/YYYY hoặc DD-MM-YYYY
+    const dmy = dStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (dmy) {
+      const month = parseInt(dmy[2], 10);
+      const year = parseInt(dmy[3], 10);
+      if (month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
+        return { quarter: Math.floor((month - 1) / 3) + 1, year };
+      }
+    }
+    // YYYY-MM-DD hoặc YYYY/MM/DD
+    const ymd = dStr.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    if (ymd) {
+      const year = parseInt(ymd[1], 10);
+      const month = parseInt(ymd[2], 10);
+      if (month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
+        return { quarter: Math.floor((month - 1) / 3) + 1, year };
+      }
+    }
+  }
+  return {};
 }
