@@ -34,8 +34,8 @@ const { Text } = Typography;
 const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Bảng Điều Khiển',
   '/context': 'Context Doanh Nghiệp',
-  '/survey': 'Câu Hỏi Tình Huống',
-  '/onboarding': 'Câu Hỏi Tình Huống',
+  '/survey': 'Hồ Sơ Doanh Nghiệp',
+  '/onboarding': 'Hồ Sơ Doanh Nghiệp',
   '/tasks': 'Danh Sách Tác Vụ Tuân Thủ',
   '/tasks/calendar': 'Lịch Tuân Thủ & Ghi Chú',
   '/checklists': 'Danh Sách Tác Vụ Tuân Thủ',
@@ -109,7 +109,7 @@ export const MainLayout: React.FC = () => {
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
     { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
-    { key: '/survey', icon: <FormOutlined />, label: 'Câu Hỏi Tình Huống' },
+    { key: '/survey', icon: <FormOutlined />, label: 'Hồ Sơ Doanh Nghiệp' },
     {
       key: '/tasks-parent',
       icon: <CheckSquareOutlined />,
