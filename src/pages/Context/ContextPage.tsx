@@ -23,17 +23,28 @@ import {
   Award,
   Briefcase,
   HardDrive,
-  Plus
+  Plus,
+  Sparkles
 } from 'lucide-react';
 import { message, Modal, Form, Input, Select } from 'antd';
+import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
+import { isGroupSurveyCompleted } from '../../data/questionSurvey';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const ENABLED_CONTEXT_GROUP_KEYS = ['thue_ke_toan'];
+export const ENABLED_CONTEXT_GROUP_KEYS = ['boi_canh_co_so', 'thue_ke_toan'];
 
 
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const CONTEXT_GROUPS: ContextGroupConfig[] = [
+  {
+    key: 'boi_canh_co_so',
+    label: 'Bối Cảnh Ban Đầu',
+    shortLabel: 'Bối Cảnh Ban Đầu',
+    tag: 'HỒ SƠ CƠ SỞ',
+    icon: Building2,
+    badgeClass: 'text-teal-700 bg-teal-50 border border-teal-200',
+  },
   {
     key: 'thue_ke_toan',
     label: 'Thuế TNDN',
@@ -108,12 +119,115 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
   },
 ];
 
+
+export const CORE_BASE_FACT_KEYS = [
+  'tax_code',
+  'company_type_tag',
+  'charter_capital',
+  'employee_scale',
+  'industry_tags',
+];
+
+export const BASE_FACT_KEYS = CORE_BASE_FACT_KEYS;
+
+export const OBSOLETE_FACT_KEYS = [
+  'tax_filing_cycle',
+  'annual_revenue',
+  'employee_count',
+];
+
+export const INDUSTRY_LABEL_MAP: Record<string, string> = {
+  TAG_FNB: 'Dịch vụ ăn uống / F&B / Nhà hàng / Quán cafe',
+  TAG_RETAIL: 'Bán lẻ & Phân phối sản phẩm',
+  TAG_ECOMMERCE: 'Bán lẻ & Thương mại điện tử (Online)',
+  TAG_SOFTWARE: 'Phát triển phần mềm & Dịch vụ CNTT',
+  TAG_SERVICES: 'Dịch vụ tư vấn & Chuyên môn',
+  TAG_MANUFACTURING: 'Sản xuất & Gia công chế biến',
+  TAG_CONSTRUCTION: 'Xây dựng & Thi công công trình',
+  TAG_LOGISTICS: 'Vận tải & Kho bãi Logistics',
+};
+
+export const COMPANY_TYPE_MAP: Record<string, string> = {
+  TAG_TNHH_1TV: 'Công ty TNHH Một thành viên',
+  TAG_TNHH_2TV: 'Công ty TNHH Hai thành viên trở lên',
+  TAG_JSC: 'Công ty Cổ phần',
+  TAG_HKD: 'Hộ kinh doanh cá thể',
+  TAG_DOANH_NGHIEP_TU_NHAN: 'Doanh nghiệp tư nhân',
+};
+
+export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
+  const taxCode = org?.taxCode || profile?.taxCode || '0301045759';
+  const name = org?.name || profile?.companyName || 'Công ty TNHH';
+  const rawLegalType = profile?.companyTypeTag || org?.legalType;
+  const legalType = COMPANY_TYPE_MAP[rawLegalType] || org?.legalType || (rawLegalType === 'TAG_TNHH_1TV' ? 'Công ty TNHH Một thành viên' : 'Công ty TNHH Hai thành viên trở lên');
+  const charterCapital = profile?.charterCapital || 5000000000;
+  const count = org?.employeeCount || profile?.employeeCount || 8;
+  const rawTags = profile?.industryTags || ['TAG_FNB', 'TAG_RETAIL'];
+  const formattedIndustry = Array.isArray(rawTags) && rawTags.length > 0
+    ? rawTags.map((t: string) => INDUSTRY_LABEL_MAP[t] || t).join(', ')
+    : 'Dịch vụ ăn uống / F&B / Nhà hàng / Quán cafe, Bán lẻ & Phân phối sản phẩm';
+  const now = new Date().toISOString();
+
+  return [
+    {
+      id: 'fact-base-mst',
+      key: 'tax_code',
+      label: 'Mã số thuế & Định danh pháp lý',
+      group: 'boi_canh_co_so',
+      currentValue: `${taxCode} - ${name}`,
+      status: 'confirmed',
+      source: 'Hồ sơ nền tảng (Xác thực CSDL Thuế Quốc gia)',
+      updatedAt: now,
+    },
+    {
+      id: 'fact-base-type',
+      key: 'company_type_tag',
+      label: 'Hình thức kinh doanh & Loại hình doanh nghiệp',
+      group: 'boi_canh_co_so',
+      currentValue: legalType,
+      status: 'confirmed',
+      source: 'Hồ sơ nền tảng (Luật Doanh nghiệp 2020)',
+      updatedAt: now,
+    },
+    {
+      id: 'fact-base-capital',
+      key: 'charter_capital',
+      label: 'Vốn điều lệ đăng ký trên ĐKKD',
+      group: 'boi_canh_co_so',
+      currentValue: `${Number(charterCapital).toLocaleString('vi-VN')} VNĐ (${Number(charterCapital) > 10000000000 ? 'Bậc 1: Lệ phí môn bài 3.000.000đ/năm' : 'Bậc 2: Lệ phí môn bài 2.000.000đ/năm'})`,
+      status: 'confirmed',
+      source: 'Hồ sơ nền tảng (Nghị định 139/2016/NĐ-CP)',
+      updatedAt: now,
+    },
+    {
+      id: 'fact-base-emp',
+      key: 'employee_scale',
+      label: 'Quy mô lao động & Nghĩa vụ Nội quy lao động (NQLĐ)',
+      group: 'boi_canh_co_so',
+      currentValue: `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`,
+      status: 'confirmed',
+      source: 'Hồ sơ nền tảng (Bộ luật Lao động 2019)',
+      updatedAt: now,
+    },
+    {
+      id: 'fact-base-industry',
+      key: 'industry_tags',
+      label: 'Ngành nghề & Hoạt động kinh doanh thực tế',
+      group: 'boi_canh_co_so',
+      currentValue: formattedIndustry,
+      status: 'confirmed',
+      source: 'Hồ sơ nền tảng',
+      updatedAt: now,
+    },
+  ];
+}
+
 export const ContextPage: React.FC = () => {
   const navigate = useNavigate();
   const { activeOrg } = useOrgStore();
   const { facts, fetchFacts, updateFact, createFact } = useContextStore();
 
-  const [selectedTab, setSelectedTab] = useState<string>('thue_ke_toan');
+  const [selectedTab, setSelectedTab] = useState<string>('boi_canh_co_so');
   const [activeFactForHistory, setActiveFactForHistory] = useState<ContextFact | null>(null);
 
   // Edit value modal
@@ -130,15 +244,131 @@ export const ContextPage: React.FC = () => {
   const [conflictFact, setConflictFact] = useState<ContextFact | null>(null);
   const [agreedValue, setAgreedValue] = useState('');
 
+  // Module Survey Modal (Check Gate)
+  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
+
+  const handleStartComplianceAudit = () => {
+    const targetGroup = selectedTab === 'boi_canh_co_so' ? 'thue_ke_toan' : selectedTab;
+    const isCompleted = isGroupSurveyCompleted(facts, targetGroup);
+    if (!isCompleted) {
+      setSelectedTab('thue_ke_toan');
+      setIsSurveyModalOpen(true);
+    } else {
+      navigate(`/context/audit?group=${targetGroup}`);
+    }
+  };
+
   useEffect(() => {
     if (activeOrg?.id) {
       fetchFacts();
     }
   }, [activeOrg?.id]);
 
+    // 1. Phục hồi thông tin hồ sơ cơ sở từ local storage nếu có
+  const savedBaseProfile = React.useMemo(() => {
+    try {
+      const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
+      if (savedCompleted) return JSON.parse(savedCompleted);
+      const savedDraft = localStorage.getItem('celra_survey_draft_profile');
+      if (savedDraft) return JSON.parse(savedDraft);
+    } catch {
+      // Ignore
+    }
+    return null;
+  }, []);
+
+  // Danh sách các thẻ Bối Cảnh Cơ Sở (từ DB facts nếu có, fallback sang thông tin doanh nghiệp)
+  const baseProfileFacts: ContextFact[] = React.useMemo(() => {
+    const fallbackList = getBaseProfileFacts(activeOrg, savedBaseProfile);
+    const fallbackMap = new Map(fallbackList.map((f) => [f.key, f]));
+
+    // 1. Lọc ra các fact thuộc 5 key cốt lõi từ DB (loại trừ sạch sẽ các obsolete keys)
+    const dbFactsByKey = new Map<string, ContextFact>();
+    for (const f of facts) {
+      const key = f.key || '';
+      if (OBSOLETE_FACT_KEYS.includes(key)) continue;
+      if (CORE_BASE_FACT_KEYS.includes(key)) {
+        dbFactsByKey.set(key, f);
+      }
+    }
+
+    // 2. Tạo đúng danh sách 5 thẻ theo thứ tự chuẩn CORE_BASE_FACT_KEYS
+    return CORE_BASE_FACT_KEYS.map((key) => {
+      const dbFact = dbFactsByKey.get(key);
+      const fallback = fallbackMap.get(key)!;
+
+      if (!dbFact) {
+        return fallback;
+      }
+
+      let formattedValue = dbFact.currentValue || '';
+      let formattedLabel = dbFact.label;
+
+      if (key === 'tax_code') {
+        formattedLabel = 'Mã số thuế & Định danh pháp lý';
+        const taxVal = dbFact.currentValue || '';
+        const orgName = activeOrg?.name || savedBaseProfile?.companyName;
+        if (orgName && !taxVal.includes(orgName)) {
+          formattedValue = `${taxVal} - ${orgName}`;
+        }
+      } else if (key === 'company_type_tag') {
+        formattedLabel = 'Hình thức kinh doanh & Loại hình doanh nghiệp';
+        if (COMPANY_TYPE_MAP[formattedValue]) {
+          formattedValue = COMPANY_TYPE_MAP[formattedValue];
+        }
+      } else if (key === 'charter_capital') {
+        formattedLabel = 'Vốn điều lệ đăng ký trên ĐKKD';
+        const capNum = Number(String(formattedValue).replace(/\D/g, '')) || 0;
+        if (capNum > 0) {
+          const monBai = capNum > 10000000000 ? 'Bậc 1: Lệ phí môn bài 3.000.000đ/năm' : 'Bậc 2: Lệ phí môn bài 2.000.000đ/năm';
+          formattedValue = `${capNum.toLocaleString('vi-VN')} VNĐ (${monBai})`;
+        }
+      } else if (key === 'employee_scale') {
+        formattedLabel = 'Quy mô lao động & Nghĩa vụ Nội quy lao động (NQLĐ)';
+        const count = activeOrg?.employeeCount || savedBaseProfile?.employeeCount || 8;
+        if (!formattedValue.includes('Điều 218 BLLĐ 2019') && !formattedValue.includes('Điều 119 BLLĐ 2019')) {
+          formattedValue = `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`;
+        }
+      } else if (key === 'industry_tags') {
+        formattedLabel = 'Ngành nghề & Hoạt động kinh doanh thực tế';
+        const rawTags = (formattedValue || '').split(',').map((t) => t.trim());
+        const friendlyTags = rawTags.map((t) => INDUSTRY_LABEL_MAP[t] || t);
+        formattedValue = friendlyTags.filter(Boolean).join(', ');
+      }
+
+      return {
+        ...dbFact,
+        label: formattedLabel,
+        currentValue: formattedValue,
+        group: 'boi_canh_co_so',
+        source: dbFact.source || fallback.source,
+      };
+    });
+  }, [facts, activeOrg, savedBaseProfile]);
+
+  // Danh sách các thẻ Thuế TNDN (chỉ các thẻ câu hỏi tình huống chuyên sâu)
+  const taxFacts: ContextFact[] = React.useMemo(() => {
+    return facts.filter(
+      (f) =>
+        f.group === 'thue_ke_toan' &&
+        !CORE_BASE_FACT_KEYS.includes(f.key || '') &&
+        !OBSOLETE_FACT_KEYS.includes(f.key || '') &&
+        !f.source?.includes('Khảo sát nền tảng') &&
+        !f.source?.includes('Hồ sơ nền tảng')
+    );
+  }, [facts]);
+
   // Lọc dữ kiện: Chỉ hiển thị dữ kiện thuộc phân hệ đang chọn
-  const enabledFacts = facts.filter((f) => ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
-  const filteredFacts = enabledFacts.filter((f) => f.group === selectedTab);
+  const filteredFacts: ContextFact[] = React.useMemo(() => {
+    if (selectedTab === 'boi_canh_co_so') {
+      return baseProfileFacts;
+    }
+    if (selectedTab === 'thue_ke_toan') {
+      return taxFacts;
+    }
+    return facts.filter((f) => f.group === selectedTab);
+  }, [selectedTab, baseProfileFacts, taxFacts, facts]);
+
   // Group metadata helper for module classification
   const getGroupMeta = (group: string) => {
     const found = CONTEXT_GROUPS.find((g) => g.key === group);
@@ -161,10 +391,10 @@ export const ContextPage: React.FC = () => {
   // Nhận diện trạng thái hiển thị thông minh: Khảo sát ban đầu vs Chủ DN tự bấm Cập nhật
   const getFactComplianceInfo = (fact: ContextFact) => {
     // 1. Nhóm 4 thẻ nền tảng (MST, Loại hình, Quy mô, Ngành nghề)
-    const baseKeys = ['tax_code', 'company_type_tag', 'employee_scale', 'industry_tags'];
+    const baseKeys = ['tax_code', 'company_type_tag', 'charter_capital', 'employee_scale', 'industry_tags'];
     const factKey = fact.key || fact.factKey || '';
     const isBase = baseKeys.includes(factKey) || 
-      fact.id.startsWith('fact-tax') || 
+      fact.id.startsWith('fact-base') || fact.id.startsWith('fact-tax') || 
       fact.id.startsWith('fact-company') || 
       fact.id.startsWith('fact-employee') || 
       fact.id.startsWith('fact-industry');
@@ -307,45 +537,30 @@ export const ContextPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* Nút tính năng: Thêm dữ kiện mới & Rà soát tuân thủ */}
-        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
-          <button
-            onClick={() => {
-              createForm.resetFields();
-              createForm.setFieldsValue({ group: selectedTab || 'thue_ke_toan' });
-              setIsCreateModalOpen(true);
-            }}
-            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-300 shadow-xs"
-            title="Thêm thẻ dữ kiện bối cảnh mới vào hệ thống"
-          >
-            <Plus className="w-4 h-4 text-teal-600" />
-            <span>Thêm dữ kiện mới</span>
-          </button>
-
-          {ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) && (
+        {/* Nút tính năng: Rà soát tuân thủ (Chỉ hiển thị khi ở tab Thuế TNDN) */}
+        {selectedTab === 'thue_ke_toan' && (
+          <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
             <button
               type="button"
-              onClick={() => {
-                navigate(`/context/audit?group=${selectedTab}`);
-              }}
+              onClick={handleStartComplianceAudit}
               className="px-4 py-2.5 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
               title="Chuyển sang trang rà soát tuân thủ các quy định pháp luật theo dữ liệu Context"
             >
               <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
               <span>Rà soát tuân thủ</span>
               <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-extrabold text-white">
-                {`${filteredFacts.length} thẻ`}
+                {`${taxFacts.length} thẻ`}
               </span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* TABS PHÂN LOẠI 9 NHÓM BỐI CẢNH DOANH NGHIỆP ĐỘNG */}
       <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-2 overflow-x-auto">
         {/* CÁC PHÂN HỆ ĐANG HOẠT ĐỘNG (THUẾ DOANH NGHIỆP) */}
         {CONTEXT_GROUPS.filter((g) => ENABLED_CONTEXT_GROUP_KEYS.includes(g.key)).map((g) => {
-          const count = facts.filter((f) => f.group === g.key).length;
+          const count = g.key === 'boi_canh_co_so' ? baseProfileFacts.length : g.key === 'thue_ke_toan' ? taxFacts.length : facts.filter((f) => f.group === g.key).length;
           const isSelected = selectedTab === g.key;
           const IconComponent = g.icon;
 
@@ -378,6 +593,63 @@ export const ContextPage: React.FC = () => {
         })}
       </div>
 
+      {/* BANNER THÔNG TIN: BỐI CẢNH BAN ĐẦU (KHÔNG CÓ NÚT RÀ SOÁT) */}
+      {selectedTab === 'boi_canh_co_so' && (
+        <div className="bg-gradient-to-r from-teal-50 via-slate-50 to-teal-50 border border-teal-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-100 border border-teal-200 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-teal-700" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                <span>Hồ Sơ &amp; Bối Cảnh Ban Đầu Của Doanh Nghiệp</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">Đã xác thực</span>
+              </h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                Các thông số pháp lý, vốn, nhân sự và ngành nghề kinh doanh được đồng bộ từ hồ sơ doanh nghiệp. Bấm vào tab <strong>Thuế TNDN</strong> phía trên khi bạn muốn bắt đầu rà soát tuân thủ.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+            <button
+              type="button"
+              onClick={() => navigate('/survey')}
+              className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-300 shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+              <span>Chỉnh sửa hồ sơ</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* NHẮC NHỞ KHẢO SÁT TÌNH HUỐNG NẾU PHÂN HỆ THUẾ TNDN CHƯA HOÀN TẤT */}
+      {selectedTab === 'thue_ke_toan' && !isGroupSurveyCompleted(facts, 'thue_ke_toan') && (
+        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                <span>Chưa hoàn tất khảo sát tình huống: Thuế TNDN</span>
+                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold uppercase">Cần thiết</span>
+              </h4>
+              <p className="text-[11px] text-amber-900 leading-relaxed mt-0.5">
+                Trả lời nhanh 8 câu hỏi tình huống (~2 phút) để hệ thống thu thập bối cảnh thực tế trước khi rà soát luật và dự toán thuế.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsSurveyModalOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 flex items-center gap-1.5 cursor-pointer self-stretch sm:self-auto justify-center"
+          >
+            <ShieldCheck className="w-4 h-4 text-amber-100" />
+            <span>Làm khảo sát tình huống ngay</span>
+          </button>
+        </div>
+      )}
 
       {/* NẾU PHÂN HỆ ĐƯỢC CHỌN CHƯA KÍCH HOẠT */}
       {!ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
@@ -399,14 +671,14 @@ export const ContextPage: React.FC = () => {
             <p className="text-xs text-slate-500 leading-relaxed">
               CELRA hiện tại đang chuyên sâu và chỉ rà soát cho phân hệ <strong>Thuế TNDN</strong>.
               <br />
-              Để kích hoạt phân hệ này, lập trình viên sẽ cấu hình bộ câu hỏi độc lập tại thư mục <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-800 text-[11px]">src/data/questionServey/</code> và kết nối vào hệ sinh thái CELRA.
+              Để kích hoạt phân hệ này, lập trình viên sẽ cấu hình bộ câu hỏi độc lập tại thư mục <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-800 text-[11px]">src/data/questionSurvey/</code> và kết nối vào hệ sinh thái CELRA.
             </p>
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => message.info(`Phân hệ "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label}" đang chờ lập trình viên bổ sung file khảo sát vào questionServey/!`)}
+              onClick={() => message.info(`Phân hệ "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label}" đang chờ lập trình viên bổ sung file khảo sát vào questionSurvey/!`)}
               className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2"
             >
               <Plus className="w-4 h-4 text-emerald-400" />
@@ -792,6 +1064,16 @@ export const ContextPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* MODAL KHẢO SÁT TÌNH HUỐNG THEO THẺ CONTEXT (CHECK GATE) */}
+      <ModuleSurveyModal
+        isOpen={isSurveyModalOpen}
+        groupKey={selectedTab}
+        onClose={() => setIsSurveyModalOpen(false)}
+        onSuccess={() => {
+          navigate(`/context/audit?group=${selectedTab}`);
+        }}
+      />
     </div>
   );
 };

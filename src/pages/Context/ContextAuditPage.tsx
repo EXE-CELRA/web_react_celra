@@ -24,7 +24,8 @@ import {
   PlusCircle, 
   ExternalLink,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  SlidersHorizontal
 } from 'lucide-react';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from './ContextPage';
@@ -32,6 +33,8 @@ import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData, t
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
+import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
+import { isGroupSurveyCompleted } from '../../data/questionSurvey';
 import type { ContextFact, AuditFindingItem } from '../../interfaces';
 
 const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
@@ -117,7 +120,7 @@ export const ContextAuditPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialGroup = searchParams.get('group') || 'thue_ke_toan';
 
-  const { facts, fetchFacts } = useContextStore();
+  const { facts, fetchFacts, isLoading } = useContextStore();
   const { wallet, fetchWallet, buyPackage } = useWalletStore();
   const { activeOrg } = useOrgStore();
 
@@ -133,6 +136,19 @@ export const ContextAuditPage: React.FC = () => {
   const [auditFindings, setAuditFindings] = useState<AuditFindingItem[]>([]);
   const [creatingSingleId, setCreatingSingleId] = useState<string | null>(null);
   const [isCreatingAll, setIsCreatingAll] = useState<boolean>(false);
+
+  // Modal khảo sát tình huống chuyên biệt (Check Gate)
+  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState<boolean>(false);
+
+  // Check gate: Nếu vào trang rà soát mà phân hệ hiện tại chưa làm khảo sát thì tự động mở modal
+  useEffect(() => {
+    if (!isLoading && facts && facts.length >= 0) {
+      const isCompleted = isGroupSurveyCompleted(facts, activeTab);
+      if (!isCompleted) {
+        setIsSurveyModalOpen(true);
+      }
+    }
+  }, [facts, activeTab, isLoading]);
 
   // 🏢 DỮ LIỆU DOANH NGHIỆP & DỰ TOÁN THUẾ TNDN QUA EXCEL
   const currentYear = useMemo(() => new Date().getFullYear(), []);
@@ -388,45 +404,57 @@ export const ContextAuditPage: React.FC = () => {
       {/* ========================================================= */}
       {step === 'select' && (
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-5">
-          {/* THANH TABS NHÓM BỐI CẢNH */}
-          <div className="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 overflow-x-auto">
-            {/* CHỈ HIỂN THỊ CÁC PHÂN HỆ ĐANG KÍCH HOẠT (THUẾ) */}
-            {CONTEXT_GROUPS.filter((g) => ENABLED_CONTEXT_GROUP_KEYS.includes(g.key)).map((g) => {
-              const count = effectiveFacts.filter((f) => f.group === g.key).length;
-              const isSelected = activeTab === g.key;
-              const IconComp = g.icon;
+          {/* THANH TABS NHÓM BỐI CẢNH & NÚT CẬP NHẬT KHẢO SÁT */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 overflow-x-auto">
+              {/* CHỈ HIỂN THỊ CÁC PHÂN HỆ ĐANG KÍCH HOẠT (THUẾ) */}
+              {CONTEXT_GROUPS.filter((g) => ENABLED_CONTEXT_GROUP_KEYS.includes(g.key)).map((g) => {
+                const count = effectiveFacts.filter((f) => f.group === g.key).length;
+                const isSelected = activeTab === g.key;
+                const IconComp = g.icon;
 
-              return (
-                <button
-                  key={g.key}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(g.key);
-                    const groupFacts = effectiveFacts.filter((f) => f.group === g.key);
-                    setSelectedFactIds(groupFacts.map((f) => f.id));
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                    isSelected
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-700 hover:text-blue-700 hover:bg-white/70'
-                  }`}
-                >
-                  <IconComp className="w-3.5 h-3.5" />
-                  <span>{g.shortLabel}</span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(g.key);
+                      const groupFacts = effectiveFacts.filter((f) => f.group === g.key);
+                      setSelectedFactIds(groupFacts.map((f) => f.id));
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                       isSelected
-                        ? 'bg-white/20 text-white'
-                        : count > 0
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-slate-200 text-slate-500'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-700 hover:text-blue-700 hover:bg-white/70'
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    <IconComp className="w-3.5 h-3.5" />
+                    <span>{g.shortLabel}</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : count > 0
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsSurveyModalOpen(true)}
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-teal-800 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shadow-xs self-stretch sm:self-auto shrink-0"
+              title="Mở lại bài khảo sát tình huống chuyên biệt để cập nhật câu trả lời"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
+              <span>Cập nhật khảo sát tình huống</span>
+            </button>
           </div>
 
           {/* 📊 PHÂN HỆ NỘP FILE EXCEL THU - CHI DỰ TOÁN THUẾ TNDN (CHỈ HIỆN KHI CHỌN TAB THUẾ) */}
@@ -1093,6 +1121,16 @@ export const ContextAuditPage: React.FC = () => {
         cqtName={orgCity}
         quarter={taxQuarter}
         year={taxYear}
+      />
+
+      {/* MODAL KHẢO SÁT TÌNH HUỐNG CHUYÊN BIỆT THEO PHÂN HỆ */}
+      <ModuleSurveyModal
+        isOpen={isSurveyModalOpen}
+        groupKey={activeTab}
+        onClose={() => setIsSurveyModalOpen(false)}
+        onSuccess={() => {
+          fetchFacts();
+        }}
       />
     </div>
   );

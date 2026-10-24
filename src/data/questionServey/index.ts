@@ -1,1 +1,1 @@
-export * from './taxSurvey';
+export * from '../questionSurvey';
