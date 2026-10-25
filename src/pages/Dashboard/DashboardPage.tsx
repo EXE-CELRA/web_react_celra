@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/immutability */
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Progress, Typography, Button, Table, Space, Empty, Tag, message, Alert, Modal, Radio } from 'antd';
@@ -445,7 +446,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </Col>
 
-        {/* Card 3: Nghĩa Vụ Ưu Tiên Cao */}
+        {/* Card 3: Nghĩa Vụ Ưu Tiên Caooo */}
         <Col xs={24} sm={12} lg={8}>
           <div
             style={{

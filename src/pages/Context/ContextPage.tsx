@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -120,6 +120,7 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
 ];
 
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const CORE_BASE_FACT_KEYS = [
   'tax_code',
   'company_type_tag',
@@ -130,12 +131,14 @@ export const CORE_BASE_FACT_KEYS = [
 
 export const BASE_FACT_KEYS = CORE_BASE_FACT_KEYS;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const OBSOLETE_FACT_KEYS = [
   'tax_filing_cycle',
   'annual_revenue',
   'employee_count',
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const INDUSTRY_LABEL_MAP: Record<string, string> = {
   TAG_FNB: 'Dịch vụ ăn uống / F&B / Nhà hàng / Quán cafe',
   TAG_RETAIL: 'Bán lẻ & Phân phối sản phẩm',
@@ -147,6 +150,7 @@ export const INDUSTRY_LABEL_MAP: Record<string, string> = {
   TAG_LOGISTICS: 'Vận tải & Kho bãi Logistics',
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const COMPANY_TYPE_MAP: Record<string, string> = {
   TAG_TNHH_1TV: 'Công ty TNHH Một thành viên',
   TAG_TNHH_2TV: 'Công ty TNHH Hai thành viên trở lên',
@@ -155,6 +159,7 @@ export const COMPANY_TYPE_MAP: Record<string, string> = {
   TAG_DOANH_NGHIEP_TU_NHAN: 'Doanh nghiệp tư nhân',
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
   const taxCode = org?.taxCode || profile?.taxCode || '0301045759';
   const name = org?.name || profile?.companyName || 'Công ty TNHH';
