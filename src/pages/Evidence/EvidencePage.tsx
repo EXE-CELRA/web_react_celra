@@ -34,10 +34,12 @@ import apiClient from '../../api/client';
 import type { EvidenceDocument, VerificationStatus } from '../../types';
 import { VerificationStatusTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
+import { useOrgStore } from '../../store/useOrgStore';
 
 const { Text, Paragraph } = Typography;
 
 export const EvidencePage: React.FC = () => {
+  const { activeOrg } = useOrgStore();
   const [documents, setDocuments] = useState<EvidenceDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -53,13 +55,22 @@ export const EvidencePage: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
   useEffect(() => {
-    fetchDocuments();
-  }, []);
+    setDocuments([]);
+    if (activeOrg?.id) {
+      fetchDocuments();
+    }
+  }, [activeOrg?.id]);
 
   const fetchDocuments = async () => {
+    if (!activeOrg?.id) {
+      setDocuments([]);
+      return;
+    }
     setLoading(true);
     try {
-      const res: any = await apiClient.get('/evidence-documents');
+      const res: any = await apiClient.get('/evidence-documents', {
+        headers: { 'x-organization-id': activeOrg.id },
+      });
       setDocuments(Array.isArray(res) ? res : []);
     } catch (err: any) {
       message.error('Không thể tải danh sách tài liệu minh chứng');
