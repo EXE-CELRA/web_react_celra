@@ -103,6 +103,7 @@ export const SurveyPage: React.FC = () => {
     isOperating?: boolean;
   } | null>(null);
   const [unsupportedError, setUnsupportedError] = useState<string | null>(null);
+  const [duplicateTaxError, setDuplicateTaxError] = useState<string | null>(null);
   const [legalRules, setLegalRules] = useState<Record<string, LegalRule>>({});
 
   // Tải danh sách quy định pháp luật cốt lõi (có bộ đệm Cache chống gọi liên tục)
@@ -237,6 +238,18 @@ export const SurveyPage: React.FC = () => {
       }
 
       if (res && res.name) {
+        // 🛡️ Kiểm tra ràng buộc: 1 Mã số thuế = 1 Doanh nghiệp
+        if (res.isAlreadyRegistered) {
+          const warnMsg = `Mã số thuế ${code} đã được đăng ký bởi doanh nghiệp "${res.registeredOrgName || res.name}" trên hệ thống CELRA. Nguyên tắc: 1 Mã số thuế = 1 Doanh nghiệp duy nhất!`;
+          setDuplicateTaxError(warnMsg);
+          message.error(warnMsg, 8);
+          setTaxLookupDetails(null);
+          updateBaseProfile({ companyName: '', taxCode: code });
+          return;
+        } else {
+          setDuplicateTaxError(null);
+        }
+
         const detected = detectEnterpriseLegalType(res.name);
 
         if (!detected.isSupported) {
@@ -295,6 +308,10 @@ export const SurveyPage: React.FC = () => {
   };
 
   const handleSaveAndInitializeContext = async () => {
+    if (duplicateTaxError) {
+      message.error(duplicateTaxError);
+      return;
+    }
     if (!baseProfile.taxCode || !baseProfile.companyName) {
       message.warning('Vui lòng nhập Mã số thuế và thực hiện Tra cứu để xác thực doanh nghiệp trước khi tiếp tục.');
       return;
@@ -406,6 +423,7 @@ export const SurveyPage: React.FC = () => {
                   updateBaseProfile({ taxCode: newCode, companyName: '' });
                   setTaxLookupDetails(null);
                   setUnsupportedError(null);
+                  setDuplicateTaxError(null);
                   try {
                     localStorage.removeItem('celra_tax_lookup_details');
                   } catch {
@@ -443,6 +461,24 @@ export const SurveyPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Cảnh báo: Mã số thuế đã được đăng ký bởi doanh nghiệp khác (1 MST = 1 Doanh nghiệp) */}
+          {duplicateTaxError && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-amber-900">
+                  Mã số thuế đã tồn tại trên hệ thống
+                </h4>
+                <p className="text-xs text-amber-800 leading-relaxed font-semibold">
+                  {duplicateTaxError}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  🔒 <em>Hệ thống CELRA áp dụng nguyên tắc nghiêm ngặt: <strong>1 Mã số thuế = 1 Doanh nghiệp duy nhất</strong> để bảo mật và cô lập dữ liệu. Nếu đây là doanh nghiệp của bạn, vui lòng liên hệ thành viên quản trị để nhận lời mời tham gia hoặc kiểm tra lại mã số thuế.</em>
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Khi loại hình doanh nghiệp chưa được hỗ trợ */}
           {unsupportedError && (

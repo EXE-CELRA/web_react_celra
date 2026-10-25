@@ -28,6 +28,7 @@ export const RegisterPage: React.FC = () => {
   const [formValues, setFormValues] = React.useState<any>(null);
   const [isOtpModalOpen, setIsOtpModalOpen] = React.useState(false);
   const [otpCode, setOtpCode] = React.useState("");
+  const [devOtp, setDevOtp] = React.useState<string | null>(null);
   const [isSubmittingOtp, setIsSubmittingOtp] = React.useState(false);
   const [isSendingOtp, setIsSendingOtp] = React.useState(false);
   const onFinish = async (values: any) => {
@@ -39,15 +40,25 @@ export const RegisterPage: React.FC = () => {
         content: "Đang gửi mã OTP đến email của bạn...",
         key: "otp_loading",
       });
-      await apiClient.post("/auth/send-otp", {
+      const res: any = await apiClient.post("/auth/send-otp", {
         email: values.email,
         name: values.fullName,
       });
 
-      message.success({
-        content: "Mã OTP đã được gửi về email! Vui lòng kiểm tra hộp thư.",
-        key: "otp_loading",
-      });
+      if (res?.debugOtp) {
+        setDevOtp(res.debugOtp);
+        setOtpCode(res.debugOtp);
+        message.success({
+          content: "Mã OTP đã được tạo (Môi trường Thử nghiệm: " + res.debugOtp + ")",
+          key: "otp_loading",
+          duration: 6,
+        });
+      } else {
+        message.success({
+          content: "Mã OTP đã được gửi về email! Vui lòng kiểm tra hộp thư (cả mục Spam).",
+          key: "otp_loading",
+        });
+      }
       setIsOtpModalOpen(true);
     } catch (err: any) {
       const errorMsg =
@@ -281,8 +292,13 @@ export const RegisterPage: React.FC = () => {
         <p style={{ color: "#475569", fontSize: 14 }}>
           Mã xác thực 6 chữ số đã được gửi đến email{" "}
           <strong style={{ color: "#0052cc" }}>{formValues?.email}</strong>. Vui lòng mở Gmail (hoặc
-          kiểm tra mục Spam), sao chép mã và nhập vào bên dưới để hoàn tất đăng ký.
+          kiểm tra mục Spam) để nhận mã.
         </p>
+        {devOtp && (
+          <div style={{ background: "#eff6ff", border: "1px dashed #3b82f6", padding: "8px 12px", borderRadius: 8, marginBottom: 12, textAlign: "center" }}>
+            <span style={{ fontSize: 13, color: "#1d4ed8" }}>🔑 <strong>Mã OTP thử nghiệm nhanh:</strong> <strong style={{ fontSize: 16, letterSpacing: 2 }}>{devOtp}</strong> (Đã tự động điền)</span>
+          </div>
+        )}
         <Input
           maxLength={6}
           placeholder="Nhập OTP của bạn"
