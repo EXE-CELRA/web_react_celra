@@ -34,6 +34,8 @@ export const useOrgStore = create<OrgState>((set) => {
 
       if (currentActive) {
         localStorage.setItem('celra_active_org_id', currentActive.id);
+      } else {
+        localStorage.removeItem('celra_active_org_id');
       }
 
       set({
@@ -51,6 +53,8 @@ export const useOrgStore = create<OrgState>((set) => {
 
   const setActiveOrgFn = (org: Organization) => {
     localStorage.setItem('celra_active_org_id', org.id);
+    localStorage.removeItem('celra_survey_completed_profile');
+    localStorage.removeItem('celra_survey_draft_profile');
     set({ activeOrg: org, doanhNghiepHienTai: org });
   };
 

@@ -808,10 +808,10 @@ export const ContextAuditPage: React.FC = () => {
     }
   };
 
-  const orgAddress = activeOrg?.address || activeOrg?.diaChi || 'Quận Ninh Kiều, TP. Cần Thơ';
-  const orgTaxCode = activeOrg?.taxCode || activeOrg?.maSoThue || '0101234567';
-  const orgName = activeOrg?.legalName || activeOrg?.name || activeOrg?.tenDoanhNghiep || 'Doanh nghiệp';
-  const orgModel = activeOrg?.legalType || activeOrg?.loaiHinhPhapLy || 'TAG_TNHH_1TV';
+  const orgAddress = activeOrg?.address || activeOrg?.diaChi || 'Chưa cập nhật địa chỉ';
+  const orgTaxCode = activeOrg?.taxCode || activeOrg?.maSoThue || 'Chưa cập nhật';
+  const orgName = activeOrg?.legalName || activeOrg?.name || activeOrg?.tenDoanhNghiep || 'Doanh nghiệp chưa xác định';
+  const orgModel = activeOrg?.legalType || activeOrg?.loaiHinhPhapLy || 'Công ty TNHH';
   const orgCity = activeOrg?.city ? `Cục Thuế ${activeOrg.city}` : 'Cơ quan thuế quản lý trực tiếp';
 
   const incentiveInfo = useMemo(() => {

@@ -214,7 +214,7 @@ export const DEFAULT_BASE_PROFILE: BaseProfile = {
   isNewlyEstablished: false,
   requiresLaborRuleBook: false,
   companyTypeTag: 'TAG_TNHH_2TV',
-  industryTags: ['TAG_FNB']
+  industryTags: []
 };
 
 export const STANDARD_OPTIONS = [

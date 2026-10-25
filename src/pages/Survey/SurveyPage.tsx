@@ -60,18 +60,22 @@ export const SurveyPage: React.FC = () => {
   const { activeOrg } = useOrgStore();
 
   const [isSurveyCompleted, setIsSurveyCompleted] = useState<boolean>(() => {
-    return localStorage.getItem('celra_survey_completed') === 'true';
+    const hasOrgInStore = !!localStorage.getItem('celra_active_org_id');
+    return hasOrgInStore && localStorage.getItem('celra_survey_completed') === 'true';
   });
 
   const [baseProfile, setBaseProfile] = useState<BaseProfile>(() => {
     try {
-      const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
-      if (savedCompleted) {
-        return JSON.parse(savedCompleted);
-      }
-      const savedDraft = localStorage.getItem('celra_survey_draft_profile');
-      if (savedDraft) {
-        return JSON.parse(savedDraft);
+      const hasOrgInStore = !!localStorage.getItem('celra_active_org_id');
+      if (hasOrgInStore) {
+        const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
+        if (savedCompleted) {
+          return JSON.parse(savedCompleted);
+        }
+        const savedDraft = localStorage.getItem('celra_survey_draft_profile');
+        if (savedDraft) {
+          return JSON.parse(savedDraft);
+        }
       }
     } catch {
       // Fallback
@@ -318,6 +322,7 @@ export const SurveyPage: React.FC = () => {
 
       if (res?.organizationId) {
         localStorage.setItem('celra_active_org_id', res.organizationId);
+        localStorage.setItem(`celra_survey_profile_${res.organizationId}`, JSON.stringify(baseProfile));
       }
       await useOrgStore.getState().fetchMyOrganizations();
 
