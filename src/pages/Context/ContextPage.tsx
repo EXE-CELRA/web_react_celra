@@ -156,17 +156,28 @@ export const COMPANY_TYPE_MAP: Record<string, string> = {
 };
 
 export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
-  const taxCode = org?.taxCode || profile?.taxCode || '0301045759';
-  const name = org?.name || profile?.companyName || 'Công ty TNHH';
-  const rawLegalType = profile?.companyTypeTag || org?.legalType;
-  const legalType = COMPANY_TYPE_MAP[rawLegalType] || org?.legalType || (rawLegalType === 'TAG_TNHH_1TV' ? 'Công ty TNHH Một thành viên' : 'Công ty TNHH Hai thành viên trở lên');
-  const charterCapital = profile?.charterCapital || 5000000000;
-  const count = org?.employeeCount || profile?.employeeCount || 8;
-  const rawTags = profile?.industryTags || ['TAG_FNB', 'TAG_RETAIL'];
+  const taxCode = org?.taxCode || profile?.taxCode || '';
+  const name = org?.name || profile?.companyName || '';
+  const rawLegalType = profile?.companyTypeTag || org?.legalType || '';
+  const legalType = COMPANY_TYPE_MAP[rawLegalType] || org?.legalType || '';
+  const charterCapital = profile?.charterCapital || org?.charterCapital || 0;
+  const count = org?.employeeCount ?? profile?.employeeCount;
+  const rawTags = profile?.industryTags;
   const formattedIndustry = Array.isArray(rawTags) && rawTags.length > 0
-    ? rawTags.map((t: string) => INDUSTRY_LABEL_MAP[t] || t).join(', ')
-    : 'Dịch vụ ăn uống / F&B / Nhà hàng / Quán cafe, Bán lẻ & Phân phối sản phẩm';
+    ? rawTags.map((t) => INDUSTRY_LABEL_MAP[t] || t).join(', ')
+    : '';
   const now = new Date().toISOString();
+
+  // Xác định giá trị hiển thị rỗng an toàn, không dùng dữ liệu giả
+  const mstValue = taxCode && name ? `${taxCode} - ${name}` : (taxCode || name || 'Chưa cập nhật mã số thuế & tên doanh nghiệp');
+  const typeValue = legalType || 'Chưa cập nhật loại hình doanh nghiệp';
+  const capitalValue = charterCapital > 0
+    ? `${Number(charterCapital).toLocaleString('vi-VN')} VNĐ (${Number(charterCapital) > 10000000000 ? 'Bậc 1: Lệ phí môn bài 3.000.000đ/năm' : 'Bậc 2: Lệ phí môn bài 2.000.000đ/năm'})`
+    : 'Chưa cập nhật vốn điều lệ';
+  const empValue = count !== undefined && count !== null
+    ? `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`
+    : 'Chưa cập nhật quy mô lao động';
+  const industryValue = formattedIndustry || 'Chưa cập nhật ngành nghề kinh doanh';
 
   return [
     {
@@ -174,8 +185,8 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
       key: 'tax_code',
       label: 'Mã số thuế & Định danh pháp lý',
       group: 'boi_canh_co_so',
-      currentValue: `${taxCode} - ${name}`,
-      status: 'confirmed',
+      currentValue: mstValue,
+      status: taxCode ? 'confirmed' : 'draft',
       source: 'Hồ sơ nền tảng (Xác thực CSDL Thuế Quốc gia)',
       updatedAt: now,
     },
@@ -184,8 +195,8 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
       key: 'company_type_tag',
       label: 'Hình thức kinh doanh & Loại hình doanh nghiệp',
       group: 'boi_canh_co_so',
-      currentValue: legalType,
-      status: 'confirmed',
+      currentValue: typeValue,
+      status: legalType ? 'confirmed' : 'draft',
       source: 'Hồ sơ nền tảng (Luật Doanh nghiệp 2020)',
       updatedAt: now,
     },
@@ -194,8 +205,8 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
       key: 'charter_capital',
       label: 'Vốn điều lệ đăng ký trên ĐKKD',
       group: 'boi_canh_co_so',
-      currentValue: `${Number(charterCapital).toLocaleString('vi-VN')} VNĐ (${Number(charterCapital) > 10000000000 ? 'Bậc 1: Lệ phí môn bài 3.000.000đ/năm' : 'Bậc 2: Lệ phí môn bài 2.000.000đ/năm'})`,
-      status: 'confirmed',
+      currentValue: capitalValue,
+      status: charterCapital > 0 ? 'confirmed' : 'draft',
       source: 'Hồ sơ nền tảng (Nghị định 139/2016/NĐ-CP)',
       updatedAt: now,
     },
@@ -204,8 +215,8 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
       key: 'employee_scale',
       label: 'Quy mô lao động & Nghĩa vụ Nội quy lao động (NQLĐ)',
       group: 'boi_canh_co_so',
-      currentValue: `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`,
-      status: 'confirmed',
+      currentValue: empValue,
+      status: count !== undefined && count !== null ? 'confirmed' : 'draft',
       source: 'Hồ sơ nền tảng (Bộ luật Lao động 2019)',
       updatedAt: now,
     },
@@ -214,8 +225,8 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
       key: 'industry_tags',
       label: 'Ngành nghề & Hoạt động kinh doanh thực tế',
       group: 'boi_canh_co_so',
-      currentValue: formattedIndustry,
-      status: 'confirmed',
+      currentValue: industryValue,
+      status: formattedIndustry ? 'confirmed' : 'draft',
       source: 'Hồ sơ nền tảng',
       updatedAt: now,
     },
@@ -337,7 +348,7 @@ export const ContextPage: React.FC = () => {
         }
       } else if (key === 'employee_scale') {
         formattedLabel = 'Quy mô lao động & Nghĩa vụ Nội quy lao động (NQLĐ)';
-        const count = activeOrg?.employeeCount || savedBaseProfile?.employeeCount || 8;
+        const count = activeOrg?.employeeCount ?? savedBaseProfile?.employeeCount;
         if (!formattedValue.includes('Điều 218 BLLĐ 2019') && !formattedValue.includes('Điều 119 BLLĐ 2019')) {
           formattedValue = `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`;
         }
