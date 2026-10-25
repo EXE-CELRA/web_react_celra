@@ -290,15 +290,24 @@ export const ContextPage: React.FC = () => {
     // 1. Phục hồi thông tin hồ sơ cơ sở từ local storage nếu có
   const savedBaseProfile = React.useMemo(() => {
     try {
+      const activeOrgId = activeOrg?.id;
+      if (activeOrgId) {
+        const orgSurvey = localStorage.getItem(`celra_survey_profile_${activeOrgId}`);
+        if (orgSurvey) return JSON.parse(orgSurvey);
+      }
       const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
-      if (savedCompleted) return JSON.parse(savedCompleted);
-      const savedDraft = localStorage.getItem('celra_survey_draft_profile');
-      if (savedDraft) return JSON.parse(savedDraft);
+      if (savedCompleted) {
+        const parsed = JSON.parse(savedCompleted);
+        // Chỉ chấp nhận dữ liệu cache nếu khớp với thông tin của activeOrg hiện tại
+        if (!activeOrg || parsed.taxCode === activeOrg.taxCode || parsed.companyName === activeOrg.name) {
+          return parsed;
+        }
+      }
     } catch {
       // Ignore
     }
     return null;
-  }, []);
+  }, [activeOrg]);
 
   // Danh sách các thẻ Bối Cảnh Cơ Sở (từ DB facts nếu có, fallback sang thông tin doanh nghiệp)
   const baseProfileFacts: ContextFact[] = React.useMemo(() => {

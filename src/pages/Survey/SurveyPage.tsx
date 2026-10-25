@@ -318,6 +318,7 @@ export const SurveyPage: React.FC = () => {
 
       if (res?.organizationId) {
         localStorage.setItem('celra_active_org_id', res.organizationId);
+        localStorage.setItem(`celra_survey_profile_${res.organizationId}`, JSON.stringify(baseProfile));
       }
       await useOrgStore.getState().fetchMyOrganizations();
 
