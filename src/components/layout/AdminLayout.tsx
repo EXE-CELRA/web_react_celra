@@ -70,7 +70,7 @@ export const AdminLayout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const currentAdminPageTitle = ADMIN_PAGE_TITLES[location.pathname] || 'Quản Trị Hệ Thống';
