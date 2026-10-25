@@ -99,6 +99,7 @@ export const SurveyPage: React.FC = () => {
     isOperating?: boolean;
   } | null>(null);
   const [unsupportedError, setUnsupportedError] = useState<string | null>(null);
+  const [duplicateTaxError, setDuplicateTaxError] = useState<string | null>(null);
   const [legalRules, setLegalRules] = useState<Record<string, LegalRule>>({});
 
   // Tải danh sách quy định pháp luật cốt lõi (có bộ đệm Cache chống gọi liên tục)
@@ -203,6 +204,7 @@ export const SurveyPage: React.FC = () => {
     try {
       setIsLookingUpTax(true);
       setUnsupportedError(null);
+      setDuplicateTaxError(null);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let res: any;
 
@@ -233,6 +235,18 @@ export const SurveyPage: React.FC = () => {
       }
 
       if (res && res.name) {
+        // Kiểm tra độc quyền Mã số thuế trong CELRA
+        if (res.isRegisteredInCelra && res.registeredOrgId !== activeOrg?.id) {
+          const dupMsg = `Mã số thuế ${code} đã được đăng ký bởi doanh nghiệp "${res.registeredOrgName || res.name}" trên hệ thống CELRA. Mỗi doanh nghiệp chỉ được sử dụng một mã số thuế duy nhất.`;
+          setDuplicateTaxError(dupMsg);
+          message.error(dupMsg, 7);
+          setTaxLookupDetails(null);
+          setUnsupportedError(null);
+          updateBaseProfile({ companyName: '', taxCode: code });
+          return;
+        }
+
+        setDuplicateTaxError(null);
         const detected = detectEnterpriseLegalType(res.name);
 
         if (!detected.isSupported) {
@@ -291,6 +305,10 @@ export const SurveyPage: React.FC = () => {
   };
 
   const handleSaveAndInitializeContext = async () => {
+    if (duplicateTaxError) {
+      message.error(duplicateTaxError);
+      return;
+    }
     if (!baseProfile.taxCode || !baseProfile.companyName) {
       message.warning('Vui lòng nhập Mã số thuế và thực hiện Tra cứu để xác thực doanh nghiệp trước khi tiếp tục.');
       return;
@@ -332,7 +350,11 @@ export const SurveyPage: React.FC = () => {
       navigate('/context');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      message.error(err.message || 'Lỗi khi khởi tạo bối cảnh doanh nghiệp');
+      const errorText = err.response?.data?.message || err.message || 'Lỗi khi khởi tạo bối cảnh doanh nghiệp';
+      if (typeof errorText === 'string' && errorText.includes('Mã số thuế')) {
+        setDuplicateTaxError(errorText);
+      }
+      message.error(errorText, 6);
     } finally {
       setSubmitting(false);
     }
@@ -402,6 +424,7 @@ export const SurveyPage: React.FC = () => {
                   updateBaseProfile({ taxCode: newCode, companyName: '' });
                   setTaxLookupDetails(null);
                   setUnsupportedError(null);
+                  setDuplicateTaxError(null);
                   try {
                     localStorage.removeItem('celra_tax_lookup_details');
                   } catch {
@@ -440,6 +463,24 @@ export const SurveyPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Khi Mã số thuế đã được đăng ký bởi doanh nghiệp khác */}
+          {duplicateTaxError && (
+            <div className="p-4 bg-rose-50 border border-rose-300 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-rose-900">
+                  Mã số thuế này đã tồn tại trên hệ thống CELRA
+                </h4>
+                <p className="text-xs text-rose-700 leading-relaxed font-semibold">
+                  {duplicateTaxError}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  💡 <em>Để bảo vệ tính toàn vẹn và độc lập dữ liệu giữa các doanh nghiệp, mỗi mã số thuế chỉ được gắn với một tài khoản doanh nghiệp duy nhất. Vui lòng kiểm tra lại mã số thuế hoặc liên hệ ban quản trị để được mời vào doanh nghiệp đã có.</em>
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Khi loại hình doanh nghiệp chưa được hỗ trợ */}
           {unsupportedError && (
             <div className="p-4 bg-rose-50 border border-rose-300 rounded-2xl flex items-start gap-3">
@@ -459,7 +500,7 @@ export const SurveyPage: React.FC = () => {
           )}
 
           {/* Khi chưa tra cứu và không có lỗi: Hiển thị gợi ý */}
-          {!taxLookupDetails && !unsupportedError && (
+          {!taxLookupDetails && !unsupportedError && !duplicateTaxError && (
             <div className="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-xs text-slate-500 flex items-center gap-2">
               <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
               <span>
@@ -883,7 +924,7 @@ export const SurveyPage: React.FC = () => {
           <button
             type="button"
             onClick={handleSaveAndInitializeContext}
-            disabled={submitting}
+            disabled={submitting || !!duplicateTaxError || !!unsupportedError}
             className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {submitting ? (
