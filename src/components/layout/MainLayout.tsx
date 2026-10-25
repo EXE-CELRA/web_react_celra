@@ -341,7 +341,7 @@ export const MainLayout: React.FC = () => {
               icon={<LogoutOutlined />}
               onClick={() => {
                 logout();
-                navigate('/login');
+                window.location.href = '/login';
               }}
               style={{
                 width: '100%',
