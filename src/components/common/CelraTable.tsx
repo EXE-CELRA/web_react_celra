@@ -33,7 +33,8 @@ export function CelraTable<T extends object = any>({
           pageSize: 10,
           showSizeChanger: true,
           pageSizeOptions: ['10', '20', '50', '100'],
-          position: ['bottomCenter' as const],
+          showTotal: (total: number, range: [number, number]) =>
+            `${range[0]}-${range[1]} trên tổng số ${total} mục`,
           ...pagination,
         };
 

@@ -21,7 +21,11 @@ import {
   AuditOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  CheckSquareOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
+import apiClient from '../../api/client';
+import { useTaskStore } from '../../store/useTaskStore';
 import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData } from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone, type TaxIncentiveInfo } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult, type DisallowedExpenseFinding } from '../../utils/citTaxCalculator';
@@ -51,6 +55,11 @@ export const CitEstimateModal: React.FC<CitEstimateModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CitCalculationResult | null>(null);
   const [showEtaxModal, setShowEtaxModal] = useState(false);
+  const [counts, setCounts] = useState<{ revenues: number; expenses: number }>({ revenues: 0, expenses: 0 });
+  const [isSyncingChecklist, setIsSyncingChecklist] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
+  const { fetchTasks, fetchNotifications } = useTaskStore();
+
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const currentQuarter = useMemo(() => Math.floor(new Date().getMonth() / 3) + 1, []);
   const [taxQuarter, setTaxQuarter] = useState<number | 'ALL'>(currentQuarter);
@@ -82,6 +91,44 @@ export const CitEstimateModal: React.FC<CitEstimateModalProps> = ({
     }
   };
 
+  const getQuarterReminderDate = (quarter: number | 'ALL', year: number) => {
+    switch (quarter) {
+      case 1: return `23/04/${year}`;
+      case 2: return `24/07/${year}`;
+      case 3: return `24/10/${year}`;
+      case 4: return `24/01/${year + 1}`;
+      case 'ALL': return `24/03/${year + 1}`;
+      default: return `24/01/${year + 1}`;
+    }
+  };
+
+  // Đồng bộ Checklist Hạn nộp thuế và kích hoạt nhắc hạn trước 7 ngày
+  const handleSyncChecklist = async () => {
+    if (!result) return;
+    setIsSyncingChecklist(true);
+    try {
+      await apiClient.post('/cit-ledger/sync-compliance-checklist', {
+        year: taxYear,
+        quarter: taxQuarter,
+        estimatedTaxAmount: result.statutoryPrepayment80,
+        revenueCount: counts.revenues,
+        expenseCount: counts.expenses,
+        disallowedExpenseAmount: result.totalDisallowedExpense,
+      });
+      setIsSynced(true);
+      message.success(
+        `Đã tạo thành công Checklist Hạn nộp thuế Quý ${taxQuarter}/${taxYear} & kích hoạt nhắc hạn trước 7 ngày!`
+      );
+      if (fetchTasks) fetchTasks();
+      if (fetchNotifications) fetchNotifications();
+    } catch (err: any) {
+      console.error(err);
+      message.error(err?.response?.data?.message || 'Không thể đồng bộ Checklist. Vui lòng thử lại!');
+    } finally {
+      setIsSyncingChecklist(false);
+    }
+  };
+
   // 1. Tự động nhận diện vùng ưu đãi thuế dựa trên chuỗi địa chỉ
   const incentiveInfo: TaxIncentiveInfo = useMemo(() => {
     return detectTaxIncentiveZone(address);
@@ -101,6 +148,13 @@ export const CitEstimateModal: React.FC<CitEstimateModalProps> = ({
         setTaxQuarter(detected.quarter);
       }
 
+      // Lưu số lượng khoản thu chi để phục vụ tạo Checklist
+      setCounts({
+        revenues: parsed.revenues.length,
+        expenses: parsed.expenses.length,
+      });
+      setIsSynced(false);
+
       // Chạy Rule engine tính toán thuế TNDN
       const calcResult = calculateCitTax(
         parsed.revenues,
@@ -109,8 +163,40 @@ export const CitEstimateModal: React.FC<CitEstimateModalProps> = ({
         companyTypeTag
       );
       setResult(calcResult);
+
+      // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
+      try {
+        const effectiveYear = detected.year || taxYear;
+        const effectiveQuarter = detected.quarter || taxQuarter;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append(
+          'title',
+          `Bảng kê Doanh thu & Chi phí (${effectiveQuarter === 'ALL' ? `Cả năm ${effectiveYear}` : `Quý ${effectiveQuarter}/${effectiveYear}`})`
+        );
+        formData.append('category', 'Thuế Doanh Nghiệp');
+        formData.append('tag', 'Bảng kê thu - chi');
+        formData.append('quarter', String(effectiveQuarter));
+        formData.append('year', String(effectiveYear));
+        formData.append('metadata', JSON.stringify({
+          quarter: effectiveQuarter,
+          year: effectiveYear,
+          tag: 'Bảng kê thu - chi',
+          documentType: 'BẢNG KÊ THU CHI TNDN',
+          totalRevenue: calcResult.totalRevenue,
+          totalExpense: calcResult.totalAccountingExpense,
+          estimatedTax: calcResult.estimatedTaxAmount,
+        }));
+
+        await apiClient.post('/evidence-documents/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } catch (uploadErr) {
+        console.warn('Lưu hồ sơ bằng chứng tự động gặp lỗi:', uploadErr);
+      }
+
       const periodTag = detected.quarter && detected.year ? ` (Tự động nhận diện: Quý ${detected.quarter}/${detected.year})` : '';
-      message.success(`Đã phân tích thành công ${parsed.revenues.length} khoản thu và ${parsed.expenses.length} khoản chi!${periodTag}`);
+      message.success(`Đã phân tích thành công ${parsed.revenues.length} khoản thu, ${parsed.expenses.length} khoản chi và lưu vào Hồ sơ & Bằng chứng!${periodTag}`);
     } catch (error: any) {
       console.error(error);
       message.error('Không thể đọc file Excel. Vui lòng kiểm tra đúng định dạng mẫu 2 Sheet của CELRA!');
@@ -411,6 +497,61 @@ export const CitEstimateModal: React.FC<CitEstimateModalProps> = ({
                 >
                   Hướng Dẫn Nộp Trên eTax (Tiểu Mục 1052)
                 </Button>
+              </div>
+
+              {/* KHỐI SINH CHECKLIST HẠN NỘP THUẾ & NHẮC HẠN TRƯỚC 7 NGÀY */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Tag color="cyan" className="font-extrabold px-2.5 py-0.5 rounded-lg border-cyan-300 text-xs m-0">
+                      Checklist Quý {taxQuarter}/{taxYear}
+                    </Tag>
+                    <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                      <ClockCircleOutlined className="text-emerald-600" />
+                      Hạn nộp đúng hạn: <strong className="text-slate-900 font-mono">{getQuarterDeadline(taxQuarter, taxYear)}</strong>
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 flex items-center gap-1.5">
+                    <BellOutlined className="text-amber-500 text-sm" />
+                    <span>
+                      Tự động kích hoạt thông báo nhắc hạn: <strong className="text-amber-700 font-mono">{getQuarterReminderDate(taxQuarter, taxYear)}</strong> (cách hạn đúng 7 ngày).
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 m-0">
+                    * Khởi tạo lộ trình tuân thủ 4 quý trong năm và đưa vào Lịch Tuân Thủ để không bị phạt chậm nộp 0,03%/ngày.
+                  </p>
+                </div>
+
+                <div className="shrink-0 flex items-center gap-2">
+                  {isSynced ? (
+                    <div className="flex items-center gap-2">
+                      <Tag color="success" icon={<CheckCircleOutlined />} className="px-3 py-1.5 text-xs font-bold rounded-xl m-0">
+                        Đã Lưu Checklist & Bật Nhắc Hạn
+                      </Tag>
+                      <Button
+                        type="default"
+                        icon={<CalendarOutlined />}
+                        onClick={() => {
+                          onClose();
+                          window.location.href = '/tasks';
+                        }}
+                        className="rounded-xl text-xs font-semibold hover:border-emerald-500 hover:text-emerald-600"
+                      >
+                        Xem Lịch Tuân Thủ
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="primary"
+                      icon={<CheckSquareOutlined />}
+                      loading={isSyncingChecklist}
+                      onClick={handleSyncChecklist}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold h-11 px-5 rounded-xl border-none shadow-md shadow-emerald-700/20"
+                    >
+                      Tạo Checklist & Bật Nhắc Hạn (Cách 7 Ngày)
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* BẢNG CHI TIẾT CÁC KHOẢN CHI BỊ XUẤT TOÁN */}

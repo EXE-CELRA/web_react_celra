@@ -437,7 +437,13 @@ export const AdminDLPLQuotaPage: React.FC = () => {
           columns={columns}
           dataSource={rules}
           rowKey="id"
-          pagination={{ pageSize: 8 }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total: number, range: [number, number]) =>
+              `${range[0]}-${range[1]} trên tổng số ${total} quy tắc`,
+          }}
         />
       </Card>
 
