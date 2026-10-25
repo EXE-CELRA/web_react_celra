@@ -1,14 +1,13 @@
 import React from 'react';
 import { Form, Input, Button, Checkbox, Typography, message } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 
 const { Text } = Typography;
 
 export const LoginPage: React.FC = () => {
-  const navigate = useNavigate();
   const { login, dangNhap, isLoading, dangTai } = useAuthStore();
 
   const onFinish = async (values: any) => {
@@ -23,9 +22,9 @@ export const LoginPage: React.FC = () => {
       message.success('Đăng nhập thành công!');
       const userObj = res.user || res.nguoiDung;
       if (userObj?.role === 'admin' || userObj?.vaiTro === 'admin' || userObj?.isSuperAdmin) {
-        navigate('/admin/dashboard');
+        window.location.href = '/admin/dashboard';
       } else {
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err: any) {
       message.error(err.message || 'Email hoặc mật khẩu không chính xác');
