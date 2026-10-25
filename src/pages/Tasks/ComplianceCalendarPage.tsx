@@ -142,7 +142,37 @@ export const ComplianceCalendarPage: React.FC = () => {
     const dayNotes = notesByDate.get(dateKey) || [];
     const holiday = getVietnamHoliday(value.toDate());
 
-    if (dayTasks.length === 0 && dayNotes.length === 0 && !holiday) return null;
+    const totalItems = dayTasks.length + dayNotes.length;
+    if (totalItems === 0 && !holiday) return null;
+
+    // Phân bổ số lượng hiển thị động thông minh trong ô lịch:
+    // Nếu có ngày lễ thì ưu tiên 2 slot, ngày thường 3 slot
+    const maxVisible = holiday ? 2 : 3;
+
+    let taskCount = 0;
+    let noteCount = 0;
+
+    if (totalItems <= maxVisible) {
+      taskCount = dayTasks.length;
+      noteCount = dayNotes.length;
+    } else {
+      if (dayTasks.length === 0) {
+        // Chỉ có ghi chú: hiển thị tối đa maxVisible ghi chú
+        noteCount = Math.min(dayNotes.length, maxVisible);
+      } else if (dayNotes.length === 0) {
+        // Chỉ có tác vụ: hiển thị tối đa maxVisible tác vụ
+        taskCount = Math.min(dayTasks.length, maxVisible);
+      } else {
+        // Có cả tác vụ và ghi chú: cân bằng hiển thị
+        const maxTasks = Math.min(dayTasks.length, 2);
+        noteCount = Math.min(dayNotes.length, Math.max(1, maxVisible - maxTasks));
+        taskCount = Math.min(dayTasks.length, maxVisible - noteCount);
+      }
+    }
+
+    const visibleTasks = dayTasks.slice(0, taskCount);
+    const visibleNotes = dayNotes.slice(0, noteCount);
+    const hiddenCount = totalItems - (visibleTasks.length + visibleNotes.length);
 
     return (
       <div style={{ marginTop: 2 }}>
@@ -175,7 +205,7 @@ export const ComplianceCalendarPage: React.FC = () => {
           </Tooltip>
         )}
         {/* Badges tác vụ */}
-        {dayTasks.slice(0, 2).map((task) => {
+        {visibleTasks.map((task) => {
           const isDone = isTaskCompleted(task.status);
           const diff = dayjs(task.dueDate).diff(dayjs(), 'day');
           const isOverdue = !isDone && diff < 0;
@@ -218,7 +248,7 @@ export const ComplianceCalendarPage: React.FC = () => {
         })}
 
         {/* Badge ghi chú */}
-        {dayNotes.slice(0, 1).map((note) => (
+        {visibleNotes.map((note) => (
           <Tooltip key={note.id} title={`Ghi chú: ${note.title}`}>
             <div
               style={{
@@ -242,10 +272,23 @@ export const ComplianceCalendarPage: React.FC = () => {
           </Tooltip>
         ))}
 
-        {/* Nếu nhiều hơn 3 mục */}
-        {dayTasks.length + dayNotes.length > 3 && (
-          <div style={{ fontSize: 10, color: '#8c8c8c', textAlign: 'right', fontWeight: 500 }}>
-            +{dayTasks.length + dayNotes.length - 3} mục khác
+        {/* Nếu còn mục chưa hiển thị */}
+        {hiddenCount > 0 && (
+          <div
+            style={{
+              fontSize: 10,
+              color: '#8c8c8c',
+              textAlign: 'right',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedDate(value);
+              setDrawerOpen(true);
+            }}
+          >
+            +{hiddenCount} mục khác
           </div>
         )}
       </div>

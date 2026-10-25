@@ -8,7 +8,7 @@ export interface DisallowedExpenseFinding {
   amount: number;
   paymentMethod: string;
   hasInvoice: string;
-  violationType: 'NO_INVOICE' | 'CASH_OVER_20M' | 'LLC1_OWNER_SALARY' | 'FCT_ADS_WARNING';
+  violationType: 'NO_INVOICE' | 'CASH_OVER_20M' | 'CASH_OVER_5M' | 'LLC1_OWNER_SALARY' | 'FCT_ADS_WARNING';
   reason: string;
   legalBasis: string;
   taxImpact: number; // Số tiền thuế TNDN bị đội lên do khoản này (amount * 20%)
@@ -74,17 +74,17 @@ export function calculateCitTax(
     }
 
     // 2. RÀ SOÁT: Hóa đơn từ 20 triệu trở lên thanh toán tiền mặt
-    if (item.amount >= 20000000 && isCash) {
+    if (item.amount >= 5000000 && isCash) {
       disallowedItems.push({
-        id: `disallow_cash_20m_${index}`,
+        id: `disallow_cash_5m_${index}`,
         date: item.date,
         category: item.category,
         amount: item.amount,
         paymentMethod: item.paymentMethod,
         hasInvoice: item.hasInvoice,
-        violationType: 'CASH_OVER_20M',
-        reason: 'Hóa đơn từng lần từ 20 triệu đồng trở lên (đã có VAT) thanh toán bằng tiền mặt, không có chứng từ thanh toán không dùng tiền mặt qua ngân hàng.',
-        legalBasis: 'Điểm 2.2 Khoản 2 Điều 6 Thông tư 78/2014/TT-BTC & Điều 15 Thông tư 219/2013/TT-BTC.',
+        violationType: 'CASH_OVER_5M',
+        reason: 'Hóa đơn từng lần từ 5 triệu đồng trở lên (đã có VAT) thanh toán bằng tiền mặt, không có chứng từ thanh toán không dùng tiền mặt qua ngân hàng.',
+        legalBasis: 'Luật Thuế GTGT 48/2024/QH15 & Điểm 2.2 Khoản 2 Điều 6 Thông tư 78/2014/TT-BTC (sửa đổi bởi TT 96/2015/TT-BTC).',
         taxImpact: Math.round(item.amount * incentiveInfo.taxRate),
         recommendation: 'Bắt buộc chuyển khoản qua tài khoản ngân hàng của doanh nghiệp (hoặc lập biên bản thỏa thuận bù trừ công nợ hợp pháp) để được khấu trừ thuế và tính chi phí hợp lý.'
       });

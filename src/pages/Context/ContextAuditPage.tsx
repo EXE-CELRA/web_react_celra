@@ -799,6 +799,7 @@ export const ContextAuditPage: React.FC = () => {
       setIsChecklistModalOpen(false);
       if (fetchTasks) fetchTasks();
       if (fetchNotifications) fetchNotifications();
+      navigate('/tasks');
     } catch (err: any) {
       console.error(err);
       message.error(err?.response?.data?.message || 'Không thể tạo Checklist. Vui lòng thử lại!');
@@ -1763,22 +1764,6 @@ export const ContextAuditPage: React.FC = () => {
                   activeKey={financialTab}
                   onChange={(k) => setFinancialTab(k as 'revenue' | 'expense')}
                   className="px-4 pt-1"
-                  tabBarExtraContent={
-                    <div className="flex items-center gap-2 pb-1">
-                      <Button
-                        type="primary"
-                        icon={<CheckSquareOutlined />}
-                        onClick={() => {
-                          setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
-                          setSelectedChecklistYear(taxYear);
-                          setIsChecklistModalOpen(true);
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-lg border-none shadow-xs flex items-center gap-1.5 h-8 px-3"
-                      >
-                        Tạo Checklist Hạn Nộp Thuế
-                      </Button>
-                    </div>
-                  }
                   items={[
                     {
                       key: 'revenue',
@@ -2597,15 +2582,15 @@ export const ContextAuditPage: React.FC = () => {
           </Form.Item>
 
           {/* ⚠️ CẢNH BÁO VI PHẠM TỨC THÌ TRONG MODAL */}
-          {expPaymentMethodWatch === 'Tiền mặt' && (expAmountWatch || 0) >= 20000000 && (
+          {expPaymentMethodWatch === 'Tiền mặt' && (expAmountWatch || 0) >= 5000000 && (
             <Alert
               type="error"
               showIcon
               className="rounded-xl border border-rose-300 bg-rose-50/90 text-rose-900 mt-2"
-              message={<span className="font-black text-xs">⚠️ CẢNH BÁO VI PHẠM MỤC B4 (Điều 4 Thông tư 96/2015/TT-BTC)</span>}
+              message={<span className="font-black text-xs">⚠️ CẢNH BÁO VI PHẠM MỤC B4 (Luật Thuế GTGT 48/2024/QH15 & TT 96/2015/TT-BTC)</span>}
               description={
                 <p className="text-[11px] leading-relaxed m-0 mt-0.5">
-                  Hóa đơn từng lần từ <strong>20.000.000 VNĐ</strong> trở lên bắt buộc phải thanh toán không dùng tiền mặt qua tài khoản ngân hàng của doanh nghiệp. Nếu thanh toán bằng tiền mặt, toàn bộ khoản chi này sẽ <strong>BỊ LOẠI KHỎI CHI PHÍ ĐƯỢC TRỪ</strong> (kê vào Mục B4 trên tờ khai 03/TNDN) và làm phát sinh thêm 20% tiền thuế!
+                  Hóa đơn từng lần từ <strong>5.000.000 VNĐ</strong> trở lên bắt buộc phải thanh toán không dùng tiền mặt qua tài khoản ngân hàng của doanh nghiệp. Nếu thanh toán bằng tiền mặt, toàn bộ khoản chi này sẽ <strong>BỊ LOẠI KHỎI CHI PHÍ ĐƯỢC TRỪ</strong> (kê vào Mục B4 trên tờ khai 03/TNDN) và làm phát sinh thêm 20% tiền thuế!
                 </p>
               }
             />
