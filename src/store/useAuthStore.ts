@@ -24,8 +24,8 @@ interface AuthState {
   dangXuat: () => void;
   loadUserProfile: () => Promise<void>;
   taiThongTinNguoiDung: () => Promise<void>;
-  updateProfile: (data: { fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; email?: string }) => Promise<any>;
-  capNhatThongTin: (data: { fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; email?: string }) => Promise<any>;
+  updateProfile: (data: { fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; email?: string; avatar?: string }) => Promise<any>;
+  capNhatThongTin: (data: { fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; email?: string; avatar?: string }) => Promise<any>;
   setActiveRole: (role: string) => void;
   datVaiTroHienTai: (role: string) => void;
 }
@@ -176,11 +176,14 @@ export const useAuthStore = create<AuthState>((set) => {
   const updateProfileFn = async (data: any) => {
     set({ isLoading: true, dangTai: true, error: null, loi: null });
     try {
-      const payload = {
+      const payload: any = {
         name: data.hoVaTen || data.fullName || data.name,
         phone: data.soDienThoai || data.phoneNumber || data.phone,
         email: data.email,
       };
+      if (data.avatar !== undefined) {
+        payload.avatar = data.avatar;
+      }
 
       let updatedUser: any = null;
       try {
@@ -199,6 +202,7 @@ export const useAuthStore = create<AuthState>((set) => {
         phone: payload.phone !== undefined ? payload.phone : (currentUser.phone || currentUser.phoneNumber),
         phoneNumber: payload.phone !== undefined ? payload.phone : (currentUser.phoneNumber || currentUser.phone),
         email: payload.email || currentUser.email,
+        avatar: (updatedUser && updatedUser.avatar) || (payload.avatar !== undefined ? payload.avatar : currentUser.avatar),
       };
 
       localStorage.setItem('celra_user', JSON.stringify(mergedUser));

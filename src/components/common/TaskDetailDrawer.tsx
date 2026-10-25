@@ -15,6 +15,9 @@ import {
   Modal,
   message,
   Empty,
+  Select,
+  Alert,
+  Tooltip,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -28,6 +31,13 @@ import {
   AlertOutlined,
   FileTextOutlined,
   PaperClipOutlined,
+  BankOutlined,
+  CopyOutlined,
+  GlobalOutlined,
+  InfoCircleOutlined,
+  WarningOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useTaskStore } from '../../store/useTaskStore';
 import { TaskStatusTag, PriorityTag } from './StatusBadge';
@@ -36,6 +46,33 @@ import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { formatVNCalendarDate, getRemainingDaysInfo, STATUTORY_PERIOD_METAS } from '../../utils/taxCalendar';
 
 const { Text, Paragraph } = Typography;
+
+const PRIORITY_WEIGHTS: Record<string, number> = {
+  low: 1,
+  LOW: 1,
+  medium: 2,
+  MEDIUM: 2,
+  high: 3,
+  HIGH: 3,
+  urgent: 4,
+  critical: 4,
+  CRITICAL: 4,
+};
+
+function getPriorityWeight(p?: string | null): number {
+  if (!p) return 2;
+  return PRIORITY_WEIGHTS[p.toLowerCase()] || PRIORITY_WEIGHTS[p] || 2;
+}
+
+function getPriorityLabel(p?: string | null): string {
+  if (!p) return 'Trung bình';
+  const val = p.toLowerCase();
+  if (val === 'urgent' || val === 'critical') return 'Khẩn cấp';
+  if (val === 'high') return 'Cao';
+  if (val === 'medium') return 'Trung bình';
+  if (val === 'low') return 'Thấp';
+  return p;
+}
 
 function isNewStatus(status?: string): boolean {
   if (!status) return true;
@@ -75,6 +112,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     fetchComments,
     addComment,
     updateTaskStatus,
+    updateTaskPriority,
   } = useTaskStore();
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -101,9 +139,22 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     ? STATUTORY_PERIOD_METAS[currentTask.periodCycle as keyof typeof STATUTORY_PERIOD_METAS]
     : null;
   const remaining = getRemainingDaysInfo(currentTask.hanChot || currentTask.dueDate || '');
+  const statutoryRisk = (currentTask.statutoryPriority || currentTask.legalRisk || currentTask.priority || 'medium') as string;
+  const currentOperationalPriority = (currentTask.customPriority || currentTask.priority || 'medium') as string;
+  const hasCustomPriority = Boolean(
+    currentTask.customPriority &&
+    String(currentTask.customPriority).toLowerCase() !== String(statutoryRisk).toLowerCase()
+  );
+  const isPriorityDowngraded = hasCustomPriority && getPriorityWeight(currentOperationalPriority) < getPriorityWeight(statutoryRisk);
   const basis = currentTask.canCuPhapLy || currentTask.legalBasis || currentTask.legalCitation || '';
   const cleanBasis = cleanDLPLUrl(basis);
   const directUrl = (cleanBasis.startsWith('http') ? cleanBasis : null) || matchCoreLegalDocUrl(basis);
+  const isCitTask = Boolean(
+    currentTask.code?.startsWith('CIT_') ||
+    currentTask.title?.toLowerCase().includes('tndn') ||
+    currentTask.category?.toLowerCase().includes('tndn')
+  );
+  const taxMatch = currentTask.description?.match(/tạm nộp ước tính:\s*([0-9.,]+)\s*VNĐ/i);
 
   // 1. Chuyển từ "Mới" sang "Đang thực hiện"
   const handleStartTask = async () => {
@@ -329,42 +380,118 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
             </Card>
           )}
 
-          {/* 3. THÔNG TIN HẠN CHÓT & PHÂN LOẠI */}
-          <Card size="small" style={{ borderRadius: 10, background: '#f8fafc' }}>
-            <Row gutter={[12, 12]}>
+          {/* 3. THÔNG TIN HẠN CHÓT & ĐIỀU PHỐI ƯU TIÊN (PHƯƠNG ÁN A) */}
+          <Card size="small" style={{ borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <Row gutter={[12, 14]}>
+              {/* Cột 1: Rủi ro luật định (Cố định bởi Luật) */}
               <Col span={12}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Mức độ ưu tiên:
-                </Text>
-                <div>
-                  <PriorityTag priority={currentTask.priority} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+                    <SafetyCertificateOutlined style={{ color: '#1677ff', marginRight: 4 }} />
+                    Rủi ro luật định (Hệ thống):
+                  </Text>
+                  <Tooltip title="Mức độ rủi ro xử phạt vi phạm & tính cấp bách theo quy định pháp luật hiện hành. Không thể tự ý hạ thấp trong hồ sơ pháp lý.">
+                    <InfoCircleOutlined style={{ fontSize: 11, color: '#94a3b8', cursor: 'pointer' }} />
+                  </Tooltip>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <PriorityTag priority={statutoryRisk as any} />
                 </div>
               </Col>
+
+              {/* Cột 2: Mức ưu tiên vận hành (Chủ DN tự điều phối) */}
+              <Col span={12}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+                    <SettingOutlined style={{ color: '#fa8c16', marginRight: 4 }} />
+                    Ưu tiên vận hành (Nội bộ):
+                  </Text>
+                  {hasCustomPriority && (
+                    <Button
+                      type="link"
+                      size="small"
+                      style={{ padding: 0, height: 'auto', fontSize: 11, color: '#1677ff' }}
+                      onClick={async () => {
+                        try {
+                          await updateTaskPriority(currentTask.id, statutoryRisk, 'Khôi phục theo mức rủi ro luật định');
+                          message.success('Đã khôi phục mức ưu tiên theo luật định');
+                          if (onRefresh) onRefresh();
+                        } catch {
+                          message.error('Lỗi khi khôi phục');
+                        }
+                      }}
+                    >
+                      Khôi phục gốc
+                    </Button>
+                  )}
+                </div>
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  value={String(currentOperationalPriority).toLowerCase()}
+                  onChange={async (val) => {
+                    try {
+                      await updateTaskPriority(currentTask.id, val);
+                      message.success('Đã cập nhật mức ưu tiên vận hành');
+                      if (onRefresh) onRefresh();
+                    } catch {
+                      message.error('Không thể cập nhật mức ưu tiên');
+                    }
+                  }}
+                  options={[
+                    { label: '🔴 Khẩn cấp (Urgent)', value: 'urgent' },
+                    { label: '🟠 Cao (High)', value: 'high' },
+                    { label: '🟡 Trung bình (Medium)', value: 'medium' },
+                    { label: '🔵 Thấp (Low)', value: 'low' },
+                  ]}
+                />
+              </Col>
+
+              {/* Cảnh báo rủi ro nếu Chủ DN hạ mức ưu tiên thấp hơn rủi ro luật định */}
+              {isPriorityDowngraded && (
+                <Col span={24}>
+                  <Alert
+                    type="warning"
+                    showIcon
+                    icon={<WarningOutlined style={{ color: '#d46b08' }} />}
+                    style={{ fontSize: 12, padding: '8px 12px', borderRadius: 8, border: '1px solid #ffe58f', background: '#fffbe6' }}
+                    message={
+                      <span>
+                        <strong style={{ color: '#d4380d' }}>Cảnh báo tuân thủ:</strong> Tác vụ này có mức rủi ro luật định là{' '}
+                        <strong style={{ color: '#cf1322' }}>{getPriorityLabel(statutoryRisk).toUpperCase()}</strong>.
+                        Việc giảm mức ưu tiên vận hành nội bộ <u>không làm giảm chế tài xử phạt tiền hoặc đình chỉ</u> từ Cơ quan Thuế/Cơ quan Nhà nước nếu thực hiện chậm trễ.
+                      </span>
+                    }
+                  />
+                </Col>
+              )}
+
+              {/* Thông tin người phụ trách & thời hạn */}
               <Col span={12}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Người / Vai trò:
                 </Text>
-                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <UserOutlined style={{ color: '#1677ff' }} /> Chủ doanh nghiệp
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Hạn chót pháp lý:
-                </Text>
-                <div style={{ fontWeight: 700, color: '#0958d9', fontSize: 13 }}>
-                  <CalendarOutlined style={{ marginRight: 4 }} />
-                  {formatVNCalendarDate(currentTask.dueDate || '')}
                 </div>
               </Col>
               <Col span={12}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Thời hạn còn lại:
                 </Text>
-                <div>
-                  <Tag color={remaining.tagColor} style={{ fontWeight: 500 }}>
+                <div style={{ marginTop: 2 }}>
+                  <Tag color={remaining.tagColor} style={{ fontWeight: 500, margin: 0 }}>
                     {remaining.label}
                   </Tag>
+                </div>
+              </Col>
+              <Col span={24}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  Hạn chót pháp lý:
+                </Text>
+                <div style={{ fontWeight: 700, color: '#0958d9', fontSize: 13, marginTop: 2 }}>
+                  <CalendarOutlined style={{ marginRight: 4 }} />
+                  {formatVNCalendarDate(currentTask.dueDate || '')}
                 </div>
               </Col>
             </Row>
@@ -418,6 +545,156 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
               <Paragraph style={{ fontSize: 13, margin: 0, whiteSpace: 'pre-wrap' }}>
                 {currentTask.description}
               </Paragraph>
+            </Card>
+          )}
+
+          {/* HƯỚNG DẪN NỘP THUẾ TNDN QUA CỔNG ETAX */}
+          {isCitTask && (
+            <Card
+              size="small"
+              style={{
+                borderRadius: 12,
+                border: '1px solid #bfdbfe',
+                background: 'linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%)',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.06)',
+              }}
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <Space size={6}>
+                    <BankOutlined style={{ color: '#2563eb', fontSize: 16 }} />
+                    <span style={{ fontWeight: 700, color: '#1e3a8a', fontSize: 13 }}>
+                      Hướng Dẫn Nộp Thuế TNDN Qua Cổng eTax (thuedientu.gdt.gov.vn)
+                    </span>
+                  </Space>
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<GlobalOutlined />}
+                    href="https://thuedientu.gdt.gov.vn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ backgroundColor: '#2563eb', borderColor: '#2563eb', fontWeight: 600, fontSize: 12 }}
+                  >
+                    Mở Cổng eTax ↗
+                  </Button>
+                </div>
+              }
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Thông số cốt lõi cần điền trên Giấy nộp tiền */}
+                <div
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #dbeafe',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Mã Tiểu mục (NDKT):</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <Tag color="blue" style={{ fontSize: 12, fontWeight: 700, margin: 0, padding: '1px 8px' }}>
+                        1052
+                      </Tag>
+                      <span style={{ fontSize: 11, color: '#475569' }}>Thuế TNDN từ SXKD</span>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<CopyOutlined style={{ fontSize: 11 }} />}
+                        onClick={() => {
+                          navigator.clipboard.writeText('1052');
+                          message.success('Đã chép mã tiểu mục 1052');
+                        }}
+                        style={{ padding: '0 4px', height: 20 }}
+                        title="Sao chép mã 1052"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Loại nghĩa vụ & Kỳ thuế:</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>
+                      Tạm nộp theo Quý (VD: {currentTask.title?.includes('Quý') ? currentTask.title.split(' ')[4] || 'Q2/2026' : 'Quyết toán năm'})
+                    </div>
+                  </div>
+
+                  {taxMatch && (
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>Số tiền tạm tính từ sổ:</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', fontFamily: 'monospace' }}>
+                          {taxMatch[1]} VNĐ
+                        </span>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CopyOutlined style={{ fontSize: 11 }} />}
+                          onClick={() => {
+                            const raw = taxMatch[1].replace(/\./g, '');
+                            navigator.clipboard.writeText(raw);
+                            message.success(`Đã chép số tiền: ${raw}`);
+                          }}
+                          style={{ padding: '0 4px', height: 20 }}
+                          title="Sao chép số tiền nguyên bản"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 5 Bước thao tác chuẩn trên Cổng Thuế điện tử */}
+                <div style={{ fontSize: 12, color: '#334155' }}>
+                  <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <InfoCircleOutlined style={{ color: '#2563eb' }} />
+                    5 Bước nộp thuế điện tử chuẩn xác:
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                      <span style={{ backgroundColor: '#2563eb', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>1</span>
+                      <div>
+                        <strong>Đăng nhập Cổng eTax:</strong> Vào <code>thuedientu.gdt.gov.vn</code> &gt; Chọn <strong>DOANH NGHIỆP</strong> &gt; Đăng nhập tài khoản Quản lý (<code>[MST]-QL</code>) và cắm USB Chữ ký số (Token).
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                      <span style={{ backgroundColor: '#2563eb', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>2</span>
+                      <div>
+                        <strong>Lập Giấy nộp tiền (GNT):</strong> Vào menu <strong>Nộp thuế</strong> &gt; <strong>Lập Giấy nộp tiền</strong> &gt; Chọn Ngân hàng nộp thuế đã liên kết &gt; Bấm <strong>Truy vấn</strong>.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                      <span style={{ backgroundColor: '#2563eb', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>3</span>
+                      <div>
+                        <strong>Điền thông tin khoản nộp:</strong> Chọn Cơ quan quản lý thu; Nhập Tiểu mục <strong>1052</strong>; Chọn kỳ tính thuế theo quý; Điền số tiền thuế TNDN tạm nộp ước tính.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                      <span style={{ backgroundColor: '#2563eb', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>4</span>
+                      <div>
+                        <strong>Ký điện tử &amp; Nộp:</strong> Bấm <strong>Hoàn thành</strong> để kiểm tra lại &gt; Bấm <strong>Ký và nộp</strong> &gt; Nhập mã PIN Token. Tiền sẽ được ngân hàng tự động trích nộp vào Kho bạc Nhà nước.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, backgroundColor: '#f0fdf4', padding: '6px 10px', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                      <span style={{ backgroundColor: '#16a34a', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>5</span>
+                      <div>
+                        <strong>Lưu bằng chứng hoàn thành:</strong> Vào <strong>Tra cứu giấy nộp tiền</strong> trên eTax &gt; Tải file PDF Giấy nộp tiền &gt; Nhấn nút <strong>"Tải Lên Minh Chứng"</strong> ở đầu trang này để lưu vào hồ sơ kiểm toán.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cảnh báo luật định 80% */}
+                <div style={{ fontSize: 11, color: '#b45309', backgroundColor: '#fef3c7', padding: '6px 10px', borderRadius: 6, border: '1px solid #fde68a' }}>
+                  * <strong>Quy tắc ngưỡng 80% (Nghị định 91/2022/NĐ-CP):</strong> Tổng số thuế TNDN tạm nộp 4 quý tối thiểu phải đạt 80% số thuế TNDN phải nộp cả năm khi quyết toán, nếu nộp thiếu sẽ phát sinh tiền chậm nộp 0,03%/ngày.
+                </div>
+              </div>
             </Card>
           )}
 

@@ -1,5 +1,5 @@
 import type { ProfileModalProps } from '../../interfaces';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   Form,
@@ -15,12 +15,12 @@ import {
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
-  CheckCircleFilled,
   SaveOutlined,
   CloseOutlined,
   BankOutlined,
   SafetyCertificateOutlined,
   CrownOutlined,
+  CameraOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
@@ -33,6 +33,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => 
   const { user, updateProfile } = useAuthStore();
   const { activeOrg } = useOrgStore();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
   const displayName = user?.name || user?.fullName || 'Chủ doanh nghiệp';
   const displayEmail = user?.email || '';
   const displayPhone = user?.phone || user?.phoneNumber || '';
@@ -40,7 +43,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => 
   const orgName = activeOrg?.legalName || activeOrg?.name || 'Doanh nghiệp CELRA';
   const taxCode = activeOrg?.taxCode || '';
 
-  // Sync form values when modal opens or user updates
+  // Sync form values and avatar when modal opens or user updates
   useEffect(() => {
     if (open && user) {
       form.setFieldsValue({
@@ -48,8 +51,50 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => 
         email: displayEmail,
         phone: displayPhone,
       });
+      setAvatarPreview(user?.avatar || null);
     }
   }, [open, user, displayName, displayEmail, displayPhone, form]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      message.error('Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      message.error('Kích thước ảnh tối đa là 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Tối ưu ảnh avatar thành hình vuông 256x256 sắc nét, dung lượng nhẹ
+        const canvas = document.createElement('canvas');
+        const size = 256;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const minDim = Math.min(img.width, img.height);
+          const startX = (img.width - minDim) / 2;
+          const startY = (img.height - minDim) / 2;
+          ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, size, size);
+          const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          setAvatarPreview(optimizedDataUrl);
+          message.success('Đã tải ảnh lên bản xem trước. Bấm "Lưu thay đổi" để áp dụng!');
+        } else {
+          setAvatarPreview(event.target?.result as string);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
     try {
@@ -60,6 +105,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => 
         name: values.name.trim(),
         phone: values.phone ? values.phone.trim() : '',
         email: values.email.trim(),
+        avatar: avatarPreview || undefined,
       });
 
       message.success('Cập nhật thông tin hồ sơ cá nhân thành công!');
@@ -149,12 +195,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => 
           <CloseOutlined style={{ fontSize: 13 }} />
         </button>
 
+        {/* Input ẩn để tải ảnh đại diện */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleAvatarChange}
+        />
+
         {/* Cụm thông tin Avatar và Định danh */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div
+            style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}
+            onClick={() => fileInputRef.current?.click()}
+            title="Bấm để tải ảnh đại diện mới"
+          >
             <Avatar
               size={76}
-              icon={<UserOutlined />}
+              src={avatarPreview || user?.avatar}
+              icon={!avatarPreview && !user?.avatar && <UserOutlined />}
               style={{
                 backgroundColor: '#ffffff',
                 color: '#0d2b59',
@@ -164,26 +224,31 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ open, onClose }) => 
                 border: '3px solid rgba(255, 255, 255, 0.9)',
               }}
             >
-              {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
+              {!avatarPreview && !user?.avatar && (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
             </Avatar>
             <div
               style={{
                 position: 'absolute',
-                bottom: 2,
-                right: 2,
-                background: '#10b981',
+                bottom: 0,
+                right: 0,
+                background: '#2563eb',
                 borderRadius: '50%',
-                width: 20,
-                height: 20,
+                width: 26,
+                height: 26,
                 border: '2px solid #ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                color: '#ffffff',
+                cursor: 'pointer',
+                transition: 'transform 0.2s',
               }}
-              title="Tài khoản đang hoạt động & bảo vệ 2 lớp"
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              title="Tải ảnh đại diện mới"
             >
-              <CheckCircleFilled style={{ color: '#fff', fontSize: 11 }} />
+              <CameraOutlined style={{ fontSize: 13 }} />
             </div>
           </div>
 

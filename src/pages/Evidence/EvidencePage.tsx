@@ -86,6 +86,33 @@ export const EvidencePage: React.FC = () => {
     }
   };
 
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (record: EvidenceDocument) => {
+    setDownloadingId(record.id);
+    try {
+      const response = await apiClient.get(`/evidence-documents/${record.id}/download`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const downloadName = record.fileName || record.name || 'tai_lieu.xlsx';
+      link.setAttribute('download', downloadName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success(`Đã tải về: ${downloadName}`);
+    } catch (err: any) {
+      console.error(err);
+      message.error(err?.response?.data?.message || 'Không thể tải tệp về. Vui lòng kiểm tra lại!');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   // Tạo danh sách năm động từ dữ liệu và năm hiện tại
   const currentYear = new Date().getFullYear();
   const yearFilterOptions = useMemo(() => {
@@ -269,8 +296,17 @@ export const EvidencePage: React.FC = () => {
       dataIndex: 'fileSize',
       key: 'fileSize',
       width: 110,
-      render: (bytes: number) =>
-        bytes ? `${(bytes / (1024 * 1024)).toFixed(2)} MB` : '---',
+      render: (val: any) => {
+        if (!val) return '---';
+        if (typeof val === 'string' && (val.includes('MB') || val.includes('KB') || val.includes('B'))) {
+          return val;
+        }
+        const num = Number(val);
+        if (isNaN(num)) return String(val);
+        return num > 1024 * 1024
+          ? `${(num / (1024 * 1024)).toFixed(2)} MB`
+          : `${(num / 1024).toFixed(1)} KB`;
+      },
     },
     {
       title: 'Trạng thái thẩm định',
@@ -298,47 +334,18 @@ export const EvidencePage: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 200,
-      render: (_: any, record: EvidenceDocument) => {
-        const fileFullUrl = record.fileUrl.startsWith('http')
-          ? record.fileUrl
-          : `http://localhost:3000${record.fileUrl}`;
-
-        return (
-          <Space>
-            <Button
-              size="small"
-              icon={<DownloadOutlined />}
-              href={fileFullUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Tải về
-            </Button>
-            {record.verificationStatus === 'PENDING' && (
-              <>
-                <Button
-                  size="small"
-                  type="primary"
-                  icon={<CheckCircleOutlined />}
-                  style={{ backgroundColor: '#52c41a' }}
-                  onClick={() => handleVerify(record, 'VERIFIED')}
-                >
-                  Duyệt
-                </Button>
-                <Button
-                  size="small"
-                  danger
-                  icon={<CloseCircleOutlined />}
-                  onClick={() => setVerifyDoc(record)}
-                >
-                  Từ chối
-                </Button>
-              </>
-            )}
-          </Space>
-        );
-      },
+      width: 120,
+      render: (_: any, record: EvidenceDocument) => (
+        <Button
+          size="small"
+          icon={<DownloadOutlined />}
+          loading={downloadingId === record.id}
+          onClick={() => handleDownload(record)}
+          className="font-medium hover:border-emerald-500 hover:text-emerald-600 rounded-lg"
+        >
+          Tải về
+        </Button>
+      ),
     },
   ];
 
@@ -482,8 +489,10 @@ export const EvidencePage: React.FC = () => {
           loading={loading}
           scroll={{ x: 'max-content' }}
           pagination={{
-            pageSize: 10,
-            showTotal: (total) => `Tổng cộng ${total} tài liệu`,
+            defaultPageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} trên tổng số ${total} tài liệu`,
           }}
         />
       </Card>

@@ -574,9 +574,10 @@ export const MainLayout: React.FC = () => {
               >
                 <Avatar
                   size={30}
-                  icon={<UserOutlined />}
+                  src={user?.avatar}
+                  icon={!user?.avatar && <UserOutlined />}
                   style={{
-                    background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
+                    background: user?.avatar ? undefined : 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
                     boxShadow: '0 2px 4px rgba(22, 119, 255, 0.25)',
                     flexShrink: 0,
                   }}

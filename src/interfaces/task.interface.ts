@@ -157,6 +157,12 @@ export interface TaskItem {
   periodLabel?: string;
   priority: TaskPriority;
   doUuTien?: TaskPriority;
+  customPriority?: TaskPriority | string | null;
+  statutoryPriority?: TaskPriority | string;
+  legalRisk?: TaskPriority | string;
+  customPriorityReason?: string | null;
+  customPriorityUpdatedAt?: string | null;
+  customPriorityUpdatedBy?: string | null;
   status: TaskStatus;
   trangThai?: TaskStatus;
   assigneeRole: RoleType | string;

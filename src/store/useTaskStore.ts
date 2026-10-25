@@ -37,6 +37,9 @@ interface TaskState {
   updateTaskStatus: (id: string, status: TaskStatus, note?: string) => Promise<void>;
   capNhatTrangThaiNhiemVu: (id: string, status: TaskStatus, note?: string) => Promise<void>;
 
+  updateTaskPriority: (id: string, priority: string, reason?: string) => Promise<TaskItem>;
+  capNhatDoUuTien: (id: string, priority: string, reason?: string) => Promise<TaskItem>;
+
   createTask: (data: Partial<TaskItem>) => Promise<TaskItem>;
   taoNhiemVu: (data: Partial<TaskItem>) => Promise<TaskItem>;
 
@@ -111,6 +114,25 @@ export const useTaskStore = create<TaskState>((set) => {
           nhiemVuChon: updatedSelected,
         };
       });
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const updateTaskPriorityFn = async (id: string, priority: string, reason?: string) => {
+    try {
+      const res: any = await apiClient.patch(`/tasks/${id}/priority`, { priority, reason });
+      set((state) => {
+        const updatedTasks = state.tasks.map((t) => (t.id === id ? { ...t, ...res } : t));
+        const updatedSelected = state.selectedTask?.id === id ? { ...state.selectedTask, ...res } : state.selectedTask;
+        return {
+          tasks: updatedTasks,
+          danhSachNhiemVu: updatedTasks,
+          selectedTask: updatedSelected,
+          nhiemVuChon: updatedSelected,
+        };
+      });
+      return res;
     } catch (err: any) {
       throw err;
     }
@@ -322,6 +344,8 @@ export const useTaskStore = create<TaskState>((set) => {
     layNhiemVuTheoId: fetchTaskByIdFn,
     updateTaskStatus: updateTaskStatusFn,
     capNhatTrangThaiNhiemVu: updateTaskStatusFn,
+    updateTaskPriority: updateTaskPriorityFn,
+    capNhatDoUuTien: updateTaskPriorityFn,
     createTask: createTaskFn,
     taoNhiemVu: createTaskFn,
     fetchComments: fetchCommentsFn,

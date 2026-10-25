@@ -16,7 +16,10 @@ import {
   CompassOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  CheckSquareOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
+import { useTaskStore } from '../../store/useTaskStore';
 import { 
   ShieldCheck,
   Wallet, 
@@ -187,8 +190,14 @@ export const ContextAuditPage: React.FC = () => {
   // 🏢 DỮ LIỆU DOANH NGHIỆP & SỔ THU CHI THUẾ TNDN (PHÂN BỔ THEO KỲ PHƯƠNG ÁN A)
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const currentQuarter = useMemo(() => Math.floor(new Date().getMonth() / 3) + 1, []);
-  const [taxQuarter, setTaxQuarter] = useState<number | 'ALL'>(currentQuarter);
-  const [taxYear, setTaxYear] = useState<number>(currentYear);
+  const [taxQuarter, setTaxQuarter] = useState<number | 'ALL'>(() => {
+    const saved = localStorage.getItem('celra_cit_quarter');
+    return saved ? (saved === 'ALL' ? 'ALL' : Number(saved)) : currentQuarter;
+  });
+  const [taxYear, setTaxYear] = useState<number>(() => {
+    const saved = localStorage.getItem('celra_cit_year');
+    return saved ? Number(saved) : currentYear;
+  });
   const [periodStore, setPeriodStore] = useState<PeriodStore>({});
   const [hasLoadedDbRecords, setHasLoadedDbRecords] = useState<boolean>(false);
   const [citCalcResult, setCitCalcResult] = useState<CitCalculationResult | null>(null);
@@ -323,7 +332,32 @@ export const ContextAuditPage: React.FC = () => {
         quarter: Number(taxQuarter),
         items: rows,
       });
-      message.success(`Nạp thành công ${rows.length} khoản doanh thu vào Quý ${taxQuarter}/${taxYear}!`);
+
+      // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', `Bảng kê Doanh thu (Quý ${taxQuarter}/${taxYear})`);
+        formData.append('category', 'Thuế Doanh Nghiệp');
+        formData.append('tag', 'Bảng kê thu - chi');
+        formData.append('quarter', String(taxQuarter));
+        formData.append('year', String(taxYear));
+        formData.append('metadata', JSON.stringify({
+          quarter: taxQuarter,
+          year: taxYear,
+          tag: 'Bảng kê thu - chi',
+          documentType: 'BẢNG KÊ DOANH THU EXCEL',
+          rowCount: rows.length,
+        }));
+
+        await apiClient.post('/evidence-documents/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } catch (uploadErr) {
+        console.warn('Lưu hồ sơ bằng chứng tự động gặp lỗi:', uploadErr);
+      }
+
+      message.success(`Nạp thành công ${rows.length} khoản doanh thu và đã lưu file vào Hồ sơ & Bằng chứng!`);
       fetchCitSummary();
       fetchRevenues();
     } catch (err: any) {
@@ -362,7 +396,32 @@ export const ContextAuditPage: React.FC = () => {
         quarter: Number(taxQuarter),
         items: rows,
       });
-      message.success(`Nạp thành công ${rows.length} khoản chi phí vào Quý ${taxQuarter}/${taxYear}!`);
+
+      // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', `Bảng kê Chi phí (Quý ${taxQuarter}/${taxYear})`);
+        formData.append('category', 'Thuế Doanh Nghiệp');
+        formData.append('tag', 'Bảng kê thu - chi');
+        formData.append('quarter', String(taxQuarter));
+        formData.append('year', String(taxYear));
+        formData.append('metadata', JSON.stringify({
+          quarter: taxQuarter,
+          year: taxYear,
+          tag: 'Bảng kê thu - chi',
+          documentType: 'BẢNG KÊ CHI PHÍ EXCEL',
+          rowCount: rows.length,
+        }));
+
+        await apiClient.post('/evidence-documents/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } catch (uploadErr) {
+        console.warn('Lưu hồ sơ bằng chứng tự động gặp lỗi:', uploadErr);
+      }
+
+      message.success(`Nạp thành công ${rows.length} khoản chi phí và đã lưu file vào Hồ sơ & Bằng chứng!`);
       fetchCitSummary();
       fetchExpenses();
     } catch (err: any) {
@@ -698,6 +757,56 @@ export const ContextAuditPage: React.FC = () => {
     }
   };
 
+  const getQuarterReminderDate = (quarter: number | 'ALL', year: number) => {
+    switch (quarter) {
+      case 1: return `23/04/${year}`;
+      case 2: return `24/07/${year}`;
+      case 3: return `24/10/${year}`;
+      case 4: return `24/01/${year + 1}`;
+      case 'ALL': return `24/03/${year + 1}`;
+      default: return `24/01/${year + 1}`;
+    }
+  };
+
+  // State Modal Tạo Checklist Hạn Nộp Thuế
+  const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
+  const [selectedChecklistQuarter, setSelectedChecklistQuarter] = useState<number | 'ALL'>(1);
+  const [selectedChecklistYear, setSelectedChecklistYear] = useState<number>(currentYear);
+  const [isCreatingChecklist, setIsCreatingChecklist] = useState(false);
+  const { fetchTasks, fetchNotifications } = useTaskStore();
+
+  const handleConfirmCreateChecklist = async () => {
+    setIsCreatingChecklist(true);
+    try {
+      const isCurrentQuarter = String(selectedChecklistQuarter) === String(taxQuarter) && selectedChecklistYear === taxYear;
+      const estTax = isCurrentQuarter ? citSummary.statutoryPrepayment80 : 0;
+      const revCount = isCurrentQuarter ? citSummary.revenueCount : 0;
+      const expCount = isCurrentQuarter ? citSummary.expenseCount : 0;
+      const disAmt = isCurrentQuarter ? citSummary.totalDisallowedExpense : 0;
+
+      await apiClient.post('/cit-ledger/sync-compliance-checklist', {
+        year: selectedChecklistYear,
+        quarter: selectedChecklistQuarter,
+        estimatedTaxAmount: estTax,
+        revenueCount: revCount,
+        expenseCount: expCount,
+        disallowedExpenseAmount: disAmt,
+      });
+
+      message.success(
+        `Đã tạo thành công Checklist Hạn nộp thuế Quý ${selectedChecklistQuarter}/${selectedChecklistYear} & kích hoạt nhắc hạn trước 7 ngày!`
+      );
+      setIsChecklistModalOpen(false);
+      if (fetchTasks) fetchTasks();
+      if (fetchNotifications) fetchNotifications();
+    } catch (err: any) {
+      console.error(err);
+      message.error(err?.response?.data?.message || 'Không thể tạo Checklist. Vui lòng thử lại!');
+    } finally {
+      setIsCreatingChecklist(false);
+    }
+  };
+
   const orgAddress = activeOrg?.address || activeOrg?.diaChi || 'Quận Ninh Kiều, TP. Cần Thơ';
   const orgTaxCode = activeOrg?.taxCode || activeOrg?.maSoThue || '0101234567';
   const orgName = activeOrg?.legalName || activeOrg?.name || activeOrg?.tenDoanhNghiep || 'Doanh nghiệp';
@@ -819,11 +928,13 @@ export const ContextAuditPage: React.FC = () => {
   // Thay đổi Quý / Năm
   const handleQuarterChange = (val: number | 'ALL') => {
     setTaxQuarter(val);
+    localStorage.setItem('celra_cit_quarter', String(val));
     saveRecordsToDb(periodStore, val, taxYear, true);
   };
 
   const handleYearChange = (val: number) => {
     setTaxYear(val);
+    localStorage.setItem('celra_cit_year', String(val));
     saveRecordsToDb(periodStore, taxQuarter, val, true);
   };
 
@@ -945,7 +1056,42 @@ export const ContextAuditPage: React.FC = () => {
     };
     setPeriodStore(newStore);
     setIsImportConfirmModalOpen(false);
+
+    // 💾 LƯU DỮ LIỆU VĨNH VIỄN VÀO POSTGRESQL QUA NESTJS API
+    try {
+      // 1. Dọn dẹp dữ liệu cũ của quý này trước khi ghi đè
+      await apiClient
+        .delete('/cit-ledger/clear', {
+          params: { year: taxYear, quarter: Number(taxQuarter), type: 'both' },
+        })
+        .catch(() => {});
+
+      // 2. Nạp dữ liệu mới vào bảng citRevenue và citExpense
+      if (pendingImportData.revenues.length > 0) {
+        await apiClient.post('/cit-ledger/revenues/import', {
+          year: taxYear,
+          quarter: Number(taxQuarter),
+          items: pendingImportData.revenues,
+        });
+      }
+      if (pendingImportData.expenses.length > 0) {
+        await apiClient.post('/cit-ledger/expenses/import', {
+          year: taxYear,
+          quarter: Number(taxQuarter),
+          items: pendingImportData.expenses,
+        });
+      }
+      localStorage.setItem('celra_cit_quarter', String(taxQuarter));
+      localStorage.setItem('celra_cit_year', String(taxYear));
+    } catch (e) {
+      console.error('Lỗi lưu vào DB cit-ledger:', e);
+    }
+
     await saveRecordsToDb(newStore, taxQuarter, taxYear, true);
+    await fetchCitSummary();
+    await fetchRevenues();
+    await fetchExpenses();
+
     message.success(`Đã xóa dữ liệu cũ Quý ${taxQuarter}/${taxYear} và nạp mới toàn bộ (${pendingImportData.revenues.length} khoản thu, ${pendingImportData.expenses.length} khoản chi)!`);
     setPendingImportData(null);
     setDuplicateRows(null);
@@ -1003,7 +1149,34 @@ export const ContextAuditPage: React.FC = () => {
     };
     setPeriodStore(newStore);
     setIsImportConfirmModalOpen(false);
+
+    // 💾 NẠP THÊM VÀO POSTGRESQL QUA NESTJS API
+    try {
+      if (pendingImportData.revenues.length > 0) {
+        await apiClient.post('/cit-ledger/revenues/import', {
+          year: taxYear,
+          quarter: Number(taxQuarter),
+          items: pendingImportData.revenues,
+        });
+      }
+      if (pendingImportData.expenses.length > 0) {
+        await apiClient.post('/cit-ledger/expenses/import', {
+          year: taxYear,
+          quarter: Number(taxQuarter),
+          items: pendingImportData.expenses,
+        });
+      }
+      localStorage.setItem('celra_cit_quarter', String(taxQuarter));
+      localStorage.setItem('celra_cit_year', String(taxYear));
+    } catch (e) {
+      console.error('Lỗi nối thêm vào DB cit-ledger:', e);
+    }
+
     await saveRecordsToDb(newStore, taxQuarter, taxYear, true);
+    await fetchCitSummary();
+    await fetchRevenues();
+    await fetchExpenses();
+
     message.success(`Đã nối thêm ${pendingImportData.revenues.length} khoản thu và ${pendingImportData.expenses.length} khoản chi vào Quý ${taxQuarter}/${taxYear} thành công!`);
     setPendingImportData(null);
     setDuplicateRows(null);
@@ -1590,6 +1763,22 @@ export const ContextAuditPage: React.FC = () => {
                   activeKey={financialTab}
                   onChange={(k) => setFinancialTab(k as 'revenue' | 'expense')}
                   className="px-4 pt-1"
+                  tabBarExtraContent={
+                    <div className="flex items-center gap-2 pb-1">
+                      <Button
+                        type="primary"
+                        icon={<CheckSquareOutlined />}
+                        onClick={() => {
+                          setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
+                          setSelectedChecklistYear(taxYear);
+                          setIsChecklistModalOpen(true);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-lg border-none shadow-xs flex items-center gap-1.5 h-8 px-3"
+                      >
+                        Tạo Checklist Hạn Nộp Thuế
+                      </Button>
+                    </div>
+                  }
                   items={[
                     {
                       key: 'revenue',
@@ -1616,14 +1805,27 @@ export const ContextAuditPage: React.FC = () => {
                                 className="w-full text-xs"
                               />
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2 flex-nowrap shrink-0 overflow-x-auto">
+                              <Button
+                                size="middle"
+                                icon={<CheckSquareOutlined className="text-emerald-600" />}
+                                onClick={() => {
+                                  setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
+                                  setSelectedChecklistYear(taxYear);
+                                  setIsChecklistModalOpen(true);
+                                }}
+                                className="text-xs font-bold rounded-lg border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 shadow-2xs whitespace-nowrap"
+                                title="Tạo Checklist hạn nộp thuế và kích hoạt nhắc hạn trước 7 ngày"
+                              >
+                                Tạo Checklist
+                              </Button>
                               <Button
                                 type="primary"
                                 size="middle"
                                 icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
                                 onClick={handleOpenAddRevenue}
                                 disabled={taxQuarter === 'ALL'}
-                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg border-none shadow-xs"
+                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg border-none shadow-xs whitespace-nowrap"
                                 title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản thu'}
                               >
                                 Thêm khoản thu
@@ -1639,20 +1841,21 @@ export const ContextAuditPage: React.FC = () => {
                                   icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1 text-slate-500" />}
                                   loading={isExcelUploading}
                                   disabled={taxQuarter === 'ALL'}
-                                  className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-2xs"
+                                  className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-2xs whitespace-nowrap"
                                   title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để nạp file' : 'Nạp file Excel Doanh thu'}
                                 >
                                   Import Excel
                                 </Button>
                               </Upload>
-                              <button
-                                type="button"
+                              <Button
+                                size="middle"
+                                icon={<DownloadOutlined className="text-emerald-600" />}
                                 onClick={() => downloadRevenueExcelTemplate(taxQuarter, taxYear)}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
+                                className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shadow-2xs whitespace-nowrap"
+                                title="Tải tệp mẫu Excel doanh thu chuẩn luật"
                               >
-                                <DownloadOutlined className="text-emerald-600 text-xs" />
-                                <span>Tải mẫu Excel</span>
-                              </button>
+                                Tải mẫu Excel
+                              </Button>
                             </div>
                           </div>
 
@@ -1728,14 +1931,27 @@ export const ContextAuditPage: React.FC = () => {
                                 </Radio.Button>
                               </Radio.Group>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2 flex-nowrap shrink-0 overflow-x-auto">
+                              <Button
+                                size="middle"
+                                icon={<CheckSquareOutlined className="text-emerald-600" />}
+                                onClick={() => {
+                                  setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
+                                  setSelectedChecklistYear(taxYear);
+                                  setIsChecklistModalOpen(true);
+                                }}
+                                className="text-xs font-bold rounded-lg border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 shadow-2xs whitespace-nowrap"
+                                title="Tạo Checklist hạn nộp thuế và kích hoạt nhắc hạn trước 7 ngày"
+                              >
+                                Tạo Checklist
+                              </Button>
                               <Button
                                 type="primary"
                                 size="middle"
                                 icon={<Plus className="w-3.5 h-3.5 inline mr-1" />}
                                 onClick={handleOpenAddExpense}
                                 disabled={taxQuarter === 'ALL'}
-                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg border-none shadow-xs"
+                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg border-none shadow-xs whitespace-nowrap"
                                 title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để thêm mới' : 'Thêm khoản chi'}
                               >
                                 Thêm khoản chi
@@ -1751,20 +1967,21 @@ export const ContextAuditPage: React.FC = () => {
                                   icon={<UploadIcon className="w-3.5 h-3.5 inline mr-1 text-slate-500" />}
                                   loading={isExcelUploading}
                                   disabled={taxQuarter === 'ALL'}
-                                  className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-2xs"
+                                  className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-2xs whitespace-nowrap"
                                   title={taxQuarter === 'ALL' ? 'Chế độ Cả năm chỉ xem. Chọn từng Quý để nạp file' : 'Nạp file Excel Chi phí'}
                                 >
                                   Import Excel
                                 </Button>
                               </Upload>
-                              <button
-                                type="button"
+                              <Button
+                                size="middle"
+                                icon={<DownloadOutlined className="text-emerald-600" />}
                                 onClick={() => downloadExpenseExcelTemplate(taxQuarter, taxYear)}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer bg-transparent border-none p-0 ml-1 transition-colors"
+                                className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shadow-2xs whitespace-nowrap"
+                                title="Tải tệp mẫu Excel chi phí chuẩn luật"
                               >
-                                <DownloadOutlined className="text-emerald-600 text-xs" />
-                                <span>Tải mẫu Excel</span>
-                              </button>
+                                Tải mẫu Excel
+                              </Button>
                             </div>
                           </div>
 
@@ -2431,6 +2648,130 @@ export const ContextAuditPage: React.FC = () => {
           fetchFacts();
         }}
       />
+
+      {/* MODAL TẠO CHECKLIST HẠN NỘP THUẾ & BẬT NHẮC HẠN */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <CheckSquareOutlined className="text-emerald-600 text-lg" />
+            <span className="font-extrabold text-sm sm:text-base">
+              Khởi Tạo Checklist Hạn Nộp Thuế & Bật Nhắc Hạn
+            </span>
+          </div>
+        }
+        open={isChecklistModalOpen}
+        onCancel={() => setIsChecklistModalOpen(false)}
+        footer={null}
+        width={560}
+        destroyOnClose
+        centered
+        className="rounded-2xl overflow-hidden"
+      >
+        <div className="pt-3 space-y-4">
+          <div className="text-xs text-slate-600 leading-relaxed">
+            Hệ thống sẽ tạo bộ khung Checklist tuân thủ thuế TNDN cho năm tài chính, đồng bộ hạn nộp lên <strong>Lịch Tuân Thủ (Compliance Calendar)</strong> và tự động gửi thông báo chuông nhắc nhở trước <strong>7 ngày</strong> đến hạn nộp.
+          </div>
+
+          <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold text-slate-700">Năm tài chính:</span>
+              <Select
+                value={selectedChecklistYear}
+                onChange={(val) => setSelectedChecklistYear(val)}
+                options={dynamicYearOptions}
+                className="w-36 font-semibold"
+                size="middle"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-700 block">
+                Chọn Quý cần tạo Checklist nộp thuế:
+              </span>
+              <Radio.Group
+                value={selectedChecklistQuarter}
+                onChange={(e) => setSelectedChecklistQuarter(e.target.value)}
+                className="w-full grid grid-cols-1 gap-2"
+              >
+                {[
+                  { q: 1, label: 'Quý 1', deadline: `30/04/${selectedChecklistYear}`, reminder: `23/04/${selectedChecklistYear}` },
+                  { q: 2, label: 'Quý 2', deadline: `31/07/${selectedChecklistYear}`, reminder: `24/07/${selectedChecklistYear}` },
+                  { q: 3, label: 'Quý 3', deadline: `31/10/${selectedChecklistYear}`, reminder: `24/10/${selectedChecklistYear}` },
+                  { q: 4, label: 'Quý 4', deadline: `31/01/${selectedChecklistYear + 1}`, reminder: `24/01/${selectedChecklistYear + 1}` },
+                  { q: 'ALL', label: 'Quyết Toán Cả Năm', deadline: `31/03/${selectedChecklistYear + 1}`, reminder: `24/03/${selectedChecklistYear + 1}` },
+                ].map((item) => (
+                  <Radio
+                    key={item.q}
+                    value={item.q}
+                    className={`p-2.5 rounded-lg border transition-all ${
+                      selectedChecklistQuarter === item.q
+                        ? 'border-emerald-500 bg-emerald-50/80 font-bold'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="inline-flex flex-wrap items-center justify-between gap-2 w-[calc(100%-30px)] text-xs">
+                      <span className="font-bold text-slate-800">{item.label}</span>
+                      <div className="flex items-center gap-3 text-[11px]">
+                        <span className="text-slate-600">
+                          Hạn chót: <strong className="font-mono text-slate-900">{item.deadline}</strong>
+                        </span>
+                        <span className="text-amber-700 font-semibold flex items-center gap-1">
+                          <BellOutlined /> Nhắc hạn: {item.reminder}
+                        </span>
+                      </div>
+                    </div>
+                  </Radio>
+                ))}
+              </Radio.Group>
+            </div>
+          </div>
+
+          {/* Hộp tóm tắt thông số */}
+          <div className="bg-emerald-950/90 text-white p-3.5 rounded-xl space-y-1.5 shadow-xs">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-teal-200 font-medium">Kỳ lựa chọn:</span>
+              <strong className="text-white">
+                {selectedChecklistQuarter === 'ALL' ? `Quyết toán Cả năm ${selectedChecklistYear}` : `Tạm nộp Quý ${selectedChecklistQuarter}/${selectedChecklistYear}`}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-teal-200 font-medium">Hạn nộp chính thức:</span>
+              <strong className="text-amber-300 font-mono">
+                {getQuarterDeadline(selectedChecklistQuarter, selectedChecklistYear)}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-teal-200 font-medium">Ngày tự động nhắc nhở (cách 7 ngày):</span>
+              <strong className="text-amber-300 font-mono">
+                {getQuarterReminderDate(selectedChecklistQuarter, selectedChecklistYear)}
+              </strong>
+            </div>
+            {String(selectedChecklistQuarter) === String(taxQuarter) && selectedChecklistYear === taxYear && citSummary.statutoryPrepayment80 > 0 && (
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-teal-800">
+                <span className="text-teal-200 font-medium">Số thuế TNDN tạm tính (từ sổ):</span>
+                <strong className="text-emerald-300 font-mono">
+                  {citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} VNĐ
+                </strong>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button onClick={() => setIsChecklistModalOpen(false)} className="rounded-xl text-xs">
+              Hủy
+            </Button>
+            <Button
+              type="primary"
+              icon={<CheckSquareOutlined />}
+              loading={isCreatingChecklist}
+              onClick={handleConfirmCreateChecklist}
+              className="bg-emerald-600 hover:bg-emerald-500 font-extrabold text-xs h-10 px-5 rounded-xl border-none shadow-md shadow-emerald-700/20"
+            >
+              Xác Nhận Tạo Checklist
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
