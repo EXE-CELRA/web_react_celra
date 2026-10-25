@@ -89,7 +89,7 @@ export function downloadCitExcelTemplate(quarter: number | 'ALL' = 1, year: numb
       'Số tiền (VNĐ)': 22000000,
       'Phương thức thanh toán': 'Tiền mặt',
       'Có hóa đơn GTGT?': 'Có',
-      'Ghi chú': 'Hóa đơn > 20 triệu nhưng trả tiền mặt (Rủi ro bị loại B4)',
+      'Ghi chú': 'Hóa đơn > 5 triệu nhưng trả tiền mặt (Rủi ro bị loại B4 Luật 48/2024 & TT 96/2015)',
     },
     {
       'Ngày chi (DD/MM/YYYY)': `15/${m2}/${year}`,
@@ -379,7 +379,7 @@ export function downloadExpenseExcelTemplate(quarter: number | 'ALL' = 1, year: 
       'Số tiền (VNĐ)': 22000000,
       'Phương thức thanh toán': 'Tiền mặt',
       'Có hóa đơn GTGT?': 'Có',
-      'Ghi chú': 'Hóa đơn > 20 triệu nhưng trả tiền mặt (Rủi ro bị loại B4 Điều 4 TT 96/2015/TT-BTC)',
+      'Ghi chú': 'Hóa đơn > 5 triệu nhưng trả tiền mặt (Rủi ro bị loại B4 Luật Thuế GTGT 48/2024 & TT 96/2015)',
     },
     {
       'Ngày chi (DD/MM/YYYY)': `15/${m2}/${year}`,

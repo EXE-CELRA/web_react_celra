@@ -34,6 +34,7 @@ export const RegisterPage: React.FC = () => {
     try {
       setIsSendingOtp(true);
       setFormValues(values);
+      setOtpCode("");
       message.loading({
         content: "Đang gửi mã OTP đến email của bạn...",
         key: "otp_loading",
@@ -42,8 +43,9 @@ export const RegisterPage: React.FC = () => {
         email: values.email,
         name: values.fullName,
       });
+
       message.success({
-        content: "Mã OTP đã được gửi về email!",
+        content: "Mã OTP đã được gửi về email! Vui lòng kiểm tra hộp thư.",
         key: "otp_loading",
       });
       setIsOtpModalOpen(true);
@@ -277,9 +279,9 @@ export const RegisterPage: React.FC = () => {
         centered
       >
         <p style={{ color: "#475569", fontSize: 14 }}>
-          Chúng tôi đã gửi một mã xác thực 6 chữ số đến email{" "}
-          <strong>{formValues?.email}</strong>. Vui lòng kiểm tra hộp thư (hoặc
-          mục Spam).
+          Mã xác thực 6 chữ số đã được gửi đến email{" "}
+          <strong style={{ color: "#0052cc" }}>{formValues?.email}</strong>. Vui lòng mở Gmail (hoặc
+          kiểm tra mục Spam), sao chép mã và nhập vào bên dưới để hoàn tất đăng ký.
         </p>
         <Input
           maxLength={6}
