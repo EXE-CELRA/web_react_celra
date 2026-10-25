@@ -81,7 +81,7 @@ export const STATUTORY_PENALTY_RISKS: Record<string, string> = {
 };
 
 // 21 Thẻ Bối Cảnh Chuẩn Luật Định Doanh Nghiệp Việt Nam (Dùng khi khởi tạo hoặc context rỗng)
-const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }> = [
+export const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }> = [
   {
     id: 'fact-tax-1',
     key: 'q_tax_corp_1',
@@ -245,9 +245,28 @@ export const ContextAuditPage: React.FC = () => {
 
   // API 1: TẢI KPI TỔNG HỢP TỪ BACKEND (XỬ LÝ UNWRAP TỰ ĐỘNG CỦA APICLIENT)
   const fetchCitSummary = useCallback(async () => {
+    if (!activeOrg?.id) {
+      setCitSummary({
+        totalRevenue: 0,
+        revenueCount: 0,
+        totalAccountingExpense: 0,
+        expenseCount: 0,
+        totalDisallowedExpense: 0,
+        disallowedCount: 0,
+        totalDeductibleExpense: 0,
+        assessableIncome: 0,
+        taxRate: 0.20,
+        estimatedTaxAmount: 0,
+        statutoryPrepayment80: 0,
+        accountingProfitBeforeTax: 0,
+        netProfitAfterTax: 0,
+      });
+      return;
+    }
     try {
       const res: any = await apiClient.get('/cit-ledger/summary', {
         params: { year: taxYear, quarter: taxQuarter },
+        headers: { 'x-organization-id': activeOrg.id },
       });
       const summary = res?.data !== undefined && !res.totalRevenue ? res.data : res;
       if (summary) {
@@ -256,10 +275,15 @@ export const ContextAuditPage: React.FC = () => {
     } catch (err) {
       console.warn('Lỗi tải KPI tổng hợp CIT:', err);
     }
-  }, [taxYear, taxQuarter]);
+  }, [activeOrg?.id, taxYear, taxQuarter]);
 
   // API 2: TẢI DANH SÁCH DOANH THU PHÂN TRANG & TÌM KIẾM
   const fetchRevenues = useCallback(async () => {
+    if (!activeOrg?.id) {
+      setRevenuesData([]);
+      setRevenuesTotal(0);
+      return;
+    }
     setIsRevenueLoading(true);
     try {
       const res: any = await apiClient.get('/cit-ledger/revenues', {
@@ -270,6 +294,7 @@ export const ContextAuditPage: React.FC = () => {
           limit: revenueLimit,
           search: revenueSearch,
         },
+        headers: { 'x-organization-id': activeOrg.id },
       });
       const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []));
       const total = typeof res?.total === 'number' ? res.total : (typeof res?.data?.total === 'number' ? res.data.total : list.length);
@@ -284,6 +309,11 @@ export const ContextAuditPage: React.FC = () => {
 
   // API 3: TẢI DANH SÁCH CHI PHÍ PHÂN TRANG, TÌM KIẾM & LỌC B4
   const fetchExpenses = useCallback(async () => {
+    if (!activeOrg?.id) {
+      setExpensesData([]);
+      setExpensesTotal(0);
+      return;
+    }
     setIsExpenseLoading(true);
     try {
       const res: any = await apiClient.get('/cit-ledger/expenses', {
@@ -295,6 +325,7 @@ export const ContextAuditPage: React.FC = () => {
           search: expenseSearch,
           filterB4: expenseFilterB4,
         },
+        headers: { 'x-organization-id': activeOrg.id },
       });
       const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []));
       const total = typeof res?.total === 'number' ? res.total : (typeof res?.data?.total === 'number' ? res.data.total : list.length);
@@ -307,12 +338,27 @@ export const ContextAuditPage: React.FC = () => {
     }
   }, [taxYear, taxQuarter, expensePage, expenseLimit, expenseSearch, expenseFilterB4]);
 
-  // TỰ ĐỘNG GỌI API KHI ĐỔI KỲ (QUÝ / NĂM)
+  // TỰ ĐỘNG GỌI API KHI ĐỔI KỲ (QUÝ / NĂM) HOẶC ĐỔI DOANH NGHIỆP
   useEffect(() => {
     fetchCitSummary();
     fetchRevenues();
     fetchExpenses();
   }, [fetchCitSummary, fetchRevenues, fetchExpenses]);
+
+  // RESET SẠCH TOÀN BỘ SỔ THU CHI & RÀ SOÁT KHI CHUYỂN DOANH NGHIỆP
+  useEffect(() => {
+    setRevenuesData([]);
+    setRevenuesTotal(0);
+    setExpensesData([]);
+    setExpensesTotal(0);
+    setPeriodStore({});
+    setAuditFindings([]);
+    setSelectedFactIds([]);
+    setCitCalcResult(null);
+    if (activeOrg?.id) {
+      fetchFacts();
+    }
+  }, [activeOrg?.id]);
 
   // 📥 NẠP FILE EXCEL DOANH THU RIÊNG (TAB DOANH THU)
   const handleUploadRevenueExcel = async (file: File) => {
@@ -1342,9 +1388,9 @@ export const ContextAuditPage: React.FC = () => {
     fetchFacts();
   }, [fetchFacts, fetchWallet]);
 
-  // Danh sách fact hợp nhất: Ưu tiên facts từ Database, nếu rỗng thì dùng chuẩn thẻ
+  // Danh sách fact hợp nhất: Chỉ lấy facts thực tế từ Database của doanh nghiệp này
   const effectiveFacts: ContextFact[] = useMemo(() => {
-    const rawList = facts && facts.length > 0 ? facts : (STANDARD_21_CONTEXT_FACTS as ContextFact[]);
+    const rawList = facts && facts.length > 0 ? facts : [];
     return rawList.filter((f) => f.group !== 'boi_canh_co_so' && ENABLED_CONTEXT_GROUP_KEYS.includes(f.group || ''));
   }, [facts]);
 

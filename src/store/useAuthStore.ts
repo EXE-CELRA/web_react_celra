@@ -52,9 +52,15 @@ export const useAuthStore = create<AuthState>((set) => {
       const defaultRole = memberships && memberships.length > 0 ? memberships[0].role : user.systemRole || user.role;
       localStorage.setItem('celra_active_role', defaultRole);
 
-      if (memberships && memberships.length > 0 && !localStorage.getItem('celra_active_org_id')) {
+      if (memberships && memberships.length > 0) {
         localStorage.setItem('celra_active_org_id', memberships[0].organizationId);
+      } else {
+        localStorage.removeItem('celra_active_org_id');
       }
+      // Dọn sạch cache khảo sát của phiên đăng nhập trước đó
+      localStorage.removeItem('celra_survey_completed_profile');
+      localStorage.removeItem('celra_survey_draft_profile');
+      localStorage.removeItem('celra_survey_completed');
 
       set({
         user,
@@ -93,6 +99,7 @@ export const useAuthStore = create<AuthState>((set) => {
       localStorage.removeItem('celra_survey_completed');
       localStorage.removeItem('celra_survey_draft_answers');
       localStorage.removeItem('celra_survey_draft_profile');
+      localStorage.removeItem('celra_survey_completed_profile');
       const res: any = await apiClient.post('/auth/register', payload);
       set({ isLoading: false, dangTai: false });
       return res;
@@ -111,6 +118,7 @@ export const useAuthStore = create<AuthState>((set) => {
     localStorage.removeItem('celra_survey_draft_profile');
     localStorage.removeItem('celra_survey_draft_answers');
     localStorage.removeItem('celra_survey_completed');
+    localStorage.removeItem('celra_survey_completed_profile');
     set({
       user: null,
       nguoiDung: null,
