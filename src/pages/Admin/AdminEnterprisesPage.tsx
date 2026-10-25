@@ -327,6 +327,10 @@ export const AdminEnterprisesPage: React.FC = () => {
           scroll={{ x: 1550 }}
           pagination={{
             pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total: number, range: [number, number]) =>
+              `${range[0]}-${range[1]} trên tổng số ${total} doanh nghiệp`,
           }}
         />
       </Card>

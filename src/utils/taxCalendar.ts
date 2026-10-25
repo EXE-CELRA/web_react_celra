@@ -1,41 +1,13 @@
-/**
- * CELRA Statutory Tax, Labor & Corporate Compliance Calendar Utility
- * Căn cứ pháp lý:
- * - Luật Quản lý thuế số 38/2019/QH14 (Điều 36, Điều 44)
- * - Nghị định 126/2020/NĐ-CP (Điều 8, Điều 9, Điều 18)
- * - Nghị định 91/2022/NĐ-CP (Khoản 3 Điều 1 - Tạm nộp 80% TNDN 4 quý)
- * - Bộ luật Lao động 2019 (Điều 119) & Nghị định 145/2020/NĐ-CP (Khoản 2 Điều 4)
- * - Luật Doanh nghiệp 2020 (Điều 30, Điều 47, Điều 75, Điều 113)
- * - Nghị định 01/2021/NĐ-CP (Điều 66 - Thông báo tạm ngừng kinh doanh trước 03 ngày làm việc)
- * - Nghị định 123/2020/NĐ-CP & Thông tư 78/2021/TT-BTC (Điều 19 - Giải trình HĐĐT sai sót)
- */
+import type { StatutoryCycleType, StatutoryPeriodMeta } from '../interfaces';
 
-export type StatutoryCycleType =
-  | 'MONTHLY'          // 1. Hàng tháng (Hạn ngày 20)
-  | 'QUARTERLY'        // 2. Hàng quý (30/04, 31/07, 31/10, 31/01)
-  | 'BIANNUAL_6M'      // 3. 6 Tháng / Bán niên (05/06, 05/12)
-  | 'ANNUAL'           // 4. Cả năm (30/01 môn bài, 31/03 quyết toán BCTC)
-  | 'EVENT_10D'        // 5. Từng lần phát sinh 10 ngày (Thuế nhà thầu FCT, ĐK NQLĐ)
-  | 'EVENT_20D'        // 6. Đợt 20 ngày (Chuyển kỳ kê khai theo NĐ 126/2020)
-  | 'EVENT_45D'        // 7. Đợt 45 ngày (Quyết toán giải thể, chia tách)
-  | 'EVENT_3D'         // 8. Đợt 03 ngày làm việc (Tạm ngừng / HĐĐT sai sót)
-  | 'EVENT_10D_BIZ'    // 9. Đợt 10 ngày làm việc (Đổi ĐKKD & Thông tin thuế)
-  | 'EVENT_90D'        // 10. Đợt 90 ngày (Hạn góp đủ vốn điều lệ ban đầu)
-  | 'EVENT_30D_CAPITAL'; // 11. Đợt 30 ngày (Đăng ký giảm vốn điều lệ sau 90 ngày)
 
-export interface StatutoryPeriodMeta {
-  code: StatutoryCycleType;
-  label: string;
-  badge: string;
-  color: string;
-  legalBasis: string;
-  description: string;
-}
+
+
 
 export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodMeta> = {
   MONTHLY: {
     code: 'MONTHLY',
-    label: '1. Hàng tháng (Hạn ngày 20)',
+    label: 'Hàng tháng (Hạn ngày 20)',
     badge: 'Hàng tháng (Hạn ngày 20)',
     color: 'blue',
     legalBasis: 'Khoản 1 Điều 44 Luật Quản lý thuế 38/2019/QH14',
@@ -43,7 +15,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   QUARTERLY: {
     code: 'QUARTERLY',
-    label: '2. Hàng quý (30/04, 31/07, 31/10, 31/01)',
+    label: 'Hàng quý (30/04, 31/07, 31/10, 31/01)',
     badge: 'Hàng quý (30/04, 31/07...)',
     color: 'purple',
     legalBasis: 'Khoản 1 Điều 44 Luật QLT 38/2019 & NĐ 91/2022/NĐ-CP',
@@ -51,7 +23,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   BIANNUAL_6M: {
     code: 'BIANNUAL_6M',
-    label: '3. 6 Tháng / Bán niên (05/06, 05/12)',
+    label: '6 Tháng / Bán niên (05/06, 05/12)',
     badge: '6 Tháng / Bán niên (05/06, 05/12)',
     color: 'orange',
     legalBasis: 'Khoản 2 Điều 4 Nghị định 145/2020/NĐ-CP & NĐ 139/2016/NĐ-CP',
@@ -59,7 +31,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   ANNUAL: {
     code: 'ANNUAL',
-    label: '4. Cả năm (30/01 môn bài, 31/03 quyết toán BCTC)',
+    label: 'Cả năm (30/01 môn bài, 31/03 quyết toán BCTC)',
     badge: 'Cả năm (30/01 môn bài, 31/03 QT)',
     color: 'red',
     legalBasis: 'Điểm a Khoản 2 Điều 44 Luật QLT 38/2019 & Khoản 9 Điều 18 NĐ 126/2020',
@@ -67,7 +39,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_10D: {
     code: 'EVENT_10D',
-    label: '5. Từng lần phát sinh 10 ngày (Thuế nhà thầu FCT, ĐK NQLĐ)',
+    label: 'Từng lần phát sinh 10 ngày (Thuế nhà thầu FCT, ĐK NQLĐ)',
     badge: 'Từng lần 10 ngày (FCT, NQLĐ)',
     color: 'cyan',
     legalBasis: 'Khoản 3 Điều 44 Luật QLT 38/2019 & Điều 119 BLLĐ 2019',
@@ -75,7 +47,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_20D: {
     code: 'EVENT_20D',
-    label: '6. Đợt 20 ngày (Chuyển kỳ kê khai theo NĐ 126/2020)',
+    label: 'Đợt 20 ngày (Chuyển kỳ kê khai theo NĐ 126/2020)',
     badge: 'Đợt 20 ngày (Kỳ kê khai NĐ 126)',
     color: 'geekblue',
     legalBasis: 'Điều 9 Nghị định 126/2020/NĐ-CP',
@@ -83,7 +55,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_45D: {
     code: 'EVENT_45D',
-    label: '7. Đợt 45 ngày (Quyết toán giải thể, chia tách)',
+    label: 'Đợt 45 ngày (Quyết toán giải thể, chia tách)',
     badge: 'Đợt 45 ngày (QT giải thể, chia tách)',
     color: 'magenta',
     legalBasis: 'Khoản 4 Điều 44 Luật Quản lý thuế số 38/2019/QH14',
@@ -91,7 +63,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_3D: {
     code: 'EVENT_3D',
-    label: '8. Đợt 03 ngày làm việc (Tạm ngừng / HĐĐT sai sót)',
+    label: '03 Ngày làm việc (Tạm ngừng / HĐĐT sai sót)',
     badge: '03 Ngày làm việc (Tạm ngừng / HĐĐT)',
     color: 'orange',
     legalBasis: 'Khoản 1 Điều 66 Nghị định 01/2021/NĐ-CP & Điều 19 Nghị định 123/2020/NĐ-CP',
@@ -99,7 +71,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_10D_BIZ: {
     code: 'EVENT_10D_BIZ',
-    label: '9. Đợt 10 ngày làm việc (Đổi ĐKKD & Thông tin thuế)',
+    label: '10 Ngày làm việc (Đổi ĐKKD & Thông tin thuế)',
     badge: '10 Ngày làm việc (Đổi ĐKKD & Thuế)',
     color: 'gold',
     legalBasis: 'Điều 30 Luật Doanh nghiệp 2020 & Khoản 2 Điều 36 Luật Quản lý thuế số 38/2019/QH14',
@@ -107,7 +79,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_90D: {
     code: 'EVENT_90D',
-    label: '10. Đợt 90 ngày (Hạn góp đủ vốn điều lệ ban đầu)',
+    label: 'Đợt 90 ngày (Hạn góp đủ vốn điều lệ ban đầu)',
     badge: 'Đợt 90 ngày (Góp đủ vốn ĐL)',
     color: 'volcano',
     legalBasis: 'Khoản 2 Điều 47 & Khoản 2 Điều 75 Luật Doanh nghiệp 2020',
@@ -115,7 +87,7 @@ export const STATUTORY_PERIOD_METAS: Record<StatutoryCycleType, StatutoryPeriodM
   },
   EVENT_30D_CAPITAL: {
     code: 'EVENT_30D_CAPITAL',
-    label: '11. Đợt 30 ngày (Đăng ký giảm vốn điều lệ sau 90 ngày)',
+    label: 'Đợt 30 ngày (Đăng ký giảm vốn điều lệ sau 90 ngày)',
     badge: 'Đợt 30 ngày (ĐK giảm vốn)',
     color: 'purple',
     legalBasis: 'Khoản 3 Điều 47 & Khoản 3 Điều 75 Luật Doanh nghiệp 2020',

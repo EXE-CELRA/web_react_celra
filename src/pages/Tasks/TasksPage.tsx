@@ -21,6 +21,7 @@ import {
   Empty,
   Badge,
   Tooltip,
+  DatePicker,
 } from 'antd';
 import {
   CheckSquareOutlined,
@@ -31,11 +32,13 @@ import {
   ClockCircleOutlined,
   ThunderboltOutlined,
   BellOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTaskStore } from '../../store/useTaskStore';
-import type { TaskItem, TaskStatus, TaskPriority, StatutoryCycleType, ComplianceNotification } from '../../types';
-import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
+import { useOrgStore } from '../../store/useOrgStore';
+import type { TaskItem, TaskStatus, StatutoryCycleType, ComplianceNotification } from '../../types';
+import { TaskStatusTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
 import { TaskDetailDrawer } from '../../components/common/TaskDetailDrawer';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
@@ -43,8 +46,36 @@ import { formatVNCalendarDate, getRemainingDaysInfo, STATUTORY_PERIOD_METAS } fr
 
 const { Text, Paragraph } = Typography;
 
+const PRIORITY_WEIGHTS: Record<string, number> = {
+  low: 1,
+  LOW: 1,
+  medium: 2,
+  MEDIUM: 2,
+  high: 3,
+  HIGH: 3,
+  urgent: 4,
+  critical: 4,
+  CRITICAL: 4,
+};
+
+function getPriorityWeight(p?: string | null): number {
+  if (!p) return 2;
+  return PRIORITY_WEIGHTS[p.toLowerCase()] || PRIORITY_WEIGHTS[p] || 2;
+}
+
+function getPriorityLabel(p?: string | null): string {
+  if (!p) return 'Trung bình';
+  const val = p.toLowerCase();
+  if (val === 'urgent' || val === 'critical') return 'Khẩn cấp';
+  if (val === 'high') return 'Cao';
+  if (val === 'medium') return 'Trung bình';
+  if (val === 'low') return 'Thấp';
+  return p;
+}
+
 export const TasksPage: React.FC = () => {
   const navigate = useNavigate();
+  const { activeOrg } = useOrgStore();
   const {
     tasks,
     selectedTask,
@@ -58,6 +89,7 @@ export const TasksPage: React.FC = () => {
     fetchNotifications,
     markNotificationAsRead,
     markAllNotificationsAsRead,
+    updateTaskPriority,
     isLoading,
   } = useTaskStore();
 
@@ -70,9 +102,11 @@ export const TasksPage: React.FC = () => {
       const [createForm] = Form.useForm();
 
   useEffect(() => {
-    fetchTasks();
-    fetchNotifications();
-  }, []);
+    if (activeOrg?.id) {
+      fetchTasks();
+      fetchNotifications();
+    }
+  }, [activeOrg?.id]);
 
   // Đếm số lượng task theo từng đợt luật định
   const getPeriodCount = (periodCode: string) => {
@@ -145,9 +179,9 @@ export const TasksPage: React.FC = () => {
       return true;
     })
     .sort((a: TaskItem, b: TaskItem) => {
-      const timeA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-      const timeB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-      return timeA - timeB;
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
     });
 
   const handleOpenTask = async (task: TaskItem) => {
@@ -171,22 +205,30 @@ export const TasksPage: React.FC = () => {
 
   const handleCreateTask = async (values: any) => {
     try {
+      const rawPriority = String(values.priority || 'medium').toLowerCase();
+      const priority = rawPriority === 'critical' ? 'urgent' : rawPriority;
+
       await createTask({
         title: values.title,
-        category: values.category,
-        priority: values.priority || 'medium',
+        category: values.category || 'Thuế & Kế toán',
+        priority: priority as any,
         dueDate: values.dueDate ? values.dueDate.toISOString() : new Date().toISOString(),
         description: values.description || '',
         assigneeName: 'Chủ doanh nghiệp',
         assigneeRole: 'owner',
         status: 'need_info',
       });
-      message.success('Đã tạo nghĩa vụ tuân thủ mới!');
+      message.success('Đã tạo nghĩa vụ tuân thủ mới thành công!');
       setCreateModalOpen(false);
       createForm.resetFields();
+      setStatusFilter('ALL');
+      setPeriodFilter('ALL');
       fetchTasks();
     } catch (err: any) {
-      message.error(err.message || 'Lỗi khi tạo nghĩa vụ');
+      const errMsg = Array.isArray(err.response?.data?.message)
+        ? err.response.data.message.join(', ')
+        : (err.response?.data?.message || err.message || 'Lỗi khi tạo nghĩa vụ');
+      message.error(errMsg);
     }
   };
 
@@ -197,7 +239,7 @@ export const TasksPage: React.FC = () => {
       key: 'title',
       render: (text: string, record: TaskItem) => (
         <div>
-          <Text strong style={{ color: '#0958d9', cursor: 'pointer', fontSize: 13 }} onClick={() => handleOpenTask(record)}>
+          <Text strong style={{ color: '#000000', cursor: 'pointer', fontSize: 13 }} className="hover:text-blue-600 transition-colors" onClick={() => handleOpenTask(record)}>
             {text}
           </Text>
           {record.ruleCode && (
@@ -240,10 +282,76 @@ export const TasksPage: React.FC = () => {
     },
     {
       title: 'Mức độ',
-      dataIndex: 'priority',
       key: 'priority',
-      width: 90,
-      render: (priority: TaskPriority) => <PriorityTag priority={priority} />,
+      width: 140,
+      render: (_: any, record: TaskItem) => {
+        const statutory = (record.statutoryPriority || record.legalRisk || record.priority || 'medium') as string;
+        const currentP = (record.customPriority || record.priority || 'medium') as string;
+        const isCustom = Boolean(record.customPriority && String(record.customPriority).toLowerCase() !== String(statutory).toLowerCase());
+        const isDowngraded = isCustom && getPriorityWeight(currentP) < getPriorityWeight(statutory);
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }} onClick={(e) => e.stopPropagation()}>
+            <Select
+              size="small"
+              bordered={false}
+              style={{
+                width: 112,
+                padding: 0,
+                fontSize: 12,
+                fontWeight: 500,
+                background: '#f8fafc',
+                borderRadius: 4,
+                border: '1px solid #e2e8f0',
+              }}
+              value={String(currentP).toLowerCase()}
+              popupMatchSelectWidth={false}
+              onChange={async (newVal) => {
+                try {
+                  await updateTaskPriority(record.id, newVal);
+                  message.success('Đã cập nhật mức ưu tiên vận hành!');
+                } catch {
+                  message.error('Lỗi khi cập nhật mức ưu tiên');
+                }
+              }}
+              options={[
+                { label: '🔴 Khẩn cấp', value: 'urgent' },
+                { label: '🟠 Cao', value: 'high' },
+                { label: '🟡 Trung bình', value: 'medium' },
+                { label: '🔵 Thấp', value: 'low' },
+              ]}
+            />
+            {isCustom && (
+              <Tooltip
+                title={
+                  isDowngraded
+                    ? `⚠️ Rủi ro luật định mức [${getPriorityLabel(statutory).toUpperCase()}]. Việc hạ ưu tiên nội bộ không làm giảm mức phạt của cơ quan Thuế/Nhà nước.`
+                    : `Ưu tiên vận hành do Chủ DN tùy biến. Mức rủi ro luật định là [${getPriorityLabel(statutory)}].`
+                }
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    cursor: 'help',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    color: isDowngraded ? '#cf1322' : '#475569',
+                    background: isDowngraded ? '#fff1f0' : '#f1f5f9',
+                    border: isDowngraded ? '1px solid #ffa39e' : '1px solid #cbd5e1',
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    width: 'fit-content',
+                  }}
+                >
+                  {isDowngraded && <WarningOutlined style={{ fontSize: 10, color: '#cf1322' }} />}
+                  Luật: {getPriorityLabel(statutory)}
+                </span>
+              </Tooltip>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: 'Trạng thái',
@@ -339,9 +447,30 @@ export const TasksPage: React.FC = () => {
                 onChange={(key) => setStatusFilter(key)}
                 items={[
                   { key: 'ALL', label: `Tất cả trạng thái (${tasks.length})` },
-                  { key: 'NEW', label: `Mới (${newCount})` },
-                  { key: 'IN_PROGRESS', label: `Đang thực hiện (${inProgressCount})` },
-                  { key: 'COMPLETED', label: `Hoàn thành (${completedCount})` },
+                  {
+                    key: 'NEW',
+                    label: (
+                      <span>
+                        Mới <Tag color="default" style={{ marginLeft: 4, borderRadius: 10, color: '#475569', backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' }}>{newCount}</Tag>
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'IN_PROGRESS',
+                    label: (
+                      <span>
+                        Đang thực hiện <Tag color="blue" style={{ marginLeft: 4, borderRadius: 10 }}>{inProgressCount}</Tag>
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'COMPLETED',
+                    label: (
+                      <span>
+                        Hoàn thành <Tag color="success" style={{ marginLeft: 4, borderRadius: 10 }}>{completedCount}</Tag>
+                      </span>
+                    ),
+                  },
                 ]}
                 style={{ marginBottom: 0 }}
               />
@@ -357,18 +486,6 @@ export const TasksPage: React.FC = () => {
                 borderRadius: 10,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CalendarOutlined style={{ color: '#0ea5e9', fontSize: 13 }} />
-                  <Text strong style={{ fontSize: 12, color: '#0f172a' }}>
-                    11 Đợt Luật Định:
-                  </Text>
-                </div>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Sắp xếp: <strong>Hạn gần nhất lên đầu</strong>
-                </Text>
-              </div>
-
               <div style={{ overflowX: 'auto', paddingBottom: 2 }}>
                 <Radio.Group
                   size="small"
@@ -386,39 +503,39 @@ export const TasksPage: React.FC = () => {
                   <Radio.Button value="ALL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
                     Tất cả ({getPeriodCount('ALL')})
                   </Radio.Button>
-                  <Radio.Button value="MONTHLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    1. Hàng tháng (Hạn ngày 20) ({getPeriodCount('MONTHLY')})
-                  </Radio.Button>
-                  <Radio.Button value="QUARTERLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    2. Hàng quý (30/04, 31/07...) ({getPeriodCount('QUARTERLY')})
-                  </Radio.Button>
-                  <Radio.Button value="BIANNUAL_6M" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    3. 6 Tháng / Bán niên ({getPeriodCount('BIANNUAL_6M')})
-                  </Radio.Button>
-                  <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    4. Cả năm (Môn bài, BCTC) ({getPeriodCount('ANNUAL')})
+                  <Radio.Button value="EVENT_3D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    03 Ngày làm việc ({getPeriodCount('EVENT_3D')})
                   </Radio.Button>
                   <Radio.Button value="EVENT_10D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    5. Từng lần 10 ngày ({getPeriodCount('EVENT_10D')})
-                  </Radio.Button>
-
-                  <Radio.Button value="EVENT_20D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    6. Đợt 20 ngày ({getPeriodCount('EVENT_20D')})
-                  </Radio.Button>
-                  <Radio.Button value="EVENT_45D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    7. Đợt 45 ngày ({getPeriodCount('EVENT_45D')})
-                  </Radio.Button>
-                  <Radio.Button value="EVENT_3D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    8. 03 Ngày làm việc ({getPeriodCount('EVENT_3D')})
+                    Từng lần 10 ngày ({getPeriodCount('EVENT_10D')})
                   </Radio.Button>
                   <Radio.Button value="EVENT_10D_BIZ" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    9. 10 Ngày làm việc ({getPeriodCount('EVENT_10D_BIZ')})
+                    10 Ngày làm việc ({getPeriodCount('EVENT_10D_BIZ')})
+                  </Radio.Button>
+                  <Radio.Button value="EVENT_20D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Đợt 20 ngày ({getPeriodCount('EVENT_20D')})
+                  </Radio.Button>
+                  <Radio.Button value="MONTHLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Hàng tháng (Hạn ngày 20) ({getPeriodCount('MONTHLY')})
+                  </Radio.Button>
+
+                  <Radio.Button value="EVENT_30D_CAPITAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Đợt 30 ngày ({getPeriodCount('EVENT_30D_CAPITAL')})
+                  </Radio.Button>
+                  <Radio.Button value="EVENT_45D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Đợt 45 ngày ({getPeriodCount('EVENT_45D')})
+                  </Radio.Button>
+                  <Radio.Button value="QUARTERLY" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Hàng quý (30/04, 31/07...) ({getPeriodCount('QUARTERLY')})
                   </Radio.Button>
                   <Radio.Button value="EVENT_90D" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    10. Đợt 90 ngày ({getPeriodCount('EVENT_90D')})
+                    Đợt 90 ngày ({getPeriodCount('EVENT_90D')})
                   </Radio.Button>
-                  <Radio.Button value="EVENT_30D_CAPITAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    11. Đợt 30 ngày ({getPeriodCount('EVENT_30D_CAPITAL')})
+                  <Radio.Button value="BIANNUAL_6M" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    6 Tháng / Bán niên ({getPeriodCount('BIANNUAL_6M')})
+                  </Radio.Button>
+                  <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    Cả năm (Môn bài, BCTC) ({getPeriodCount('ANNUAL')})
                   </Radio.Button>
                 </Radio.Group>
               </div>
@@ -464,7 +581,12 @@ export const TasksPage: React.FC = () => {
                 columns={columns}
                 rowKey="id"
                 loading={isLoading}
-                pagination={{ pageSize: 12 }}
+                pagination={{
+                  defaultPageSize: 10,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '20', '50', '100'],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} trên tổng số ${total} nghĩa vụ`,
+                }}
               />
             )}
           </>
@@ -574,26 +696,38 @@ export const TasksPage: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="category" label="Phân loại" initialValue="TAX">
+              <Form.Item name="category" label="Phân loại" initialValue="Thuế & Kế toán">
                 <Select
                   options={[
-                    { label: 'Thuế & Kế toán', value: 'TAX' },
-                    { label: 'Lao động & BHXH', value: 'LABOR' },
-                    { label: 'PCCC & An toàn', value: 'FIRE_SAFETY' },
-                    { label: 'Pháp lý & Giấy phép', value: 'LEGAL' },
+                    { label: 'Thuế & Kế toán', value: 'Thuế & Kế toán' },
+                    { label: 'Lao động & BHXH', value: 'Lao động & BHXH' },
+                    { label: 'PCCC & An toàn', value: 'PCCC & An toàn' },
+                    { label: 'Pháp lý & Giấy phép', value: 'Pháp lý & Giấy phép' },
                   ]}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="priority" label="Mức độ ưu tiên" initialValue="HIGH">
+              <Form.Item name="priority" label="Mức độ ưu tiên" initialValue="high">
                 <Select
                   options={[
-                    { label: 'Khẩn cấp', value: 'CRITICAL' },
-                    { label: 'Cao', value: 'HIGH' },
-                    { label: 'Trung bình', value: 'MEDIUM' },
-                    { label: 'Thấp', value: 'LOW' },
+                    { label: '🔴 Khẩn cấp', value: 'urgent' },
+                    { label: '🟠 Cao', value: 'high' },
+                    { label: '🟡 Trung bình', value: 'medium' },
+                    { label: '🔵 Thấp', value: 'low' },
                   ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="dueDate" label="Hạn chót thực hiện (Tùy chọn)">
+                <DatePicker
+                  style={{ width: '100%' }}
+                  format="DD/MM/YYYY"
+                  placeholder="Chọn ngày đến hạn hoàn thành..."
                 />
               </Form.Item>
             </Col>

@@ -1,9 +1,8 @@
-import { Table, ConfigProvider, type TableProps } from 'antd';
+export type { CelraTableProps } from '../../interfaces';
+import type { CelraTableProps } from '../../interfaces';
+import { Table, ConfigProvider } from 'antd';
 
-export interface CelraTableProps<T = any> extends TableProps<T> {
-  headerBg?: string;
-  headerTextColor?: string;
-}
+
 
 /**
  * CelraTable: Bảng chuẩn giao diện Ant Design của hệ thống CELRA
@@ -34,7 +33,8 @@ export function CelraTable<T extends object = any>({
           pageSize: 10,
           showSizeChanger: true,
           pageSizeOptions: ['10', '20', '50', '100'],
-          position: ['bottomCenter' as const],
+          showTotal: (total: number, range: [number, number]) =>
+            `${range[0]}-${range[1]} trên tổng số ${total} mục`,
           ...pagination,
         };
 

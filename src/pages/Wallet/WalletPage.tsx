@@ -371,7 +371,12 @@ export const WalletPage: React.FC = () => {
           rowKey={(record: any) => record.id || record.code || Math.random().toString()}
           loading={isLoading}
           scroll={{ x: 'max-content' }}
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            defaultPageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} trên tổng số ${total} giao dịch`,
+          }}
           onRow={(record) => ({
             onClick: () => {
               setSelectedTx(record);

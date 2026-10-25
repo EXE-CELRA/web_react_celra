@@ -34,8 +34,9 @@ const { Text } = Typography;
 const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Bảng Điều Khiển',
   '/context': 'Context Doanh Nghiệp',
-  '/survey': 'Câu Hỏi Tình Huống',
-  '/onboarding': 'Câu Hỏi Tình Huống',
+  '/context/audit': 'Rà Soát Tuân Thủ & Thuế TNDN',
+  '/survey': 'Hồ Sơ Doanh Nghiệp',
+  '/onboarding': 'Hồ Sơ Doanh Nghiệp',
   '/tasks': 'Danh Sách Tác Vụ Tuân Thủ',
   '/tasks/calendar': 'Lịch Tuân Thủ & Ghi Chú',
   '/checklists': 'Danh Sách Tác Vụ Tuân Thủ',
@@ -109,7 +110,7 @@ export const MainLayout: React.FC = () => {
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
     { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
-    { key: '/survey', icon: <FormOutlined />, label: 'Câu Hỏi Tình Huống' },
+    { key: '/survey', icon: <FormOutlined />, label: 'Hồ Sơ Doanh Nghiệp' },
     {
       key: '/tasks-parent',
       icon: <CheckSquareOutlined />,
@@ -573,9 +574,10 @@ export const MainLayout: React.FC = () => {
               >
                 <Avatar
                   size={30}
-                  icon={<UserOutlined />}
+                  src={user?.avatar}
+                  icon={!user?.avatar && <UserOutlined />}
                   style={{
-                    background: 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
+                    background: user?.avatar ? undefined : 'linear-gradient(135deg, #1677ff 0%, #0050b3 100%)',
                     boxShadow: '0 2px 4px rgba(22, 119, 255, 0.25)',
                     flexShrink: 0,
                   }}

@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage';
 import { SurveyPage } from './pages/Survey/SurveyPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { ContextPage } from './pages/Context/ContextPage';
+import { ContextAuditPage } from './pages/Context/ContextAuditPage';
 import { TasksPage } from './pages/Tasks/TasksPage';
 import { ComplianceCalendarPage } from './pages/Tasks/ComplianceCalendarPage';
 import { EvidencePage } from './pages/Evidence/EvidencePage';
@@ -53,6 +54,7 @@ export const App: React.FC = () => {
             <Route element={<MainLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/context" element={<ContextPage />} />
+              <Route path="/context/audit" element={<ContextAuditPage />} />
               <Route path="/survey" element={<SurveyPage />} />
               <Route path="/onboarding" element={<Navigate to="/survey" replace />} />
               <Route path="/tasks" element={<TasksPage />} />

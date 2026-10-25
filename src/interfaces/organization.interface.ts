@@ -1,0 +1,41 @@
+export interface Organization {
+  id: string;
+  name?: string;
+  tenDoanhNghiep?: string;
+  legalName: string;
+  taxCode: string;
+  maSoThue?: string;
+  legalType?: string;
+  loaiHinhPhapLy?: string;
+  industry?: string;
+  nganhNghe?: string;
+  businessModel?: string;
+  moHinhKinhDoanh?: string;
+  operatingYears?: string;
+  soNamHoatDong?: string;
+  revenueStatus?: string;
+  tinhTrangDoanhThu?: string;
+  scale?: string;
+  employeeCount?: number;
+  soLuongNhanSu?: number;
+  locations?: string;
+  diaDiemKinhDoanh?: string;
+  hasOnlineSales?: boolean;
+  coBanHangOnline?: boolean;
+  address?: string;
+  diaChi?: string;
+  city?: string;
+  thanhPho?: string;
+  representativeName?: string;
+  tenNguoiDaiDien?: string;
+  status: string;
+  trangThai?: string;
+  onboardingStep: number;
+  complianceScore: number;
+  createdAt?: string;
+  taoLuc?: string;
+  updatedAt?: string;
+  capNhatLuc?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+}

@@ -20,6 +20,7 @@ import {
   Tooltip,
   Segmented,
   Empty,
+  Radio,
   message,
 } from 'antd';
 import {
@@ -29,9 +30,12 @@ import {
   DeleteOutlined,
   UnorderedListOutlined,
   BookOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import 'dayjs/locale/vi';
+import { getVietnamHoliday } from '../../utils/vietnamHolidays';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import type { TaskItem, CalendarNote, TaskStatus } from '../../types';
@@ -136,13 +140,72 @@ export const ComplianceCalendarPage: React.FC = () => {
     const dateKey = value.format('YYYY-MM-DD');
     const dayTasks = tasksByDate.get(dateKey) || [];
     const dayNotes = notesByDate.get(dateKey) || [];
+    const holiday = getVietnamHoliday(value.toDate());
 
-    if (dayTasks.length === 0 && dayNotes.length === 0) return null;
+    const totalItems = dayTasks.length + dayNotes.length;
+    if (totalItems === 0 && !holiday) return null;
+
+    // Phân bổ số lượng hiển thị động thông minh trong ô lịch:
+    // Nếu có ngày lễ thì ưu tiên 2 slot, ngày thường 3 slot
+    const maxVisible = holiday ? 2 : 3;
+
+    let taskCount = 0;
+    let noteCount = 0;
+
+    if (totalItems <= maxVisible) {
+      taskCount = dayTasks.length;
+      noteCount = dayNotes.length;
+    } else {
+      if (dayTasks.length === 0) {
+        // Chỉ có ghi chú: hiển thị tối đa maxVisible ghi chú
+        noteCount = Math.min(dayNotes.length, maxVisible);
+      } else if (dayNotes.length === 0) {
+        // Chỉ có tác vụ: hiển thị tối đa maxVisible tác vụ
+        taskCount = Math.min(dayTasks.length, maxVisible);
+      } else {
+        // Có cả tác vụ và ghi chú: cân bằng hiển thị
+        const maxTasks = Math.min(dayTasks.length, 2);
+        noteCount = Math.min(dayNotes.length, Math.max(1, maxVisible - maxTasks));
+        taskCount = Math.min(dayTasks.length, maxVisible - noteCount);
+      }
+    }
+
+    const visibleTasks = dayTasks.slice(0, taskCount);
+    const visibleNotes = dayNotes.slice(0, noteCount);
+    const hiddenCount = totalItems - (visibleTasks.length + visibleNotes.length);
 
     return (
       <div style={{ marginTop: 2 }}>
+        {/* Badge Ngày Lễ Pháp Định Việt Nam */}
+        {holiday && (
+          <Tooltip title={`${holiday.name} (${holiday.legalBasis}) - Nếu hạn nộp trùng ngày nghỉ thì được chuyển sang ngày làm việc tiếp theo.`}>
+            <div style={{ marginBottom: 3 }}>
+              <Tag
+                color="red"
+                style={{
+                  fontSize: 10,
+                  lineHeight: '16px',
+                  padding: '0 4px',
+                  margin: 0,
+                  fontWeight: 700,
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'inline-block',
+                  border: '1px solid #ffa39e',
+                  backgroundColor: '#fff1f0',
+                  color: '#cf1322',
+                  borderRadius: 4,
+                }}
+              >
+                ★ {holiday.name}
+              </Tag>
+            </div>
+          </Tooltip>
+        )}
         {/* Badges tác vụ */}
-        {dayTasks.slice(0, 2).map((task) => {
+        {visibleTasks.map((task) => {
           const isDone = isTaskCompleted(task.status);
           const diff = dayjs(task.dueDate).diff(dayjs(), 'day');
           const isOverdue = !isDone && diff < 0;
@@ -185,7 +248,7 @@ export const ComplianceCalendarPage: React.FC = () => {
         })}
 
         {/* Badge ghi chú */}
-        {dayNotes.slice(0, 1).map((note) => (
+        {visibleNotes.map((note) => (
           <Tooltip key={note.id} title={`Ghi chú: ${note.title}`}>
             <div
               style={{
@@ -209,10 +272,23 @@ export const ComplianceCalendarPage: React.FC = () => {
           </Tooltip>
         ))}
 
-        {/* Nếu nhiều hơn 3 mục */}
-        {dayTasks.length + dayNotes.length > 3 && (
-          <div style={{ fontSize: 10, color: '#8c8c8c', textAlign: 'right', fontWeight: 500 }}>
-            +{dayTasks.length + dayNotes.length - 3} mục khác
+        {/* Nếu còn mục chưa hiển thị */}
+        {hiddenCount > 0 && (
+          <div
+            style={{
+              fontSize: 10,
+              color: '#8c8c8c',
+              textAlign: 'right',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedDate(value);
+              setDrawerOpen(true);
+            }}
+          >
+            +{hiddenCount} mục khác
           </div>
         )}
       </div>
@@ -370,6 +446,104 @@ export const ComplianceCalendarPage: React.FC = () => {
           <Calendar
             value={currentMonth}
             onPanelChange={(newDate) => setCurrentMonth(newDate)}
+            headerRender={({ value, type, onChange, onTypeChange }) => {
+              const current = value || currentMonth;
+              const year = current.year();
+              const month = current.month();
+
+              return (
+                <div
+                  style={{
+                    padding: '8px 4px 16px 4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                    borderBottom: '1px solid #f1f5f9',
+                    marginBottom: 12,
+                  }}
+                >
+                  {/* Nút Tháng Trước / Hôm Nay / Tháng Sau */}
+                  <Space size={8}>
+                    <Button
+                      size="middle"
+                      icon={<LeftOutlined />}
+                      onClick={() => {
+                        const prev = current.subtract(1, 'month');
+                        setCurrentMonth(prev);
+                        onChange(prev);
+                      }}
+                      className="font-medium rounded-lg"
+                    >
+                      Tháng trước
+                    </Button>
+                    <Button
+                      size="middle"
+                      onClick={() => {
+                        const today = dayjs();
+                        setCurrentMonth(today);
+                        onChange(today);
+                      }}
+                      style={{ fontWeight: 600, color: '#1677ff', borderColor: '#91caff', backgroundColor: '#e6f4ff' }}
+                    >
+                      Hôm nay
+                    </Button>
+                    <Button
+                      size="middle"
+                      onClick={() => {
+                        const next = current.add(1, 'month');
+                        setCurrentMonth(next);
+                        onChange(next);
+                      }}
+                      className="font-medium rounded-lg"
+                    >
+                      Tháng sau <RightOutlined />
+                    </Button>
+                  </Space>
+
+                  {/* Bộ chọn Năm, Tháng & Chế độ Xem */}
+                  <Space size={8}>
+                    <Select
+                      size="middle"
+                      value={year}
+                      onChange={(newYear) => {
+                        const updated = current.year(newYear);
+                        setCurrentMonth(updated);
+                        onChange(updated);
+                      }}
+                      options={Array.from({ length: 15 }, (_, i) => {
+                        const y = new Date().getFullYear() - 5 + i;
+                        return { label: `Năm ${y}`, value: y };
+                      })}
+                      style={{ width: 115 }}
+                    />
+                    <Select
+                      size="middle"
+                      value={month}
+                      onChange={(newMonth) => {
+                        const updated = current.month(newMonth);
+                        setCurrentMonth(updated);
+                        onChange(updated);
+                      }}
+                      options={Array.from({ length: 12 }, (_, i) => ({
+                        label: `Tháng ${i + 1}`,
+                        value: i,
+                      }))}
+                      style={{ width: 105 }}
+                    />
+                    <Radio.Group
+                      size="middle"
+                      value={type}
+                      onChange={(e) => onTypeChange(e.target.value)}
+                    >
+                      <Radio.Button value="month">Tháng</Radio.Button>
+                      <Radio.Button value="year">Năm</Radio.Button>
+                    </Radio.Group>
+                  </Space>
+                </div>
+              );
+            }}
             onSelect={(date, selectInfo) => {
               setSelectedDate(date);
               if (selectInfo.source === 'date') {

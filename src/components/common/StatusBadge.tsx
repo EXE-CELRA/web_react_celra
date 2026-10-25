@@ -5,12 +5,24 @@ import type { TaskStatus, TaskPriority, RiskSeverity, VerificationStatus } from 
 export const TaskStatusTag: React.FC<{ status: TaskStatus | string }> = ({ status }) => {
   const s = String(status || '').toLowerCase();
   if (s === 'completed' || s === 'done' || s === 'verified') {
-    return <Tag color="success">Hoàn thành</Tag>;
+    return (
+      <Tag color="success" style={{ fontWeight: 500 }}>
+        Hoàn thành
+      </Tag>
+    );
   }
   if (s === 'in_progress' || s === 'waiting_document' || s === 'waiting_verification' || s === 'need_expert') {
-    return <Tag color="processing">Đang thực hiện</Tag>;
+    return (
+      <Tag color="blue" style={{ fontWeight: 500 }}>
+        Đang thực hiện
+      </Tag>
+    );
   }
-  return <Tag color="blue">Mới</Tag>;
+  return (
+    <Tag color="default" style={{ color: '#475569', backgroundColor: '#f1f5f9', borderColor: '#cbd5e1', fontWeight: 500 }}>
+      Mới
+    </Tag>
+  );
 };
 
 export const PriorityTag: React.FC<{ priority: TaskPriority }> = ({ priority }) => {
@@ -47,8 +59,11 @@ export const VerificationStatusTag: React.FC<{ status: VerificationStatus }> = (
     PENDING: { color: 'warning', text: 'Chờ duyệt' },
     VERIFIED: { color: 'success', text: 'Hợp lệ' },
     REJECTED: { color: 'error', text: 'Từ chối' },
+    unverified: { color: 'warning', text: 'Chờ duyệt' },
+    accepted: { color: 'success', text: 'Hợp lệ' },
+    rejected: { color: 'error', text: 'Từ chối' },
   };
 
-  const item = map[status] || { color: 'default', text: status };
+  const item = (map as any)[status] || { color: 'default', text: status };
   return <Tag color={item.color}>{item.text}</Tag>;
 };

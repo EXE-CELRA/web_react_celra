@@ -1,3 +1,4 @@
+import type { SandboxBankingModalProps } from '../../interfaces';
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Radio, Input, message, Tag, Space, Divider, Result } from 'antd';
 import {
@@ -11,18 +12,7 @@ import {
 } from 'lucide-react';
 import { useWalletStore } from '../../store/useWalletStore';
 
-interface SandboxBankingModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-  packageInfo?: {
-    id: string;
-    name: string;
-    credits: number;
-    priceVnd: number;
-  } | null;
-  customAmount?: number;
-}
+
 
 export const SandboxBankingModal: React.FC<SandboxBankingModalProps> = ({
   visible,

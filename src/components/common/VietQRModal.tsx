@@ -1,3 +1,4 @@
+import type { VietQRModalProps } from '../../interfaces';
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, InputNumber, Input, Button, message, Space, Spin, Image, Alert, Tag, Segmented, QRCode } from 'antd';
 import {
@@ -15,17 +16,7 @@ import { useOrgStore } from '../../store/useOrgStore';
 import { SandboxBankingModal } from './SandboxBankingModal';
 import apiClient from '../../api/client';
 
-interface VietQRModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-  initialPackage?: {
-    id: string;
-    name: string;
-    credits: number;
-    priceVnd: number;
-  } | null;
-}
+
 
 export const VietQRModal: React.FC<VietQRModalProps> = ({
   visible,

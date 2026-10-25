@@ -24,7 +24,6 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
   '/admin/finance': 'Doanh Thu & Sổ Cái Sàn',
   '/admin/settings': 'Cấu Hình Nền Tảng',
 };
-
 export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
