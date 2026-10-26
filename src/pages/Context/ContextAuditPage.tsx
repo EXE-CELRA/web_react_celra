@@ -305,7 +305,7 @@ export const ContextAuditPage: React.FC = () => {
     } finally {
       setIsRevenueLoading(false);
     }
-  }, [taxYear, taxQuarter, revenuePage, revenueLimit, revenueSearch]);
+  }, [activeOrg?.id, taxYear, taxQuarter, revenuePage, revenueLimit, revenueSearch]);
 
   // API 3: TẢI DANH SÁCH CHI PHÍ PHÂN TRANG, TÌM KIẾM & LỌC B4
   const fetchExpenses = useCallback(async () => {
@@ -336,7 +336,7 @@ export const ContextAuditPage: React.FC = () => {
     } finally {
       setIsExpenseLoading(false);
     }
-  }, [taxYear, taxQuarter, expensePage, expenseLimit, expenseSearch, expenseFilterB4]);
+  }, [activeOrg?.id, taxYear, taxQuarter, expensePage, expenseLimit, expenseSearch, expenseFilterB4]);
 
   // TỰ ĐỘNG GỌI API KHI ĐỔI KỲ (QUÝ / NĂM) HOẶC ĐỔI DOANH NGHIỆP
   useEffect(() => {

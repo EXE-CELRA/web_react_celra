@@ -313,7 +313,11 @@ export const ContextPage: React.FC = () => {
   const baseProfileFacts: ContextFact[] = React.useMemo(() => {
     // 1. Kiểm tra: Chỉ sinh thẻ khi DB đã có dữ liệu hoặc đã hoàn tất bài khảo sát
     const hasDbFacts = facts.some((f) => CORE_BASE_FACT_KEYS.includes(f.key || ''));
-    const isSurveyDone = localStorage.getItem('celra_survey_completed') === 'true' || Boolean(activeOrg?.taxCode && activeOrg?.name);
+    const isSurveyDone = Boolean(
+      (activeOrg?.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
+      localStorage.getItem('celra_survey_completed') === 'true' ||
+      (activeOrg?.taxCode && activeOrg?.name)
+    );
 
     if (!hasDbFacts && !isSurveyDone) {
       return [];

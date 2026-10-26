@@ -52,7 +52,11 @@ export const DashboardPage: React.FC = () => {
   const [microSelectedOption, setMicroSelectedOption] = useState<string>('Đã hoàn thành / Tuân thủ đầy đủ');
   const [updatingLawContext, setUpdatingLawContext] = useState(false);
   // Kiểm tra cờ trạng thái hoàn thành bài khảo sát bối cảnh
-  const isSurveyCompleted = localStorage.getItem('celra_survey_completed') === 'true';
+  const isSurveyCompleted = Boolean(
+    (activeOrg?.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
+    localStorage.getItem('celra_survey_completed') === 'true' ||
+    (activeOrg?.taxCode && activeOrg?.name)
+  );
 
 
   const handleOpenMicroSurvey = () => {
@@ -76,6 +80,14 @@ export const DashboardPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setStats({
+      totalTasks: 0,
+      completedTasks: 0,
+      inProgressTasks: 0,
+      overdueTasks: 0,
+      urgentTasksCount: 0,
+      complianceScore: 0,
+    });
     if (activeOrg) {
       loadDashboardData();
     }
@@ -85,7 +97,11 @@ export const DashboardPage: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
-      const isSurveyDone = localStorage.getItem('celra_survey_completed') === 'true';
+      const isSurveyDone = Boolean(
+        (activeOrg?.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
+        localStorage.getItem('celra_survey_completed') === 'true' ||
+        (activeOrg?.taxCode && activeOrg?.name)
+      );
 
       // Nếu chưa hoàn thành bài khảo sát, toàn bộ số liệu để là 0
       if (!isSurveyDone) {

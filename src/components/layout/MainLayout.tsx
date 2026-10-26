@@ -601,7 +601,7 @@ export const MainLayout: React.FC = () => {
         </Header>
 
         <Content style={{ margin: isMobile ? '12px 12px 0' : '24px 24px 0', overflow: 'initial', flex: 1 }}>
-          <Outlet />
+          <Outlet key={activeOrg?.id || 'empty-org'} />
         </Content>
 
         {/* Dòng bản quyền CELRA EXE101 */}

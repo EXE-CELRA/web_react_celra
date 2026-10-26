@@ -1,6 +1,68 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
 import type { Organization } from '../types';
+import { useContextStore } from './useContextStore';
+import { useTaskStore } from './useTaskStore';
+import { useWalletStore } from './useWalletStore';
+
+// 🛡️ Dọn dẹp sạch toàn bộ state và cache của doanh nghiệp cũ khi đổi workspace
+export const resetTenantStores = () => {
+  // 1. Xóa các cache khảo sát cũ
+  localStorage.removeItem('celra_survey_completed');
+  localStorage.removeItem('celra_survey_completed_profile');
+  localStorage.removeItem('celra_survey_draft_profile');
+  localStorage.removeItem('celra_survey_draft_answers');
+  localStorage.removeItem('celra_survey_completed_answers');
+  localStorage.removeItem('celra_pending_law_alert_v2');
+
+  // 2. Reset các Zustand Store chứa dữ liệu của Tenant về mảng rỗng ban đầu
+  try {
+    useContextStore.setState({
+      facts: [],
+      danhSachDuKien: [],
+      factHistories: [],
+      lichSuDuKien: [],
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+
+    useTaskStore.setState({
+      tasks: [],
+      danhSachNhiemVu: [],
+      selectedTask: null,
+      nhiemVuChon: null,
+      comments: [],
+      binhLuan: [],
+      notifications: [],
+      thongBao: [],
+      unreadNotificationsCount: 0,
+      soThongBaoChuaDoc: 0,
+      checklists: [],
+      danhMucKiemTra: [],
+      calendarNotes: [],
+      ghiChuLich: [],
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+
+    useWalletStore.setState({
+      wallet: null,
+      thongTinVi: null,
+      ledgers: [],
+      danhSachGiaoDich: [],
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+  } catch (err) {
+    console.warn('Lỗi khi dọn dẹp tenant stores:', err);
+  }
+};
 
 interface OrgState {
   organizations: Organization[];
@@ -53,8 +115,7 @@ export const useOrgStore = create<OrgState>((set) => {
 
   const setActiveOrgFn = (org: Organization) => {
     localStorage.setItem('celra_active_org_id', org.id);
-    localStorage.removeItem('celra_survey_completed_profile');
-    localStorage.removeItem('celra_survey_draft_profile');
+    resetTenantStores();
     set({ activeOrg: org, doanhNghiepHienTai: org });
   };
 
@@ -63,6 +124,7 @@ export const useOrgStore = create<OrgState>((set) => {
     try {
       const res: any = await apiClient.post('/organizations/onboarding', data);
       localStorage.setItem('celra_active_org_id', res.id);
+      resetTenantStores();
       set((state) => {
         const updatedList = [res, ...state.organizations.filter((o) => o.id !== res.id)];
         return {

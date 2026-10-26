@@ -60,6 +60,9 @@ export const SurveyPage: React.FC = () => {
   const { activeOrg } = useOrgStore();
 
   const [isSurveyCompleted, setIsSurveyCompleted] = useState<boolean>(() => {
+    if (activeOrg?.id) {
+      return localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true';
+    }
     return localStorage.getItem('celra_survey_completed') === 'true';
   });
 
@@ -161,7 +164,8 @@ export const SurveyPage: React.FC = () => {
       });
 
       if (activeOrg.taxCode && activeOrg.name) {
-        setTaxLookupDetails(old => old || {
+        setIsSurveyCompleted(true);
+        setTaxLookupDetails({
           taxCode: activeOrg.taxCode || '',
           name: activeOrg.name || '',
           legalType: activeOrg.legalType || 'Công ty TNHH',
@@ -337,6 +341,7 @@ export const SurveyPage: React.FC = () => {
       if (res?.organizationId) {
         localStorage.setItem('celra_active_org_id', res.organizationId);
         localStorage.setItem(`celra_survey_profile_${res.organizationId}`, JSON.stringify(baseProfile));
+        localStorage.setItem(`celra_survey_completed_${res.organizationId}`, 'true');
       }
       await useOrgStore.getState().fetchMyOrganizations();
 
