@@ -20,10 +20,8 @@ const { Title, Paragraph } = Typography;
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
-
-  const role = user?.role || localStorage.getItem('celra_active_role');
-  const isSuperAdmin = role === 'admin' || (user as any)?.isSuperAdmin;
-
+  // CHẶN BẢO MẬT: Chỉ xác nhận admin dựa trên user thực tế từ Backend
+  const isSuperAdmin = user?.role === 'admin' || Boolean(user && 'isSuperAdmin' in user && (user as { isSuperAdmin?: boolean }).isSuperAdmin);
   const handleGoToPortal = () => {
     if (isSuperAdmin) {
       navigate('/admin/dashboard');
