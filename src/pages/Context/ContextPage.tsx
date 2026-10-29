@@ -295,14 +295,6 @@ export const ContextPage: React.FC = () => {
         const orgSurvey = localStorage.getItem(`celra_survey_profile_${activeOrgId}`);
         if (orgSurvey) return JSON.parse(orgSurvey);
       }
-      const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
-      if (savedCompleted) {
-        const parsed = JSON.parse(savedCompleted);
-        // Chỉ chấp nhận dữ liệu cache nếu khớp với thông tin của activeOrg hiện tại
-        if (!activeOrg || parsed.taxCode === activeOrg.taxCode || parsed.companyName === activeOrg.name) {
-          return parsed;
-        }
-      }
     } catch {
       // Ignore
     }
@@ -311,9 +303,12 @@ export const ContextPage: React.FC = () => {
 
   // Danh sách các thẻ Bối Cảnh Cơ Sở (từ DB facts nếu có, fallback sang thông tin doanh nghiệp)
   const baseProfileFacts: ContextFact[] = React.useMemo(() => {
-    // 1. Kiểm tra: Chỉ sinh thẻ khi DB đã có dữ liệu hoặc đã hoàn tất bài khảo sát
+    // 1. Kiểm tra: Chỉ sinh thẻ khi DB đã có dữ liệu hoặc đã hoàn tất bài khảo sát của chính doanh nghiệp này
     const hasDbFacts = facts.some((f) => CORE_BASE_FACT_KEYS.includes(f.key || ''));
-    const isSurveyDone = localStorage.getItem('celra_survey_completed') === 'true' || Boolean(activeOrg?.taxCode && activeOrg?.name);
+    const isSurveyDone = Boolean(
+      (activeOrg?.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
+      Boolean(activeOrg?.taxCode && activeOrg?.name)
+    );
 
     if (!hasDbFacts && !isSurveyDone) {
       return [];

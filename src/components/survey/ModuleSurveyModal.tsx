@@ -40,16 +40,14 @@ export const ModuleSurveyModal: React.FC<ModuleSurveyModalProps> = ({
     return getModuleSurveyConfig(groupKey);
   }, [groupKey]);
 
-  // Khôi phục BaseProfile từ activeOrg hoặc localStorage
+  // Khôi phục BaseProfile riêng của activeOrg
   const currentBaseProfile = useMemo<BaseProfile>(() => {
     try {
-      const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
-      if (savedCompleted) {
-        return JSON.parse(savedCompleted);
-      }
-      const savedDraft = localStorage.getItem('celra_survey_draft_profile');
-      if (savedDraft) {
-        return JSON.parse(savedDraft);
+      if (activeOrg?.id) {
+        const scopedProfileStr = localStorage.getItem(`celra_survey_profile_${activeOrg.id}`);
+        if (scopedProfileStr) {
+          return JSON.parse(scopedProfileStr);
+        }
       }
     } catch {
       // Fallback
@@ -86,12 +84,14 @@ export const ModuleSurveyModal: React.FC<ModuleSurveyModalProps> = ({
       });
     }
 
-    // 2. Nạp bổ sung từ LocalStorage nếu có
+    // 2. Nạp bổ sung từ LocalStorage nếu có cho chính tổ chức này
     try {
-      const savedCompletedAnswers = localStorage.getItem('celra_survey_completed_answers');
-      if (savedCompletedAnswers) {
-        const parsed = JSON.parse(savedCompletedAnswers);
-        Object.assign(initialMap, parsed);
+      if (activeOrg?.id) {
+        const savedAnswers = localStorage.getItem(`celra_survey_answers_${activeOrg.id}`);
+        if (savedAnswers) {
+          const parsed = JSON.parse(savedAnswers);
+          Object.assign(initialMap, parsed);
+        }
       }
     } catch {
       // Ignore
@@ -147,15 +147,17 @@ export const ModuleSurveyModal: React.FC<ModuleSurveyModalProps> = ({
         }
       );
 
-      // Cập nhật LocalStorage
+      // Cập nhật LocalStorage riêng cho doanh nghiệp này
       try {
-        if (groupKey === 'thue_ke_toan') {
-          localStorage.setItem('celra_survey_tax_completed', 'true');
+        if (activeOrg?.id) {
+          if (groupKey === 'thue_ke_toan') {
+            localStorage.setItem(`celra_survey_tax_completed_${activeOrg.id}`, 'true');
+          }
+          localStorage.setItem(`celra_survey_completed_${activeOrg.id}`, 'true');
+          const existingAnswers = JSON.parse(localStorage.getItem(`celra_survey_answers_${activeOrg.id}`) || '{}');
+          Object.assign(existingAnswers, selectedAnswers);
+          localStorage.setItem(`celra_survey_answers_${activeOrg.id}`, JSON.stringify(existingAnswers));
         }
-        localStorage.setItem('celra_survey_completed', 'true');
-        const existingAnswers = JSON.parse(localStorage.getItem('celra_survey_completed_answers') || '{}');
-        Object.assign(existingAnswers, selectedAnswers);
-        localStorage.setItem('celra_survey_completed_answers', JSON.stringify(existingAnswers));
       } catch {
         // Ignore
       }

@@ -68,8 +68,12 @@ export const MainLayout: React.FC = () => {
 
   const [draftName, setDraftName] = useState<string>(() => {
     try {
-      const raw = localStorage.getItem('celra_survey_draft_profile');
-      return raw ? JSON.parse(raw)?.companyName || '' : '';
+      const orgId = activeOrg?.id;
+      if (orgId) {
+        const raw = localStorage.getItem(`celra_survey_profile_${orgId}`);
+        return raw ? JSON.parse(raw)?.companyName || '' : '';
+      }
+      return '';
     } catch {
       return '';
     }
@@ -88,24 +92,32 @@ export const MainLayout: React.FC = () => {
   useEffect(() => {
     const handleUpdate = () => {
       try {
-        const raw = localStorage.getItem('celra_survey_draft_profile');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.companyName) {
-            setDraftName(parsed.companyName);
+        if (activeOrg?.name) {
+          setDraftName(activeOrg.name);
+          return;
+        }
+        const orgId = activeOrg?.id;
+        if (orgId) {
+          const raw = localStorage.getItem(`celra_survey_profile_${orgId}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.companyName) {
+              setDraftName(parsed.companyName);
+            }
           }
         }
       } catch {
         // ignore
       }
     };
+    handleUpdate();
     window.addEventListener('celra_profile_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener('celra_profile_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, []);
+  }, [activeOrg]);
 
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
@@ -601,7 +613,7 @@ export const MainLayout: React.FC = () => {
         </Header>
 
         <Content style={{ margin: isMobile ? '12px 12px 0' : '24px 24px 0', overflow: 'initial', flex: 1 }}>
-          <Outlet />
+          <Outlet key={activeOrg?.id || 'empty-org'} />
         </Content>
 
         {/* Dòng bản quyền CELRA EXE101 */}

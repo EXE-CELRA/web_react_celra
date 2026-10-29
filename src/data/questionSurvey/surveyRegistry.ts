@@ -57,9 +57,10 @@ export function isGroupSurveyCompleted(facts: ContextFact[], groupKey: string): 
 
     if (hasTaxSurveyFacts) return true;
 
-    // Kiểm tra thêm flag đánh dấu khảo sát thuế đã hoàn thành trong localStorage
+    // Kiểm tra thêm flag đánh dấu khảo sát thuế đã hoàn thành trong localStorage riêng của doanh nghiệp này
     try {
-      if (localStorage.getItem('celra_survey_tax_completed') === 'true') {
+      const activeOrgId = localStorage.getItem('celra_active_org_id');
+      if (activeOrgId && localStorage.getItem(`celra_survey_tax_completed_${activeOrgId}`) === 'true') {
         return true;
       }
     } catch {

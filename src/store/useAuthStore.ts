@@ -37,18 +37,17 @@ interface AuthState {
 
 // 🛡️ HÀM RESET TOÀN BỘ 5 ZUSTAND STORES VÀ DỌN SẠCH STORAGE
 export const resetAllAppStores = () => {
-  // 1. Dọn sạch toàn bộ localStorage rác
-  localStorage.removeItem('celra_access_token');
-  localStorage.removeItem('celra_user');
-  localStorage.removeItem('celra_active_org_id');
-  localStorage.removeItem('celra_active_role');
-  localStorage.removeItem('celra_survey_completed');
-  localStorage.removeItem('celra_survey_completed_profile');
-  localStorage.removeItem('celra_survey_draft_profile');
-  localStorage.removeItem('celra_survey_draft_answers');
-  localStorage.removeItem('celra_pending_law_alert_v2');
-  localStorage.removeItem('celra_law_rule_tndn_version');
-
+  // 1. Dọn sạch toàn bộ localStorage rác (tất cả các key tiền tố celra_)
+  try {
+    const allKeys = Object.keys(localStorage);
+    for (const key of allKeys) {
+      if (key.startsWith('celra_') && !key.includes('virtual_bank')) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi khi dọn dẹp localStorage:', err);
+  }
   // 2. Reset In-Memory Zustand Stores về trạng thái rỗng ban đầu
   try {
     useOrgStore.setState({
@@ -253,8 +252,13 @@ export const useAuthStore = create<AuthState>((set) => {
         isLoading: false,
         dangTai: false,
       });
-    } catch (err) {
+    } catch (err: unknown) {
       set({ isLoading: false, dangTai: false });
+      // Nếu tải profile thất bại (token hết hạn hoặc tài khoản bị xóa trong DB) -> đá ra login ngay lập tức
+      logoutFn();
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        window.location.replace('/login');
+      }
     }
   };
 

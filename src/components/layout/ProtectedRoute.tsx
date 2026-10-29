@@ -6,10 +6,8 @@ import { useOrgStore } from '../../store/useOrgStore';
 export const ProtectedRoute: React.FC = () => {
   const { isAuthenticated, user, loadUserProfile } = useAuthStore();
   const { fetchMyOrganizations } = useOrgStore();
-
-  const role = user?.role || localStorage.getItem('celra_active_role');
-  const isSuperAdmin = role === 'admin' || user?.isSuperAdmin;
-
+  // CHẶN BẢO MẬT: Chỉ cấp quyền admin khi đối tượng user thực tế có role === 'admin'
+  const isSuperAdmin = user?.role === 'admin' || Boolean(user && 'isSuperAdmin' in user && user.isSuperAdmin);
   useEffect(() => {
     if (isAuthenticated) {
       loadUserProfile();
@@ -19,7 +17,8 @@ export const ProtectedRoute: React.FC = () => {
     }
   }, [isAuthenticated, isSuperAdmin, loadUserProfile, fetchMyOrganizations]);
 
-  if (!isAuthenticated) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('celra_access_token') : null;
+  if (!isAuthenticated || !token) {
     return <Navigate to="/login" replace />;
   }
 

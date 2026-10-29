@@ -259,12 +259,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
   const { activeOrg } = useOrgStore();
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const currentQuarter = useMemo(() => Math.floor(new Date().getMonth() / 3) + 1, []);
+  const citQuarterKey = activeOrg?.id ? `celra_cit_quarter_${activeOrg.id}` : 'celra_cit_quarter';
+  const citYearKey = activeOrg?.id ? `celra_cit_year_${activeOrg.id}` : 'celra_cit_year';
   const [taxQuarter, setTaxQuarter] = useState<number | 'ALL'>(() => {
-    const saved = localStorage.getItem('celra_cit_quarter');
+    const saved = localStorage.getItem(citQuarterKey);
     return saved ? (saved === 'ALL' ? 'ALL' : Number(saved)) : currentQuarter;
   });
   const [taxYear, setTaxYear] = useState<number>(() => {
-    const saved = localStorage.getItem('celra_cit_year');
+    const saved = localStorage.getItem(citYearKey);
     return saved ? Number(saved) : currentYear;
   });
   const [citCalcResult, setCitCalcResult] = useState<CitCalculationResult | null>(null);
@@ -434,8 +436,8 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
             items: parsed.expenses,
           });
         }
-        localStorage.setItem('celra_cit_quarter', String(effectiveQuarter));
-        localStorage.setItem('celra_cit_year', String(effectiveYear));
+        localStorage.setItem(citQuarterKey, String(effectiveQuarter));
+        localStorage.setItem(citYearKey, String(effectiveYear));
       } catch (dbErr) {
         console.warn('Lỗi lưu vào DB cit-ledger:', dbErr);
       }
@@ -789,7 +791,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                           value={taxQuarter}
                           onChange={(val) => {
                             setTaxQuarter(val);
-                            localStorage.setItem('celra_cit_quarter', String(val));
+                            localStorage.setItem(citQuarterKey, String(val));
                             loadCitFromDb(val, taxYear);
                           }}
                           className="w-32"
@@ -812,7 +814,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                           onChange={(val) => {
                             const y = Number(val);
                             setTaxYear(y);
-                            localStorage.setItem('celra_cit_year', String(y));
+                            localStorage.setItem(citYearKey, String(y));
                             loadCitFromDb(taxQuarter, y);
                           }}
                           className="w-32"
