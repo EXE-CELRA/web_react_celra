@@ -7,13 +7,20 @@ import { useWalletStore } from './useWalletStore';
 
 // 🛡️ Dọn dẹp sạch toàn bộ state và cache của doanh nghiệp cũ khi đổi workspace
 export const resetTenantStores = () => {
-  // 1. Xóa các cache khảo sát cũ
-  localStorage.removeItem('celra_survey_completed');
-  localStorage.removeItem('celra_survey_completed_profile');
-  localStorage.removeItem('celra_survey_draft_profile');
-  localStorage.removeItem('celra_survey_draft_answers');
-  localStorage.removeItem('celra_survey_completed_answers');
-  localStorage.removeItem('celra_pending_law_alert_v2');
+  // 1. Xóa toàn diện các cache khảo sát, thuế và cảnh báo cũ tránh rò rỉ chéo sang doanh nghiệp khác
+  const keysToRemove = [
+    'celra_survey_completed',
+    'celra_survey_completed_profile',
+    'celra_survey_draft_profile',
+    'celra_survey_draft_answers',
+    'celra_survey_completed_answers',
+    'celra_survey_tax_completed',
+    'celra_pending_law_alert_v2',
+    'celra_cit_quarter',
+    'celra_cit_year',
+    'celra_tax_lookup_details',
+  ];
+  keysToRemove.forEach((k) => localStorage.removeItem(k));
 
   // 2. Reset các Zustand Store chứa dữ liệu của Tenant về mảng rỗng ban đầu
   try {
@@ -117,6 +124,15 @@ export const useOrgStore = create<OrgState>((set) => {
     localStorage.setItem('celra_active_org_id', org.id);
     resetTenantStores();
     set({ activeOrg: org, doanhNghiepHienTai: org });
+
+    // Kích hoạt nạp mới ngay lập tức các phân hệ cho doanh nghiệp mới
+    try {
+      useContextStore.getState().fetchFacts();
+      useTaskStore.getState().fetchTasks();
+      useWalletStore.getState().fetchWallet();
+    } catch (err) {
+      console.warn('Lỗi khi fetch dữ liệu tenant mới:', err);
+    }
   };
 
   const submitOnboardingFn = async (data: any) => {

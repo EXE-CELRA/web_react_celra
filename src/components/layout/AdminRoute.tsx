@@ -11,7 +11,8 @@ export const AdminRoute: React.FC = () => {
     }
   }, [isAuthenticated, loadUserProfile]);
 
-  if (!isAuthenticated) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('celra_access_token') : null;
+  if (!isAuthenticated || !token) {
     return <Navigate to="/login" replace />;
   }
 

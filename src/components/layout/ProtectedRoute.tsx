@@ -19,7 +19,8 @@ export const ProtectedRoute: React.FC = () => {
     }
   }, [isAuthenticated, isSuperAdmin, loadUserProfile, fetchMyOrganizations]);
 
-  if (!isAuthenticated) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('celra_access_token') : null;
+  if (!isAuthenticated || !token) {
     return <Navigate to="/login" replace />;
   }
 

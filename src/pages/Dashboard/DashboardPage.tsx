@@ -45,19 +45,19 @@ export const DashboardPage: React.FC = () => {
     complianceScore: 0,
   });
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const alertStorageKey = activeOrg?.id ? `celra_pending_law_alert_v2_${activeOrg.id}` : 'celra_pending_law_alert_v2';
   const [showLawAlert, setShowLawAlert] = useState<boolean>(() => {
-    return localStorage.getItem('celra_pending_law_alert_v2') !== 'dismissed';
+    return localStorage.getItem(alertStorageKey) !== 'dismissed';
   });
   const [microSurveyVisible, setMicroSurveyVisible] = useState(false);
   const [microSelectedOption, setMicroSelectedOption] = useState<string>('Đã hoàn thành / Tuân thủ đầy đủ');
   const [updatingLawContext, setUpdatingLawContext] = useState(false);
-  // Kiểm tra cờ trạng thái hoàn thành bài khảo sát bối cảnh
+  // Kiểm tra cờ trạng thái hoàn thành bài khảo sát bối cảnh (tách biệt theo từng doanh nghiệp)
   const isSurveyCompleted = Boolean(
-    (activeOrg?.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
-    localStorage.getItem('celra_survey_completed') === 'true' ||
-    (activeOrg?.taxCode && activeOrg?.name)
+    activeOrg?.id &&
+    (localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true' ||
+     (activeOrg?.taxCode && activeOrg?.name))
   );
-
 
   const handleOpenMicroSurvey = () => {
     setMicroSurveyVisible(true);
@@ -66,8 +66,8 @@ export const DashboardPage: React.FC = () => {
   const handleConfirmMicroSurvey = async () => {
     setUpdatingLawContext(true);
     try {
-      localStorage.setItem('celra_pending_law_alert_v2', 'dismissed');
-      localStorage.setItem('celra_law_rule_tndn_version', '2.0');
+      localStorage.setItem(alertStorageKey, 'dismissed');
+      localStorage.setItem(`celra_law_rule_tndn_version_${activeOrg?.id || 'default'}`, '2.0');
       message.success('✅ Đã cập nhật thành công bối cảnh tuân thủ lên phiên bản Luật mới (Nghị định 252/2026/NĐ-CP)! Dữ liệu lịch sử cũ vẫn được bảo toàn.');
       setShowLawAlert(false);
       setMicroSurveyVisible(false);
@@ -98,9 +98,9 @@ export const DashboardPage: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       const isSurveyDone = Boolean(
-        (activeOrg?.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
-        localStorage.getItem('celra_survey_completed') === 'true' ||
-        (activeOrg?.taxCode && activeOrg?.name)
+        activeOrg?.id &&
+        (localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true' ||
+         (activeOrg?.taxCode && activeOrg?.name))
       );
 
       // Nếu chưa hoàn thành bài khảo sát, toàn bộ số liệu để là 0
@@ -268,7 +268,7 @@ export const DashboardPage: React.FC = () => {
                   type="text"
                   size="small"
                   onClick={() => {
-                    localStorage.setItem('celra_pending_law_alert_v2', 'dismissed');
+                    localStorage.setItem(alertStorageKey, 'dismissed');
                     setShowLawAlert(false);
                   }}
                   style={{ color: '#8c8c8c' }}

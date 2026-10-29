@@ -61,9 +61,9 @@ export const SurveyPage: React.FC = () => {
 
   const [isSurveyCompleted, setIsSurveyCompleted] = useState<boolean>(() => {
     if (activeOrg?.id) {
-      return localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true';
+      return localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true' || Boolean(activeOrg.taxCode && activeOrg.name);
     }
-    return localStorage.getItem('celra_survey_completed') === 'true';
+    return false;
   });
 
   const [baseProfile, setBaseProfile] = useState<BaseProfile>(() => {
@@ -138,33 +138,47 @@ export const SurveyPage: React.FC = () => {
   }, [activeOrg]);
 
   // Sync activeOrg details if available on load
+  // Đồng bộ chi tiết activeOrg khi đổi workspace hoặc khi tải trang
   useEffect(() => {
     if (activeOrg) {
       if (activeOrg.id) {
         localStorage.setItem('celra_active_org_id', activeOrg.id);
       }
-      setBaseProfile(prev => {
-        const next = {
-          ...prev,
-          companyName: prev.companyName || activeOrg.name || '',
-          taxCode: prev.taxCode || activeOrg.taxCode || '',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          employeeScale: (activeOrg.scale as any) || prev.employeeScale,
-          employeeCount: prev.employeeCount || activeOrg.employeeCount || 0,
-          annualRevenue: prev.annualRevenue || (activeOrg.revenueStatus === 'over_50b' ? 60000000000 : activeOrg.revenueStatus === 'under_50b' ? 20000000000 : prev.annualRevenue || 0),
-          isNewlyEstablished: prev.isNewlyEstablished ?? (activeOrg.revenueStatus === 'newly_established'),
-        };
-        try {
-          localStorage.setItem('celra_survey_completed_profile', JSON.stringify(next));
-          localStorage.setItem('celra_survey_draft_profile', JSON.stringify(next));
-        } catch {
-          // Ignore
+      
+      // Đọc profile riêng của doanh nghiệp này (nếu đã lưu trước đó)
+      let scopedProfile: Partial<BaseProfile> | null = null;
+      if (activeOrg.id) {
+        const raw = localStorage.getItem(`celra_survey_profile_${activeOrg.id}`);
+        if (raw) {
+          try {
+            scopedProfile = JSON.parse(raw);
+          } catch {
+            // Ignore
+          }
         }
-        return next;
-      });
+      }
+
+      const next: BaseProfile = {
+        taxCode: activeOrg.taxCode || scopedProfile?.taxCode || '',
+        companyName: activeOrg.name || scopedProfile?.companyName || '',
+        employeeScale: (activeOrg.scale as unknown as typeof DEFAULT_BASE_PROFILE.employeeScale) || scopedProfile?.employeeScale || DEFAULT_BASE_PROFILE.employeeScale,
+        employeeCount: activeOrg.employeeCount || scopedProfile?.employeeCount || 0,
+        annualRevenue: (activeOrg.revenueStatus === 'over_50b' ? 60000000000 : activeOrg.revenueStatus === 'under_50b' ? 20000000000 : scopedProfile?.annualRevenue || 0),
+        isNewlyEstablished: activeOrg.revenueStatus ? (activeOrg.revenueStatus === 'newly_established') : (scopedProfile?.isNewlyEstablished ?? false),
+        requiresLaborRuleBook: scopedProfile?.requiresLaborRuleBook ?? DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
+        companyTypeTag: scopedProfile?.companyTypeTag || DEFAULT_BASE_PROFILE.companyTypeTag,
+        industryTags: scopedProfile?.industryTags || DEFAULT_BASE_PROFILE.industryTags,
+      };
+
+      setBaseProfile(next);
+
+      const completed = Boolean(
+        (activeOrg.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
+        (activeOrg.taxCode && activeOrg.name)
+      );
+      setIsSurveyCompleted(completed);
 
       if (activeOrg.taxCode && activeOrg.name) {
-        setIsSurveyCompleted(true);
         setTaxLookupDetails({
           taxCode: activeOrg.taxCode || '',
           name: activeOrg.name || '',
@@ -338,19 +352,15 @@ export const SurveyPage: React.FC = () => {
         }
       );
 
-      if (res?.organizationId) {
-        localStorage.setItem('celra_active_org_id', res.organizationId);
-        localStorage.setItem(`celra_survey_profile_${res.organizationId}`, JSON.stringify(baseProfile));
-        localStorage.setItem(`celra_survey_completed_${res.organizationId}`, 'true');
+      const targetOrgId = res?.organizationId || activeOrg?.id;
+      if (targetOrgId) {
+        localStorage.setItem('celra_active_org_id', targetOrgId);
+        localStorage.setItem(`celra_survey_profile_${targetOrgId}`, JSON.stringify(baseProfile));
+        localStorage.setItem(`celra_survey_completed_${targetOrgId}`, 'true');
       }
       await useOrgStore.getState().fetchMyOrganizations();
 
-      localStorage.setItem('celra_survey_completed', 'true');
-      localStorage.setItem('celra_survey_completed_profile', JSON.stringify(baseProfile));
-      localStorage.setItem('celra_survey_draft_profile', JSON.stringify(baseProfile));
-
       setIsSurveyCompleted(true);
-
       message.success('🎉 Khởi tạo hồ sơ doanh nghiệp thành công! Đang chuyển đến Bối cảnh doanh nghiệp...');
       navigate('/context');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
