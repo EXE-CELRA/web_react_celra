@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
 import type { User, Membership } from '../types';
+import { useOrgStore } from './useOrgStore';
+import { useTaskStore } from './useTaskStore';
+import { useContextStore } from './useContextStore';
+import { useWalletStore } from './useWalletStore';
 
 interface AuthState {
   user: User | null;
@@ -30,12 +34,89 @@ interface AuthState {
   datVaiTroHienTai: (role: string) => void;
 }
 
+
+// 🛡️ HÀM RESET TOÀN BỘ 5 ZUSTAND STORES VÀ DỌN SẠCH STORAGE
+export const resetAllAppStores = () => {
+  // 1. Dọn sạch toàn bộ localStorage rác
+  localStorage.removeItem('celra_access_token');
+  localStorage.removeItem('celra_user');
+  localStorage.removeItem('celra_active_org_id');
+  localStorage.removeItem('celra_active_role');
+  localStorage.removeItem('celra_survey_completed');
+  localStorage.removeItem('celra_survey_completed_profile');
+  localStorage.removeItem('celra_survey_draft_profile');
+  localStorage.removeItem('celra_survey_draft_answers');
+  localStorage.removeItem('celra_pending_law_alert_v2');
+  localStorage.removeItem('celra_law_rule_tndn_version');
+
+  // 2. Reset In-Memory Zustand Stores về trạng thái rỗng ban đầu
+  try {
+    useOrgStore.setState({
+      organizations: [],
+      danhSachDoanhNghiep: [],
+      activeOrg: null,
+      doanhNghiepHienTai: null,
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+
+    useTaskStore.setState({
+      tasks: [],
+      danhSachNhiemVu: [],
+      selectedTask: null,
+      nhiemVuChon: null,
+      comments: [],
+      binhLuan: [],
+      notifications: [],
+      thongBao: [],
+      unreadNotificationsCount: 0,
+      soThongBaoChuaDoc: 0,
+      checklists: [],
+      danhMucKiemTra: [],
+      calendarNotes: [],
+      ghiChuLich: [],
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+
+    useContextStore.setState({
+      facts: [],
+      danhSachDuKien: [],
+      factHistories: [],
+      lichSuDuKien: [],
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+
+    useWalletStore.setState({
+      wallet: null,
+      thongTinVi: null,
+      ledgers: [],
+      danhSachGiaoDich: [],
+      isLoading: false,
+      dangTai: false,
+      error: null,
+      loi: null,
+    });
+  } catch (e) {
+    console.warn('Lỗi khi reset stores:', e);
+  }
+};
+
 export const useAuthStore = create<AuthState>((set) => {
   const initialUser = JSON.parse(localStorage.getItem('celra_user') || 'null');
   const initialAuth = !!localStorage.getItem('celra_access_token');
   const initialRole = localStorage.getItem('celra_active_role') || null;
 
   const loginFn = async (credentials: any) => {
+    // 🛡️ Xóa sạch bộ nhớ store của phiên trước đó
+    resetAllAppStores();
     set({ isLoading: true, dangTai: true, error: null, loi: null });
     try {
       const payload = {
@@ -84,6 +165,8 @@ export const useAuthStore = create<AuthState>((set) => {
   };
 
   const registerFn = async (data: any) => {
+    // 🛡️ Xóa sạch toàn bộ store trước khi đăng ký tài khoản mới
+    resetAllAppStores();
     set({ isLoading: true, dangTai: true, error: null, loi: null });
     try {
       const payload = {
@@ -111,14 +194,8 @@ export const useAuthStore = create<AuthState>((set) => {
   };
 
   const logoutFn = () => {
-    localStorage.removeItem('celra_access_token');
-    localStorage.removeItem('celra_user');
-    localStorage.removeItem('celra_active_org_id');
-    localStorage.removeItem('celra_active_role');
-    localStorage.removeItem('celra_survey_draft_profile');
-    localStorage.removeItem('celra_survey_draft_answers');
-    localStorage.removeItem('celra_survey_completed');
-    localStorage.removeItem('celra_survey_completed_profile');
+    // 🛡️ Reset toàn bộ 5 Zustand stores và localStorage khi đăng xuất
+    resetAllAppStores();
     set({
       user: null,
       nguoiDung: null,
