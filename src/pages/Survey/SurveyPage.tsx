@@ -11,7 +11,6 @@ import {
 import { 
   CheckCircle2, 
   ArrowRight, 
-  Sparkles, 
   Building, 
   Building2, 
   Users, 
@@ -401,11 +400,11 @@ export const SurveyPage: React.FC = () => {
       await useOrgStore.getState().fetchMyOrganizations();
 
       setIsSurveyCompleted(true);
-      message.success('🎉 Khởi tạo hồ sơ doanh nghiệp thành công! Đang chuyển đến Bối cảnh doanh nghiệp...');
+      message.success('🎉 Thiết lập hồ sơ doanh nghiệp thành công! Đang chuyển đến Bối cảnh doanh nghiệp...');
       navigate('/context');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      const errorText = err.response?.data?.message || err.message || 'Lỗi khi khởi tạo bối cảnh doanh nghiệp';
+      const errorText = err.response?.data?.message || err.message || 'Lỗi khi thiết lập hồ sơ doanh nghiệp';
       if (typeof errorText === 'string' && errorText.includes('Mã số thuế')) {
         setDuplicateTaxError(errorText);
       }
@@ -459,7 +458,7 @@ export const SurveyPage: React.FC = () => {
               <p className="text-xs text-amber-900 leading-relaxed m-0 font-medium">
                 Hệ thống CELRA yêu cầu xác thực các thông số pháp lý, quy mô nhân sự, tài chính và ngành nghề kinh doanh ban đầu bên dưới để tự động thiết lập <strong>Ma Trận Quản Trị &amp; Tuân Thủ Pháp Luật</strong>.
                 <strong className="block mt-1 text-amber-950 font-bold">
-                  👉 Vui lòng hoàn tất và bấm "Lưu &amp; Khởi Tạo Bối Cảnh Doanh Nghiệp" ở cuối để kích hoạt toàn bộ không gian làm việc.
+                  👉 Vui lòng hoàn tất và bấm "Thiết Lập Hồ Sơ Doanh Nghiệp" ở cuối để kích hoạt toàn bộ không gian làm việc.
                 </strong>
               </p>
             </div>
@@ -1102,11 +1101,7 @@ export const SurveyPage: React.FC = () => {
         </div>
 
         {/* Action Button */}
-        <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100 gap-4">
-          <div className="text-xs text-slate-500 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
-            <span>Hệ thống sẽ tự động khởi tạo các thẻ bối cảnh ban đầu và chuyển bạn đến ma trận tuân thủ.</span>
-          </div>
+        <div className="flex flex-col sm:flex-row items-center justify-end pt-6 border-t border-slate-100 gap-4">
 
           <button
             type="button"
@@ -1117,11 +1112,11 @@ export const SurveyPage: React.FC = () => {
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Đang khởi tạo bối cảnh...</span>
+                <span>Đang thiết lập hồ sơ...</span>
               </>
             ) : (
               <>
-                <span>Lưu &amp; Khởi Tạo Bối Cảnh Doanh Nghiệp</span>
+                <span>Thiết Lập Hồ Sơ Doanh Nghiệp</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

@@ -13,7 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import heroBg from '../../assets/bg-homepage.png';
-import celraLogo from '../../assets/logo_celra_tachnen.png';
+import celraLogo from '../../assets/logo_celra.png';
 
 const { Title, Paragraph } = Typography;
 
@@ -269,7 +269,7 @@ export const HomePage: React.FC = () => {
                   boxShadow: '0 8px 24px rgba(0, 82, 204, 0.35)',
                 }}
               >
-                Bắt Đầu Khởi Tạo Doanh Nghiệp
+                Thiết Lập Hồ Sơ Doanh Nghiệp
               </Button>
             </div>
           </div>

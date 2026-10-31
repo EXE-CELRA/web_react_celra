@@ -3,7 +3,7 @@ import React from 'react';
 import { Row, Col, Typography, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import authBg from '../../assets/auth_bg.png';
-import celraLogo from '../../assets/logo_celra_tachnen.png';
+import celraLogo from '../../assets/logo_celra.png';
 
 const { Title, Paragraph } = Typography;
 

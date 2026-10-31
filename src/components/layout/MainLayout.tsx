@@ -32,11 +32,11 @@ const { Text } = Typography;
 
 const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Bảng Điều Khiển',
-  '/context': 'Context Doanh Nghiệp',
+  '/context': 'Hồ Sơ & Bối Cảnh Doanh Nghiệp',
   '/context/audit': 'Rà Soát Tuân Thủ & Thuế TNDN',
-  '/tasks': 'Danh Sách Tác Vụ Tuân Thủ',
+  '/tasks': 'Danh Mục Nhiệm Vụ Tuân Thủ',
   '/tasks/calendar': 'Lịch Tuân Thủ & Ghi Chú',
-  '/checklists': 'Danh Sách Tác Vụ Tuân Thủ',
+  '/checklists': 'Danh Mục Nhiệm Vụ Tuân Thủ',
   '/evidence': 'Hồ Sơ & Bằng Chứng',
   '/subscription': 'Gói Dịch Vụ & Hạn Mức',
   '/wallet': 'Gói Dịch Vụ & Hạn Mức',
@@ -120,14 +120,14 @@ export const MainLayout: React.FC = () => {
 
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
-    { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
+    { key: '/context', icon: <DatabaseOutlined />, label: 'Bối Cảnh Doanh Nghiệp' },
     {
       key: '/tasks-parent',
       icon: <CheckSquareOutlined />,
-      label: 'Check-list & Task',
+      label: 'Nhiệm Vụ Tuân Thủ',
       children: [
-        { key: '/tasks', icon: <OrderedListOutlined />, label: 'Danh sách tác vụ' },
-        { key: '/tasks/calendar', icon: <CalendarOutlined />, label: 'Lịch tuân thủ & Note' },
+        { key: '/tasks', icon: <OrderedListOutlined />, label: 'Danh mục nhiệm vụ' },
+        { key: '/tasks/calendar', icon: <CalendarOutlined />, label: 'Lịch tuân thủ & ghi chú' },
       ],
     },
     { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Hồ Sơ & Bằng Chứng' },
@@ -227,7 +227,7 @@ export const MainLayout: React.FC = () => {
           collapsed={isMobile ? false : collapsed}
           trigger={null}
           theme="dark"
-          width={250}
+          width={260}
           style={{
             overflow: 'auto',
             height: '100vh',
@@ -373,7 +373,7 @@ export const MainLayout: React.FC = () => {
         </Sider>
       </ConfigProvider>
 
-      <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 250), transition: 'all 0.2s', minWidth: 0 }}>
+      <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 260), transition: 'all 0.2s', minWidth: 0 }}>
         <Header
           style={{
             background: '#fff',
@@ -545,14 +545,14 @@ export const MainLayout: React.FC = () => {
               type="primary"
               icon={<RobotOutlined />}
               onClick={() => setAiDrawerOpen(true)}
-              title="AI Copilot"
+              title="Trợ lý AI Pháp lý & Thuế"
               style={{
                 background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)',
                 border: 'none',
                 padding: isMobile ? '4px 10px' : '4px 15px',
               }}
             >
-              {!isMobile && 'AI Copilot'}
+              {!isMobile && 'Trợ lý AI'}
             </Button>
 
             {/* Thẻ Hồ Sơ Doanh Nghiệp (User Profile Card) */}

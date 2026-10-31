@@ -42,6 +42,7 @@ export const SubscriptionPage: React.FC = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<PaymentInvoiceItem | null>(null);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
 
   useEffect(() => {
     fetchSubscription(activeOrg?.id);
@@ -432,8 +433,26 @@ export const SubscriptionPage: React.FC = () => {
                     Chọn Gói Phù Hợp Cho Doanh Nghiệp Bạn
                   </h2>
                   <p className="text-xs md:text-sm text-slate-500">
-                    Chuyển đổi hoàn toàn từ nạp Credit sang mô hình Subscription trọn gói theo tháng. Không phụ phí phát sinh, minh bạch và tối ưu chi phí.
+                    Mô hình Subscription trọn gói, minh bạch và tối ưu chi phí cho doanh nghiệp vừa &amp; nhỏ.
                   </p>
+
+                  {/* Bộ chọn chu kỳ Tháng / Năm (Tiết kiệm 15%) */}
+                  <div className="pt-2 flex items-center justify-center gap-3">
+                    <span className={`text-xs font-bold ${billingCycle === 'MONTHLY' ? 'text-slate-900' : 'text-slate-400'}`}>
+                      Thanh toán theo tháng
+                    </span>
+                    <Switch
+                      checked={billingCycle === 'YEARLY'}
+                      onChange={(checked) => setBillingCycle(checked ? 'YEARLY' : 'MONTHLY')}
+                      className="bg-slate-300"
+                    />
+                    <span className={`text-xs font-bold flex items-center gap-1.5 ${billingCycle === 'YEARLY' ? 'text-teal-700' : 'text-slate-400'}`}>
+                      Thanh toán theo năm
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
+                        Tiết kiệm 15% (Tặng 2 tháng)
+                      </span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* 3 Pricing Cards Grid */}
@@ -490,15 +509,20 @@ export const SubscriptionPage: React.FC = () => {
                           <div className="border-y border-slate-100 py-4">
                             <div className="flex items-baseline gap-1">
                               <span className="text-3xl md:text-4xl font-black text-slate-900 font-mono tracking-tight">
-                                {plan.priceVnd.toLocaleString('vi-VN')}
+                                {billingCycle === 'YEARLY'
+                                  ? Math.round((plan.priceVnd * 12 * 0.85) / 12).toLocaleString('vi-VN')
+                                  : plan.priceVnd.toLocaleString('vi-VN')}
                               </span>
                               <span className="text-sm font-bold text-slate-500">₫ / tháng</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 mt-1">
+                              <span>{billingCycle === 'YEARLY' ? `Thanh toán ${Math.round(plan.priceVnd * 12 * 0.85).toLocaleString('vi-VN')} ₫ / năm` : 'Chu kỳ thanh toán từng tháng'}</span>
+                              <span className="text-slate-400 italic">Chưa gồm 10% VAT</span>
                             </div>
                             <div className="text-[11px] font-medium text-slate-400 mt-1">
                               Đối tượng: {plan.targetAudience}
                             </div>
                           </div>
-
                           {/* Hạn mức trọng tâm (Highlights) */}
                           <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -573,6 +597,58 @@ export const SubscriptionPage: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* CHÍNH SÁCH DỊCH VỤ & GIẢI ĐÁP QUYỀN LỢI (TASK 2 FAQ) */}
+                <div className="bg-slate-50/80 rounded-3xl p-6 md:p-8 border border-slate-200/90 space-y-4 mt-8">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-slate-200">
+                    <ShieldCheck className="w-5 h-5 text-teal-700" />
+                    <h3 className="text-base font-extrabold text-slate-900 m-0">
+                      Chính Sách Gói Dịch Vụ &amp; Minh Bạch Hạn Mức
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600">
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-2xs">
+                      <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-teal-600 shrink-0" />
+                        Chính sách Hóa đơn &amp; Thuế VAT
+                      </div>
+                      <p className="m-0 leading-relaxed text-slate-500 text-[11.5px]">
+                        Giá niêm yết chưa bao gồm 10% thuế VAT. Hệ thống tự động xuất Hóa đơn điện tử hợp pháp gửi về email doanh nghiệp sau khi thanh toán thành công để hạch toán chi phí hợp lý (Mục B4).
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-2xs">
+                      <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-teal-600 shrink-0" />
+                        Chính sách Dùng thử &amp; Gia hạn
+                      </div>
+                      <p className="m-0 leading-relaxed text-slate-500 text-[11.5px]">
+                        Tài khoản mới được trải nghiệm đầy đủ quyền lợi. Bạn có thể bật/tắt tính năng "Tự động gia hạn" bất kỳ lúc nào tại tab Tổng quan mà không phát sinh thêm chi phí ẩn.
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-2xs">
+                      <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-teal-600 shrink-0" />
+                        Điều gì xảy ra khi dùng hết lượt Trợ lý AI?
+                      </div>
+                      <p className="m-0 leading-relaxed text-slate-500 text-[11.5px]">
+                        Khi dùng hết lượt AI trong tháng, toàn bộ dữ liệu, lịch tuân thủ và sổ thu chi vẫn truy cập bình thường. Trợ lý AI chuyển sang chế độ tra cứu luật cơ bản hoặc bạn có thể nâng cấp gói để mở rộng lượt.
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-2xs">
+                      <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-teal-600 shrink-0" />
+                        Điều gì xảy ra khi đầy dung lượng lưu trữ?
+                      </div>
+                      <p className="m-0 leading-relaxed text-slate-500 text-[11.5px]">
+                        Hồ sơ và chứng từ đã tải lên được bảo lưu an toàn vĩnh viễn. Để tải thêm hóa đơn/chứng từ mới, bạn có thể dọn dẹp tệp cũ hoặc nâng cấp gói lưu trữ lớn hơn (10 GB / 30 GB).
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             ),

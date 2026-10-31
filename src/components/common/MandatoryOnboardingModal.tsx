@@ -163,10 +163,10 @@ export const MandatoryOnboardingModal: React.FC<MandatoryOnboardingModalProps> =
       };
 
       await submitOnboarding(payload);
-      message.success('Khởi tạo hồ sơ doanh nghiệp & kích hoạt hệ thống thành công!');
+      message.success('Thiết lập hồ sơ doanh nghiệp & kích hoạt hệ thống thành công!');
       onSuccess();
     } catch (err: any) {
-      message.error(err.message || 'Lỗi khởi tạo hồ sơ doanh nghiệp');
+      message.error(err.message || 'Lỗi thiết lập hồ sơ doanh nghiệp');
     } finally {
       setSubmitting(false);
     }

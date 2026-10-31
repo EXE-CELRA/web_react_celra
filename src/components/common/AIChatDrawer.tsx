@@ -506,7 +506,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-white tracking-wide">
-                CELRA Legal &amp; Tax Copilot
+                Trợ Lý AI Pháp Lý &amp; Thuế
               </h3>
               <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30">
                 OpenCode AI

@@ -7,17 +7,17 @@ import { useContextStore } from '../../store/useContextStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import apiClient from '../../api/client';
-import { message, Upload, Button, Tag, Select, Modal, Form, Input, InputNumber, Radio, Popconfirm, Alert, Table, Tabs, DatePicker } from 'antd';
+import { message, Upload, Button, Tag, Select, Modal, Form, Input, InputNumber, Radio, Popconfirm, Alert, Table, Tabs, DatePicker, Tooltip } from 'antd';
 import {
   DownloadOutlined,
   WarningOutlined,
   FileExcelOutlined,
-  CreditCardOutlined,
   CompassOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
   CheckSquareOutlined,
   BellOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useTaskStore } from '../../store/useTaskStore';
 import { 
@@ -663,21 +663,30 @@ export const ContextAuditPage: React.FC = () => {
       ),
     },
     {
-      title: 'Đánh giá tính hợp lý (Mục B4)',
+      title: 'Rà soát chi phí được trừ khi tính thuế TNDN (Mục B4)',
       key: 'b4Evaluation',
-      minWidth: 260,
+      minWidth: 280,
       render: (_: any, record: any) =>
         record.isDisallowedB4 ? (
-          <div className="space-y-1">
+          <div className="space-y-1.5 py-1">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
               <WarningOutlined /> Bị loại trừ (Mục B4)
             </span>
             <p className="text-xs text-slate-800 m-0 font-medium leading-snug">
               {record.disallowedReason || 'Chi phí bị loại trừ theo luật thuế.'}
             </p>
+            <div className="bg-amber-50/80 border border-amber-200/60 rounded px-2 py-1 text-[11px] text-amber-900 leading-tight">
+              <strong>💡 Cần bổ sung:</strong> {
+                String(record.disallowedReason || '').includes('tiền mặt')
+                  ? 'Ủy nhiệm chi hoặc chứng từ chuyển khoản qua tài khoản ngân hàng của doanh nghiệp.'
+                  : String(record.disallowedReason || '').includes('hóa đơn')
+                  ? 'Hóa đơn điện tử GTGT / hóa đơn bán hàng hợp pháp từ người bán.'
+                  : 'Hồ sơ chứng từ kế toán hợp lệ chứng minh chi phí phục vụ hoạt động SXKD.'
+              }
+            </div>
             {record.legalBasis && (
-              <p className="text-[11px] text-slate-400 italic m-0">
-                {record.legalBasis}
+              <p className="text-[10.5px] text-slate-400 italic m-0">
+                Căn cứ: {record.legalBasis}
               </p>
             )}
           </div>
@@ -1651,39 +1660,123 @@ export const ContextAuditPage: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs">
               {/* HEADER PHÂN HỆ DOANH NGHIỆP */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-100">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2.5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0 border border-teal-100/70">
                       <FileExcelOutlined className="text-base" />
                     </div>
                     <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight m-0">
-                      Sổ Kê Khai Thu Chi & Dự Tính Thuế TNDN
+                      Sổ Kê Khai Thu Chi &amp; Dự Tính Thuế TNDN
                     </h3>
-                    <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                      Thông tư 96/2015/TT-BTC
+                  </div>
+
+                  {/* Thẻ Thuế Suất Áp Dụng nằm dưới tiêu đề */}
+                  <div className="inline-flex flex-wrap items-center gap-2 text-xs bg-slate-50 border border-slate-200/90 rounded-lg px-3 py-1.5 shadow-2xs">
+                    <CompassOutlined className="text-slate-400" />
+                    <span className="text-slate-500 font-medium">Thuế suất áp dụng:</span>
+                    <span className="font-semibold text-slate-800">{citTierResult.title}</span>
+                    <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[11px] border ${citTierResult.badgeColor}`}>
+                      {citTierResult.taxRatePercentText}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 m-0">
-                    Rà soát chi phí không hợp lệ (Mục B4), dự toán số thuế TNDN và quản trị lợi nhuận ròng sau thuế thời gian thực.
-                  </p>
                 </div>
 
-                {/* META THÔNG TIN ƯU ĐÃI & HẠN NỘP */}
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div className="bg-slate-50 border border-slate-200/90 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-2xs">
-                    <CompassOutlined className="text-slate-400" />
-                    <span className="text-slate-400 font-medium">Thuế suất:</span>
-                    <span className="font-semibold text-slate-800">{incentiveInfo.title}</span>
-                    <span className="font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded text-[11px] border border-teal-100">
-                      {incentiveInfo.taxRatePercentText}
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200/90 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-2xs">
+                {/* Hạn nộp nằm góc trên bên phải */}
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 flex items-center gap-2 shadow-2xs">
                     <ClockCircleOutlined className="text-slate-400" />
-                    <span className="text-slate-400 font-medium">Hạn nộp:</span>
-                    <span className="font-mono font-bold text-slate-800">
+                    <span className="text-slate-500 font-medium">Hạn nộp:</span>
+                    <span className="font-mono font-bold text-slate-900 text-xs">
                       {getQuarterDeadline(taxQuarter, taxYear)}
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 🎯 KHỐI: HÀNH ĐỘNG TIẾP THEO DÀNH CHO DOANH NGHIỆP (TASK 3.5) */}
+              <div className="bg-gradient-to-br from-slate-900 to-teal-950 text-white rounded-2xl p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <CheckSquareOutlined className="text-teal-400 text-base" />
+                    <h4 className="text-sm font-extrabold text-white m-0 tracking-wide">
+                      Các Bước Hành Động Tiếp Theo Dành Cho Bạn
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-teal-300 font-medium">
+                    Thao tác nhanh để tối ưu thuế &amp; tránh bị xử phạt
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  {/* Bước 1 */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between">
+                    <div>
+                      <div className="text-teal-300 font-extrabold text-[11px] uppercase tracking-wider">Bước 1: Chứng từ B4</div>
+                      <div className="text-white font-bold text-xs mt-0.5">Bổ sung hóa đơn / ủy nhiệm chi</div>
+                      <p className="text-slate-300 text-[11px] m-0 mt-1 leading-relaxed">
+                        {citSummary.disallowedCount > 0
+                          ? `Phát hiện ${citSummary.disallowedCount} khoản chi bị loại B4. Hãy liên hệ nhà cung cấp lấy hóa đơn hoặc chứng từ chuyển khoản.`
+                          : 'Hiện chưa phát hiện khoản chi vi phạm Mục B4. Tiếp tục duy trì lưu trữ chứng từ đầy đủ.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bước 2 */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between">
+                    <div>
+                      <div className="text-teal-300 font-extrabold text-[11px] uppercase tracking-wider">Bước 2: Quản lý hạn</div>
+                      <div className="text-white font-bold text-xs mt-0.5">Tạo Checklist nhắc hạn nộp</div>
+                      <p className="text-slate-300 text-[11px] m-0 mt-1 leading-relaxed">
+                        Kích hoạt nhiệm vụ theo dõi hạn nộp thuế Quý {taxQuarter === 'ALL' ? 'cả năm' : taxQuarter}/{taxYear} để nhận nhắc nhở trước 7 ngày.
+                      </p>
+                    </div>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
+                        setSelectedChecklistYear(taxYear);
+                        setIsChecklistModalOpen(true);
+                      }}
+                      className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold border-none text-[11px] h-7 rounded-lg mt-2 w-full"
+                    >
+                      Tạo Checklist Ngay
+                    </Button>
+                  </div>
+
+                  {/* Bước 3 */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between">
+                    <div>
+                      <div className="text-teal-300 font-extrabold text-[11px] uppercase tracking-wider">Bước 3: Nộp thuế điện tử</div>
+                      <div className="text-white font-bold text-xs mt-0.5">Hướng dẫn kê khai eTax</div>
+                      <p className="text-slate-300 text-[11px] m-0 mt-1 leading-relaxed">
+                        Xem quy trình 6 bước nộp tờ khai và tạm nộp tiền thuế qua Cổng Thuế Điện Tử (thuedientu.gdt.gov.vn).
+                      </p>
+                    </div>
+                    <Button
+                      size="small"
+                      onClick={() => setShowEtaxModal(true)}
+                      className="bg-white/10 hover:bg-white/20 text-white font-semibold border-white/20 text-[11px] h-7 rounded-lg mt-2 w-full"
+                    >
+                      Xem Hướng Dẫn eTax
+                    </Button>
+                  </div>
+
+                  {/* Bước 4 */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 space-y-1.5 flex flex-col justify-between">
+                    <div>
+                      <div className="text-teal-300 font-extrabold text-[11px] uppercase tracking-wider">Bước 4: Xác thực bối cảnh</div>
+                      <div className="text-white font-bold text-xs mt-0.5">Kiểm tra thông tin ưu đãi</div>
+                      <p className="text-slate-300 text-[11px] m-0 mt-1 leading-relaxed">
+                        Cập nhật doanh thu năm trước hoặc địa bàn ưu đãi để hệ thống xếp bậc thuế suất (0%, 15%, 17%) chính xác.
+                      </p>
+                    </div>
+                    <Button
+                      size="small"
+                      onClick={() => navigate('/context')}
+                      className="bg-white/10 hover:bg-white/20 text-white font-semibold border-white/20 text-[11px] h-7 rounded-lg mt-2 w-full"
+                    >
+                      Kiểm Tra Bối Cảnh
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -1721,120 +1814,128 @@ export const ContextAuditPage: React.FC = () => {
                   </div>
                 </div>
 
-                <Button
-                  type="default"
-                  icon={<CreditCardOutlined className="text-blue-600" />}
-                  onClick={() => setShowEtaxModal(true)}
-                  className="text-xs font-semibold rounded-lg h-8 border-slate-300 text-slate-700 hover:text-blue-600 hover:border-blue-400 shadow-2xs"
-                >
-                  Hướng dẫn nộp eTax
-                </Button>
               </div>
 
               {/* 🌟 4 THẺ CHỈ SỐ KPI TỐI GIẢN CHUẨN DOANH NGHIỆP */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
                 {/* CARD 1: DOANH THU */}
-                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-semibold uppercase tracking-wider text-[11px]">Tổng doanh thu</span>
-                    <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-100/60">
-                      <DollarSign className="w-3.5 h-3.5" />
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-semibold uppercase tracking-wider text-[11px]">Tổng doanh thu</span>
+                      <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-100/60 shrink-0">
+                        <DollarSign className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-1.5 truncate">
+                      {citSummary.totalRevenue.toLocaleString('vi-VN')} đ
                     </div>
                   </div>
-                  <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-2 truncate">
-                    {citSummary.totalRevenue.toLocaleString('vi-VN')} đ
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
                     <span>{citSummary.revenueCount} khoản thu</span>
                     <span className="font-medium text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded text-[10.5px]">100% doanh thu</span>
                   </div>
                 </div>
 
                 {/* CARD 2: CHI PHÍ KẾ TOÁN */}
-                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-semibold uppercase tracking-wider text-[11px]">Tổng chi phí kế toán</span>
-                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100/60">
-                      <FileText className="w-3.5 h-3.5" />
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
+                        Tổng chi phí kế toán
+                        <Tooltip title="Tổng các khoản chi phí ghi nhận trên sổ sách. Hệ thống sẽ tự động bóc tách chi phí hợp lý được trừ và các khoản có nguy cơ bị cơ quan thuế loại trừ (Mục B4).">
+                          <InfoCircleOutlined className="text-slate-400 hover:text-blue-600 cursor-pointer text-[12px]" />
+                        </Tooltip>
+                      </span>
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100/60 shrink-0">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-1.5 truncate">
+                      {citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ
                     </div>
                   </div>
-                  <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-2 truncate">
-                    {citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1">
+                  <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
                     <span className="text-emerald-700 font-medium">
                       Được trừ: {citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ
                     </span>
                     {citSummary.totalDisallowedExpense > 0 && (
-                      <span className="text-rose-600 font-medium">
+                      <span className="text-rose-600 font-medium flex items-center gap-0.5">
                         Bị loại: -{citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ
+                        <Tooltip title="Chi phí bị loại B4: Khoản chi có dấu hiệu không đáp ứng điều kiện được trừ khi tính thuế TNDN (ví dụ: thiếu hóa đơn hợp pháp, thanh toán tiền mặt từ 5 triệu đồng trở lên, thù lao chủ công ty TNHH 1TV). Cần kiểm tra lại theo hồ sơ thực tế trước khi quyết toán.">
+                          <InfoCircleOutlined className="text-rose-400 hover:text-rose-600 cursor-pointer text-[11px]" />
+                        </Tooltip>
                       </span>
                     )}
                   </div>
                 </div>
 
                 {/* CARD 3: THUẾ TNDN DỰ KIẾN */}
-                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-semibold uppercase tracking-wider text-[11px]">Thuế TNDN dự kiến</span>
-                    <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100/60">
-                      <AlertTriangle className="w-3.5 h-3.5" />
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
+                        Thuế TNDN dự kiến
+                        <Tooltip title="Số tiền thuế Thu nhập doanh nghiệp ước tính phải nộp cho kỳ tính thuế hiện tại = (Doanh thu - Chi phí được trừ thực tế) * Thuế suất áp dụng.">
+                          <InfoCircleOutlined className="text-slate-400 hover:text-amber-600 cursor-pointer text-[12px]" />
+                        </Tooltip>
+                      </span>
+                      <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100/60 shrink-0">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-1.5 truncate">
+                      {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
                     </div>
                   </div>
-                  <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-2 truncate">
-                    {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                    <span>Tạm nộp 80%: <strong className="text-slate-700 font-mono">{(citCalcResult?.statutoryPrepayment80 || citSummary.statutoryPrepayment80).toLocaleString('vi-VN')} đ</strong></span>
-                    <span className={`font-bold text-[10px] px-2 py-0.5 rounded border ${citTierResult.badgeColor}`}>
+                  <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1 whitespace-nowrap">
+                      <span>Tạm nộp 80%:</span>
+                      <strong className="text-slate-700 font-mono">{(citCalcResult?.statutoryPrepayment80 || citSummary.statutoryPrepayment80).toLocaleString('vi-VN')} đ</strong>
+                      <Tooltip title="Theo Khoản 3 Điều 1 Nghị định 91/2022/NĐ-CP: Tổng số thuế TNDN tạm nộp của 4 quý không được thấp hơn 80% số thuế TNDN phải nộp theo quyết toán năm. Nếu nộp thiếu ngưỡng 80%, doanh nghiệp sẽ bị tính tiền chậm nộp 0,03%/ngày.">
+                        <InfoCircleOutlined className="text-slate-400 hover:text-amber-600 cursor-pointer text-[11px]" />
+                      </Tooltip>
+                    </div>
+                    <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ${citTierResult.badgeColor}`}>
                       {citTierResult.taxRatePercentText}
                     </span>
                   </div>
                 </div>
 
                 {/* CARD 4: LỢI NHUẬN RÒNG SAU THUẾ */}
-                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-semibold uppercase tracking-wider text-[11px]">Lợi nhuận ròng sau thuế</span>
-                    <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100/60">
-                      <TrendingUp className="w-3.5 h-3.5" />
+                <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
+                        Lợi nhuận ròng sau thuế
+                        <Tooltip title="Khoản lợi nhuận thực tế doanh nghiệp giữ lại sau khi đã khấu trừ toàn bộ chi phí hoạt động và hoàn thành nghĩa vụ nộp thuế TNDN cho Nhà nước.">
+                          <InfoCircleOutlined className="text-slate-400 hover:text-emerald-600 cursor-pointer text-[12px]" />
+                        </Tooltip>
+                      </span>
+                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100/60 shrink-0">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className={`text-2xl font-bold font-mono tracking-tight mt-1.5 truncate ${citSummary.netProfitAfterTax >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      {citSummary.netProfitAfterTax.toLocaleString('vi-VN')} đ
                     </div>
                   </div>
-                  <div className={`text-2xl font-bold font-mono tracking-tight mt-2 truncate ${citSummary.netProfitAfterTax >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    {citSummary.netProfitAfterTax.toLocaleString('vi-VN')} đ
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                    <span className="text-slate-400">= Thu - Chi - Thuế</span>
-                    <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 text-[10.5px]">
+                  <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <span className="text-slate-400 whitespace-nowrap">= Thu - Chi - Thuế</span>
+                    <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 text-[10.5px] flex items-center gap-1 shrink-0">
                       {citSummary.totalRevenue > 0
                         ? `${((citSummary.netProfitAfterTax / citSummary.totalRevenue) * 100).toFixed(1)}% ROS`
                         : '0% ROS'}
+                      <Tooltip title="ROS (Return on Sales): Tỷ suất lợi nhuận ròng trên doanh thu = (Lợi nhuận sau thuế / Tổng doanh thu) * 100%. Chỉ số đo lường hiệu quả sinh lời: Cứ 100 đồng doanh thu mang về bao nhiêu đồng lợi nhuận sạch.">
+                        <InfoCircleOutlined className="text-emerald-600 hover:text-emerald-800 cursor-pointer text-[11px]" />
+                      </Tooltip>
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* BANNER THÔNG TIN THUẾ SUẤT TNDN 2026 & CĂN CỨ PHÁP LUẬT */}
-              <div className="bg-gradient-to-r from-teal-50 via-emerald-50 to-blue-50 border border-teal-200/80 rounded-xl p-3.5 mb-5 flex items-center justify-between flex-wrap gap-3">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${citTierResult.badgeColor}`}>
-                      {citTierResult.title}
-                    </span>
-                    <span className="text-xs text-slate-700 font-medium">
-                      {citTierResult.explanation}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
-                    Căn cứ pháp lý: <strong>{citTierResult.legalBasis}</strong>
-                  </div>
-                </div>
-                {citTierResult.isExempted && (
-                  <Tag color="green" className="font-bold text-xs m-0">
-                    ✓ ĐỦ ĐIỀU KIỆN XÉT MIỄN THUẾ
-                  </Tag>
-                )}
-              </div>
+
+
               {/* THÔNG BÁO CHẾ ĐỘ CẢ NĂM (TỰ ĐỘNG GỘP 4 QUÝ CHUẨN KẾ TOÁN) */}
               {taxQuarter === 'ALL' && (
                 <Alert
@@ -1888,19 +1989,6 @@ export const ContextAuditPage: React.FC = () => {
                               />
                             </div>
                             <div className="flex items-center gap-2 flex-nowrap shrink-0 overflow-x-auto">
-                              <Button
-                                size="middle"
-                                icon={<CheckSquareOutlined className="text-emerald-600" />}
-                                onClick={() => {
-                                  setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
-                                  setSelectedChecklistYear(taxYear);
-                                  setIsChecklistModalOpen(true);
-                                }}
-                                className="text-xs font-bold rounded-lg border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 shadow-2xs whitespace-nowrap"
-                                title="Tạo Checklist hạn nộp thuế và kích hoạt nhắc hạn trước 7 ngày"
-                              >
-                                Tạo Checklist
-                              </Button>
                               <Button
                                 type="primary"
                                 size="middle"
@@ -1969,7 +2057,7 @@ export const ContextAuditPage: React.FC = () => {
                       key: 'expense',
                       label: (
                         <span className="font-semibold text-xs sm:text-sm text-slate-800 flex items-center gap-1.5">
-                          Chi phí & Rà soát Mục B4
+                          Rà soát chi phí được trừ khi tính thuế TNDN (Mục B4)
                           <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                             {citSummary.expenseCount}
                           </span>
@@ -2014,19 +2102,6 @@ export const ContextAuditPage: React.FC = () => {
                               </Radio.Group>
                             </div>
                             <div className="flex items-center gap-2 flex-nowrap shrink-0 overflow-x-auto">
-                              <Button
-                                size="middle"
-                                icon={<CheckSquareOutlined className="text-emerald-600" />}
-                                onClick={() => {
-                                  setSelectedChecklistQuarter(taxQuarter === 'ALL' ? 1 : taxQuarter);
-                                  setSelectedChecklistYear(taxYear);
-                                  setIsChecklistModalOpen(true);
-                                }}
-                                className="text-xs font-bold rounded-lg border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 shadow-2xs whitespace-nowrap"
-                                title="Tạo Checklist hạn nộp thuế và kích hoạt nhắc hạn trước 7 ngày"
-                              >
-                                Tạo Checklist
-                              </Button>
                               <Button
                                 type="primary"
                                 size="middle"
@@ -2106,10 +2181,7 @@ export const ContextAuditPage: React.FC = () => {
 
           {/* NẾU LÀ PHÂN HỆ THUẾ TNDN: CHỈ CẦN NÚT QUAY LẠI VÌ ĐÃ CÓ TOÀN BỘ SỔ THU CHI Ở TRÊN */}
           {activeTab === 'thue_ke_toan' ? (
-            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-xs text-slate-500 italic">
-                * Dữ liệu Sổ Thu Chi được lưu trữ trực tiếp trên PostgreSQL qua API NestJS và được bảo lưu trọn vẹn khi đổi thiết bị hoặc tải lại trang.
-              </span>
+            <div className="pt-4 border-t border-slate-200 flex justify-end">
               <Button
                 onClick={() => navigate('/context')}
                 className="rounded-xl text-xs font-semibold h-10 px-5"
