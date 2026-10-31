@@ -22,8 +22,7 @@ import {
 import { useTaskStore } from '../../store/useTaskStore';
 import { 
   ShieldCheck,
-  Wallet, 
-  ArrowRight, 
+  ArrowRight,
   Sparkles,
   PlusCircle, 
   ExternalLink,
@@ -60,7 +59,6 @@ import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
 import { isGroupSurveyCompleted } from '../../data/questionSurvey';
 import type { ContextFact, AuditFindingItem } from '../../interfaces';
 
-const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
 // Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế & Hóa đơn
 // eslint-disable-next-line react-refresh/only-export-components
@@ -158,7 +156,7 @@ export const ContextAuditPage: React.FC = () => {
   const initialGroup = (rawGroup === 'boi_canh_co_so' ? null : rawGroup) || 'thue_ke_toan';
 
   const { facts, fetchFacts, isLoading, createFact, updateFact } = useContextStore();
-  const { wallet, fetchWallet, buyPackage } = useWalletStore();
+  const { fetchWallet } = useWalletStore();
   const { activeOrg } = useOrgStore();
 
   const [activeTab, setActiveTab] = useState<string>(initialGroup);
@@ -1463,18 +1461,11 @@ export const ContextAuditPage: React.FC = () => {
     }
   }, [displayedFacts]);
 
-  // Tính toán chi phí: 25 Credit / thẻ
-  const totalCost = selectedFactIds.length * COST_PER_CARD;
-  const currentBalance = wallet?.balance ?? (wallet as any)?.soDu ?? 40;
-  const isBalanceSufficient = currentBalance >= totalCost;
-  const missingCredit = Math.max(0, totalCost - currentBalance);
+  // Quyền lợi gói thuê bao: Rà soát không giới hạn
+  const isBalanceSufficient = true;
 
   // GỌI API RÀ SOÁT BỐI CẢNH (BATCH AUDIT DÀNH CHO CÁC PHÂN HỆ KHÁC)
   const handleStartAudit = async () => {
-    if (!isBalanceSufficient) {
-      message.error(`Số dư Ví CELRA không đủ. Bạn đang thiếu ${missingCredit} Credit. Vui lòng nạp thêm.`);
-      return;
-    }
 
     setIsProcessing(true);
     setStep('scanning');
@@ -1579,17 +1570,6 @@ export const ContextAuditPage: React.FC = () => {
       setIsCreatingAll(false);
     }
   };
-
-  const handleDepositQuick = async () => {
-    try {
-      await buyPackage('PKG_120');
-      message.success('Đã nạp gói (+120 Credit) vào ví CELRA thành công!');
-      await fetchWallet();
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi khi nạp Credit');
-    }
-  };
-
   const getModuleTag = (groupKey?: string) => {
     switch (groupKey) {
       case 'thue_ke_toan': return 'MODULE 1: THUẾ TNDN';
@@ -2188,11 +2168,11 @@ export const ContextAuditPage: React.FC = () => {
               {/* FOOTER BƯỚC 1: XÁC NHẬN CHI PHÍ */}
               <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="text-xs text-slate-600">
-                  Tổng chi phí rà soát:{' '}
+                  Chế độ phân tích:{' '}
                   <strong className="text-teal-700 font-mono text-sm">
-                    {totalCost.toLocaleString('vi-VN')} Credit
+                    Trọn gói Subscription
                   </strong>{' '}
-                  ({selectedFactIds.length} thẻ $\times$ {COST_PER_CARD} Credit).
+                  ({selectedFactIds.length} thẻ bối cảnh).
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2221,13 +2201,13 @@ export const ContextAuditPage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6 max-w-2xl mx-auto">
           <div className="text-center space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 mx-auto flex items-center justify-center">
-              <Wallet className="w-6 h-6" />
+              <ShieldCheck className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-black text-slate-800 m-0">
-              Xác Nhận Thanh Toán Phí Kiểm Toán Rà Soát
+              Xác Nhận Rà Soát Tuân Thủ Bối Cảnh
             </h3>
             <p className="text-xs text-slate-500 m-0">
-              Phí dịch vụ sẽ được trừ trực tiếp từ số dư Ví CELRA của doanh nghiệp bạn.
+              Tính năng nằm trong gói thuê bao của bạn. Hệ thống sẽ đối soát dữ liệu và phân tích rủi ro tức thì.
             </p>
           </div>
 
@@ -2237,37 +2217,22 @@ export const ContextAuditPage: React.FC = () => {
               <span className="font-bold text-slate-800">{selectedFactIds.length} thẻ trọn gói</span>
             </div>
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-              <span className="text-slate-500">Đơn giá mỗi thẻ:</span>
-              <span className="font-mono text-slate-700">{COST_PER_CARD} Credit</span>
+              <span className="text-slate-500">Chế độ phân tích:</span>
+              <span className="font-semibold text-teal-800">Trọn gói Subscription</span>
             </div>
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200 text-sm">
-              <span className="font-bold text-slate-800">Tổng phí thanh toán:</span>
-              <span className="font-mono font-black text-teal-700 text-base">{totalCost} Credit</span>
-            </div>
-            <div className="flex justify-between items-center pt-1">
-              <span className="text-slate-500">Số dư ví hiện tại:</span>
-              <span className="font-mono font-bold text-slate-800">{currentBalance} Credit</span>
+            <div className="flex justify-between items-center pt-1 text-sm">
+              <span className="font-bold text-slate-800">Chi phí phát sinh thêm:</span>
+              <span className="font-mono font-black text-emerald-600 text-base">0 ₫ (Miễn phí theo gói)</span>
             </div>
           </div>
 
-          {!isBalanceSufficient && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-2">
-              <div className="flex items-center gap-2 font-bold">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>Số dư không đủ để thực hiện (Thiếu {missingCredit} Credit)</span>
-              </div>
-              <p className="m-0 text-[11px]">
-                Vui lòng nạp nhanh gói Credit để tiếp tục quy trình kiểm toán tuân thủ.
-              </p>
-              <Button
-                type="primary"
-                onClick={handleDepositQuick}
-                className="bg-rose-600 hover:bg-rose-700 border-none font-bold text-xs rounded-xl h-8.5"
-              >
-                Nạp Nhanh +120 Credit
-              </Button>
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <span className="font-bold block">Gói Dịch Vụ Đang Hoạt Động</span>
+              <span className="text-[11px] text-emerald-700">Đủ điều kiện rà soát và tạo danh mục kiểm tra tuân thủ.</span>
             </div>
-          )}
+          </div>
 
           <div className="flex items-center justify-between pt-2">
             <Button onClick={() => setStep('select')} className="rounded-xl text-xs font-semibold h-10 px-4">

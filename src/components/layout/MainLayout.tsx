@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown } from 'antd';
+import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown, Tag } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
   DatabaseOutlined,
   CheckSquareOutlined,
   FolderOpenOutlined,
-  WalletOutlined,
   RobotOutlined,
   UserOutlined,
   LogoutOutlined,
-  PlusOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   RightOutlined,
@@ -18,10 +16,12 @@ import {
   DownOutlined,
   CalendarOutlined,
   OrderedListOutlined,
+  CreditCardOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useWalletStore } from '../../store/useWalletStore';
+import { useSubscriptionStore } from '../../store/useSubscriptionStore';
 import { AIChatDrawer } from '../common/AIChatDrawer';
 import { VietQRModal } from '../common/VietQRModal';
 import { ProfileModal } from '../common/ProfileModal';
@@ -38,7 +38,8 @@ const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/tasks/calendar': 'Lịch Tuân Thủ & Ghi Chú',
   '/checklists': 'Danh Sách Tác Vụ Tuân Thủ',
   '/evidence': 'Hồ Sơ & Bằng Chứng',
-  '/wallet': 'Ví & Thanh Toán',
+  '/subscription': 'Gói Dịch Vụ & Hạn Mức',
+  '/wallet': 'Gói Dịch Vụ & Hạn Mức',
 };
 
 export const MainLayout: React.FC = () => {
@@ -61,8 +62,8 @@ export const MainLayout: React.FC = () => {
 
   const { user, logout } = useAuthStore();
   const { activeOrg, organizations, setActiveOrg, fetchMyOrganizations } = useOrgStore();
-  const { wallet, fetchWallet } = useWalletStore();
-
+  const { fetchWallet } = useWalletStore();
+  const { subscription, fetchSubscription } = useSubscriptionStore();
   const [draftName, setDraftName] = useState<string>(() => {
     try {
       const orgId = activeOrg?.id;
@@ -83,6 +84,7 @@ export const MainLayout: React.FC = () => {
   useEffect(() => {
     if (activeOrg) {
       fetchWallet();
+      fetchSubscription(activeOrg.id);
     }
   }, [activeOrg]);
 
@@ -129,7 +131,7 @@ export const MainLayout: React.FC = () => {
       ],
     },
     { key: '/evidence', icon: <FolderOpenOutlined />, label: 'Hồ Sơ & Bằng Chứng' },
-    { key: '/wallet', icon: <WalletOutlined />, label: 'Ví & Thanh Toán' },
+    { key: '/subscription', icon: <CreditCardOutlined />, label: 'Gói Dịch Vụ & Hạn Mức' },
   ];
 
   const currentOrgName =
@@ -515,27 +517,28 @@ export const MainLayout: React.FC = () => {
 
           <Space size={isMobile ? 6 : 'middle'}>
             <div
-              onClick={() => navigate('/wallet')}
-              title="Nhấn để xem Ví & Thanh toán"
+              onClick={() => navigate('/subscription')}
+              title="Nhấn để xem Gói Dịch Vụ & Hạn Mức Tuân Thủ"
               style={{
                 cursor: 'pointer',
-                background: location.pathname === '/wallet' ? '#e6f7ff' : '#f6ffed',
-                border: location.pathname === '/wallet' ? '1px solid #91caff' : '1px solid #b7eb8f',
+                background: location.pathname === '/subscription' ? '#e6f7ff' : '#f0fdfa',
+                border: location.pathname === '/subscription' ? '1px solid #91caff' : '1px solid #99f6e4',
                 padding: isMobile ? '3px 8px' : '4px 12px',
                 borderRadius: 20,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 4,
+                gap: 6,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                 transition: 'all 0.2s',
               }}
             >
-              <WalletOutlined style={{ color: location.pathname === '/wallet' ? '#1677ff' : '#0d9488', fontSize: 13 }} />
-              <Text strong style={{ color: location.pathname === '/wallet' ? '#0958d9' : '#0f766e', fontSize: isMobile ? 11.5 : 13 }}>
-                {wallet ? `${wallet.balance.toLocaleString()}${isMobile ? ' Cr' : ' Credit'}` : `0${isMobile ? ' Cr' : ' Credit'}`}
+              <CreditCardOutlined style={{ color: location.pathname === '/subscription' ? '#1677ff' : '#0d9488', fontSize: 13 }} />
+              <Text strong style={{ color: location.pathname === '/subscription' ? '#0958d9' : '#0f766e', fontSize: isMobile ? 11.5 : 12.5 }}>
+                {subscription?.planName || 'Gói Professional'}
               </Text>
-              {!isMobile && (
-                <PlusOutlined style={{ fontSize: 11, color: location.pathname === '/wallet' ? '#1677ff' : '#0d9488' }} />
-              )}
+              <Tag color="success" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 5px', borderRadius: 6, fontWeight: 700 }}>
+                {subscription?.usage?.daysRemaining ? `Còn ${subscription.usage.daysRemaining} ngày` : '30 ngày'}
+              </Tag>
             </div>
 
             <Button
@@ -626,7 +629,7 @@ export const MainLayout: React.FC = () => {
         </footer>
       </Layout>
 
-      <AIChatDrawer visible={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />
+      <AIChatDrawer key={activeOrg?.id || 'empty-org'} visible={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />
       <VietQRModal visible={qrModalOpen} onClose={() => setQrModalOpen(false)} />
       <ProfileModal open={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
     </Layout>

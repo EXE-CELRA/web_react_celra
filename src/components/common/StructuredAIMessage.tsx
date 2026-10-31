@@ -91,6 +91,8 @@ export const StructuredAIMessage: React.FC<StructuredMessageProps> = ({
         text.includes('1. **Tổng quan**') ||
         text.includes('1. Tổng quan') ||
         text.includes('2. **Kết luận**') ||
+        text.includes('3. **Bảng đối soát') ||
+        text.includes('3. Bảng đối soát') ||
         text.includes('D. Danh sách nghĩa vụ') ||
         text.includes('D. DANH SÁCH NGHĨA VỤ') ||
         text.includes('E. Thông tin cần xác minh') ||
@@ -111,6 +113,92 @@ export const StructuredAIMessage: React.FC<StructuredMessageProps> = ({
   };
 
   // Parser nội dung văn bản AI sạch sẽ & thay thế triệt để mã trạng thái kỹ thuật Backend sang tiếng Việt tự nhiên
+  // Helper render các token inline (in đậm, in nghiêng, badge trạng thái, thẻ hiệu lực, ngắt dòng <br>)
+  const renderFormattedTokens = (rawText: string) => {
+    if (!rawText) return null;
+
+    // Tách các phân đoạn ngắt dòng nếu có thẻ <br>, <br/>, <br />
+    const segments = rawText.split(/<br\s*\/?>/gi);
+
+    return segments.map((seg, sIdx) => {
+      const lineWithoutHash = seg.replace(/#{1,6}\s*/g, '');
+      const elements: React.ReactNode[] = [];
+      const tokenRegex = /(\*\*[^*]+?\*\*|\*[^*]+?\*|\[(?:Còn hiệu lực(?: theo kỳ phát sinh)?|Hết hiệu lực)\])/g;
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = tokenRegex.exec(lineWithoutHash)) !== null) {
+        if (match.index > lastIndex) {
+          elements.push(lineWithoutHash.substring(lastIndex, match.index).replace(/[*#]+/g, ''));
+        }
+        const token = match[0];
+        if (token.startsWith('**') && token.endsWith('**')) {
+          const content = token.slice(2, -2).replace(/[*#]+/g, '').trim();
+          if (content === 'Đã xác định nghĩa vụ áp dụng') {
+            elements.push(
+              <span key={`st-${sIdx}-${match.index}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 mr-1 shadow-2xs">
+                {content}
+              </span>
+            );
+          } else if (content === 'Có khả năng áp dụng nhưng chưa đủ dữ liệu') {
+            elements.push(
+              <span key={`st-${sIdx}-${match.index}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/90 mr-1 shadow-2xs">
+                {content}
+              </span>
+            );
+          } else if (content === 'Cần xác minh thông tin hoặc căn cứ') {
+            elements.push(
+              <span key={`st-${sIdx}-${match.index}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200/90 mr-1 shadow-2xs">
+                {content}
+              </span>
+            );
+          } else if (content === 'Đã có căn cứ xác định không áp dụng') {
+            elements.push(
+              <span key={`st-${sIdx}-${match.index}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 mr-1">
+                {content}
+              </span>
+            );
+          } else {
+            elements.push(
+              <strong key={`b-${sIdx}-${match.index}`} className="font-bold text-slate-900">
+                {content}
+              </strong>
+            );
+          }
+        } else if (token.startsWith('*') && token.endsWith('*')) {
+          const italicContent = token.slice(1, -1).replace(/[*#]+/g, '').trim();
+          if (italicContent) {
+            elements.push(
+              <em key={`i-${sIdx}-${match.index}`} className="italic text-teal-800">
+                {italicContent}
+              </em>
+            );
+          }
+        } else if (token.startsWith('[') && token.endsWith(']')) {
+          const tagContent = token.slice(1, -1).trim();
+          elements.push(
+            <span key={`tag-${sIdx}-${match.index}`} className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200/80 mx-0.5">
+              {tagContent}
+            </span>
+          );
+        }
+        lastIndex = tokenRegex.lastIndex;
+      }
+
+      if (lastIndex < lineWithoutHash.length) {
+        elements.push(lineWithoutHash.substring(lastIndex).replace(/[*#]+/g, ''));
+      }
+
+      return (
+        <React.Fragment key={sIdx}>
+          {sIdx > 0 && <br />}
+          {elements}
+        </React.Fragment>
+      );
+    });
+  };
+
+  // Parser nội dung văn bản AI sạch sẽ: hỗ trợ bảng Markdown, Callout quote, Tiêu đề phân mục có số và Tokenizer tiếng Việt
   const renderTextContent = (raw: string) => {
     let sanitized = raw;
     Object.entries(STATUS_TRANSLATIONS).forEach(([code, label]) => {
@@ -122,84 +210,179 @@ export const StructuredAIMessage: React.FC<StructuredMessageProps> = ({
       .replace(/\*{4,}/g, '')
       .replace(/\*{3}(.*?)\*{3}/g, '**$1**');
 
-    const lines = sanitized.split('\n');
-    return lines.map((line, idx) => {
+    const rawLines = sanitized.split('\n');
+    const nodes: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < rawLines.length) {
+      const line = rawLines[i];
       const trimmed = line.trim();
-      if (!trimmed) return <div key={idx} className="h-1.5" />;
 
-      // Xử lý dòng tiêu đề (#, ##, ###, #### hoặc dòng số 1. 2. 3. in hoa)
-      const headerMatch = trimmed.match(/^(?:#{1,6}\s*|\d+\.\s+)([^\n]+)$/);
-      const isExplicitHeader = trimmed.startsWith('#');
+      if (!trimmed) {
+        nodes.push(<div key={`blank-${i}`} className="h-1.5" />);
+        i++;
+        continue;
+      }
 
-      if (isExplicitHeader && headerMatch) {
-        const cleanTitle = headerMatch[1].replace(/[#*]+/g, '').trim();
-        return (
+      // 1. Nhận diện Bảng Markdown (Bắt đầu và kết thúc bằng ký tự |)
+      if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
+        const tableLines: string[] = [];
+        const tableStartIdx = i;
+        while (i < rawLines.length && rawLines[i].trim().startsWith('|') && rawLines[i].trim().endsWith('|')) {
+          tableLines.push(rawLines[i].trim());
+          i++;
+        }
+
+        if (tableLines.length >= 2) {
+          const rawHeaders = tableLines[0].split('|').slice(1, -1).map((c) => c.trim());
+          const isSeparator = /^\|[\s\-:]+(\|[\s\-:]+)+\|$/.test(tableLines[1]);
+          const dataStartIdx = isSeparator ? 2 : 1;
+          const dataRows = tableLines.slice(dataStartIdx).map((tl) =>
+            tl.split('|').slice(1, -1).map((c) => c.trim())
+          );
+
+          nodes.push(
+            <div
+              key={`table-${tableStartIdx}`}
+              className="my-3 overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-2xs"
+            >
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-xs border-collapse min-w-[560px] sm:min-w-full">
+                  <thead>
+                    <tr className="bg-slate-100/90 text-slate-700 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
+                      {rawHeaders.map((h, hIdx) => (
+                        <th
+                          key={hIdx}
+                          className={`py-2 px-3 border-r border-slate-200/60 last:border-r-0 ${
+                            hIdx === 0 ? 'w-12 text-center' : ''
+                          }`}
+                        >
+                          {renderFormattedTokens(h)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {dataRows.map((row, rIdx) => (
+                      <tr
+                        key={rIdx}
+                        className="hover:bg-teal-50/25 transition-colors odd:bg-white even:bg-slate-50/40"
+                      >
+                        {row.map((cell, cIdx) => (
+                          <td
+                            key={cIdx}
+                            className={`py-2.5 px-3 align-top border-r border-slate-100 last:border-r-0 text-slate-700 leading-relaxed text-[11px] sm:text-xs ${
+                              cIdx === 0 ? 'text-center font-bold text-slate-500' : ''
+                            }`}
+                          >
+                            {renderFormattedTokens(cell)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+          continue;
+        } else {
+          nodes.push(
+            <p key={`p-${tableStartIdx}`} className="text-xs text-slate-800 leading-relaxed my-1">
+              {renderFormattedTokens(tableLines[0])}
+            </p>
+          );
+          continue;
+        }
+      }
+
+      // 2. Nhận diện Blockquote / Callout (Bắt đầu bằng >)
+      if (trimmed.startsWith('>')) {
+        const quoteLines: string[] = [];
+        const quoteStartIdx = i;
+        while (i < rawLines.length && rawLines[i].trim().startsWith('>')) {
+          quoteLines.push(rawLines[i].trim().replace(/^>\s?/, ''));
+          i++;
+        }
+        nodes.push(
           <div
-            key={idx}
+            key={`quote-${quoteStartIdx}`}
+            className="my-2.5 p-3 rounded-xl bg-teal-50/60 border-l-3 border-teal-600 text-xs text-slate-700 leading-relaxed flex items-start gap-2.5 shadow-2xs"
+          >
+            <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5 flex-1">
+              {renderFormattedTokens(quoteLines.join(' '))}
+            </div>
+          </div>
+        );
+        continue;
+      }
+
+      // 3. Nhận diện Header phân mục số chuẩn (Ví dụ: "1. **Tổng quan**:" hoặc "3. **Bảng đối soát...**")
+      const sectionMatch = trimmed.match(/^(\d+)\.\s+(\*\*[^*]+?\*\*|[^*:\n]+)(?::|\s*-\s*|\s*$)(.*)$/);
+      if (sectionMatch) {
+        const num = sectionMatch[1];
+        const rawTitle = sectionMatch[2].replace(/[*#]+/g, '').trim();
+        const restContent = sectionMatch[3]?.trim();
+
+        nodes.push(
+          <div key={`sec-${i}`} className="mt-3.5 mb-1.5 pt-2 border-t border-slate-100 first:border-t-0 first:pt-0">
+            <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-teal-950 mb-1">
+              <span className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 text-[11px] font-bold inline-flex items-center justify-center shrink-0">
+                {num}
+              </span>
+              <span>{rawTitle}</span>
+            </div>
+            {restContent && (
+              <p className="text-xs text-slate-700 leading-relaxed pl-6">
+                {renderFormattedTokens(restContent)}
+              </p>
+            )}
+          </div>
+        );
+        i++;
+        continue;
+      }
+
+      // 4. Nhận diện Explicit Header (#, ##, ###)
+      const explicitHeaderMatch = trimmed.match(/^#{1,6}\s*(.+)$/);
+      if (explicitHeaderMatch) {
+        const cleanTitle = explicitHeaderMatch[1].replace(/[#*]+/g, '').trim();
+        nodes.push(
+          <div
+            key={`header-${i}`}
             className="font-bold text-xs sm:text-sm text-teal-950 border-b border-teal-100 pb-1 mt-3 mb-1.5"
           >
             {cleanTitle}
           </div>
         );
+        i++;
+        continue;
       }
 
-      // Dòng bình thường: Xóa bỏ mọi dấu # nếu có lọt vào giữa câu
-      const lineWithoutHash = line.replace(/#{1,6}\s*/g, '');
-
-      // Tokenizer bóc tách in đậm (**text**) và in nghiêng (*text*) sạch sẽ
-      const elements: React.ReactNode[] = [];
-      const tokenRegex = /(\*\*[^*]+?\*\*|\*[^*]+?\*)/g;
-      let lastIndex = 0;
-      let match: RegExpExecArray | null;
-
-      while ((match = tokenRegex.exec(lineWithoutHash)) !== null) {
-        if (match.index > lastIndex) {
-          const plain = lineWithoutHash.substring(lastIndex, match.index).replace(/[*#]+/g, '');
-          elements.push(plain);
-        }
-        const matchedText = match[0];
-        if (matchedText.startsWith('**') && matchedText.endsWith('**')) {
-          const boldContent = matchedText.slice(2, -2).replace(/[*#]+/g, '').trim();
-          if (boldContent) {
-            elements.push(
-              <strong key={`b-${idx}-${match.index}`} className="font-bold text-slate-900">
-                {boldContent}
-              </strong>
-            );
-          }
-        } else if (matchedText.startsWith('*') && matchedText.endsWith('*')) {
-          const italicContent = matchedText.slice(1, -1).replace(/[*#]+/g, '').trim();
-          if (italicContent) {
-            elements.push(
-              <em key={`i-${idx}-${match.index}`} className="italic text-teal-800">
-                {italicContent}
-              </em>
-            );
-          }
-        }
-        lastIndex = tokenRegex.lastIndex;
-      }
-      if (lastIndex < lineWithoutHash.length) {
-        const tail = lineWithoutHash.substring(lastIndex).replace(/[*#]+/g, '');
-        elements.push(tail);
-      }
-
-      // Kiểm tra dòng bullet (- hoặc *)
-      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        return (
-          <div key={idx} className="flex items-start gap-2 my-1 pl-1 text-xs text-slate-800 leading-relaxed">
+      // 5. Nhận diện Dòng danh sách bullet (- hoặc * hoặc •)
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+        const bulletContent = trimmed.replace(/^[-*•]\s+/, '');
+        nodes.push(
+          <div key={`bullet-${i}`} className="flex items-start gap-2 my-1 pl-1 text-xs text-slate-800 leading-relaxed">
             <span className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 shrink-0" />
-            <span>{elements}</span>
+            <div className="flex-1">{renderFormattedTokens(bulletContent)}</div>
           </div>
         );
+        i++;
+        continue;
       }
 
-      return (
-        <p key={idx} className="text-xs text-slate-800 leading-relaxed my-1">
-          {elements}
+      // 6. Dòng văn bản bình thường
+      nodes.push(
+        <p key={`p-${i}`} className="text-xs text-slate-800 leading-relaxed my-1">
+          {renderFormattedTokens(line)}
         </p>
       );
-    });
+      i++;
+    }
+
+    return nodes;
   };
 
   // Khi hỏi chung về luật (không phải rà soát doanh nghiệp): Chỉ trả lời văn bản bình thường, nguồn luật và thanh thao tác
