@@ -6,13 +6,11 @@ import {
   WarningOutlined,
   CheckCircleOutlined,
   ArrowRightOutlined,
-  RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useWalletStore } from '../../store/useWalletStore';
@@ -93,7 +91,6 @@ export const DashboardPage: React.FC = () => {
     }
   }, [activeOrg]);
 
-  const [triggering, setTriggering] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -167,21 +164,6 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleTriggerRules = async () => {
-    setTriggering(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res: any = await apiClient.post('/rules/trigger-evaluation');
-      message.success(res?.message || 'Đã kích hoạt quét quy tắc tuân thủ và sinh nhiệm vụ thành công!');
-      await loadDashboardData();
-      navigate('/tasks');
-    } catch (err: unknown) {
-      console.warn('Trigger rules evaluation fallback:', err);
-      navigate('/tasks');
-    } finally {
-      setTriggering(false);
-    }
-  };
 
   const hasTasks = isSurveyCompleted && stats.totalTasks > 0;
   const chartData = {
@@ -600,18 +582,6 @@ export const DashboardPage: React.FC = () => {
           <Card title="Phân Bổ Tình Trạng Tuân Thủ" style={{ borderRadius: 10, height: '100%' }}>
             <div style={{ maxHeight: 220, display: 'flex', justifyContent: 'center' }}>
               <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
-            </div>
-            <div style={{ marginTop: 24, textAlign: 'center' }}>
-              <Button
-                type="primary"
-                icon={<RobotOutlined />}
-                block
-                loading={triggering}
-                onClick={handleTriggerRules}
-                style={{ background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)', border: 'none' }}
-              >
-                Tự Động Sinh Thêm Nghĩa Vụ
-              </Button>
             </div>
           </Card>
         </Col>
