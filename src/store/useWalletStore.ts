@@ -4,26 +4,16 @@ import type { WalletInfo, WalletLedger, CreditPackage } from '../types';
 
 interface WalletState {
   wallet: WalletInfo | null;
-  thongTinVi: WalletInfo | null;
   ledgers: WalletLedger[];
-  danhSachGiaoDich: WalletLedger[];
   packages: CreditPackage[];
-  danhSachGoiCredit: CreditPackage[];
   isLoading: boolean;
-  dangTai: boolean;
   error: string | null;
-  loi: string | null;
 
   fetchWallet: () => Promise<void>;
-  layThongTinVi: () => Promise<void>;
   fetchLedgers: () => Promise<void>;
-  layDanhSachGiaoDich: () => Promise<void>;
   fetchPackages: () => Promise<CreditPackage[]>;
-  layDanhSachGoiCredit: () => Promise<CreditPackage[]>;
   buyPackage: (packageId: string) => Promise<any>;
-  muaGoiCredit: (packageId: string) => Promise<any>;
   deposit: (amount: number, note?: string) => Promise<any>;
-  napTien: (amount: number, note?: string) => Promise<any>;
   generateDepositQR: (
     amount: number,
     note?: string,
@@ -37,11 +27,6 @@ interface WalletState {
     accountName?: string;
     bankId?: string;
   }>;
-  taoMaVietQrNapTien: (
-    amount: number,
-    note?: string,
-    packageId?: string,
-  ) => Promise<any>;
   processSandboxPayment: (payload: {
     packageId?: string;
     amount?: number;
@@ -49,7 +34,6 @@ interface WalletState {
     failureReason?: string;
     bankName?: string;
   }) => Promise<any>;
-  xuLyThanhToanSandbox: (payload: any) => Promise<any>;
 }
 
 export const useWalletStore = create<WalletState>((set) => {
@@ -84,12 +68,12 @@ export const useWalletStore = create<WalletState>((set) => {
   ];
 
   const fetchWalletFn = async () => {
-    set({ isLoading: true, dangTai: true });
+    set({ isLoading: true });
     try {
       const res: any = await apiClient.get('/wallets/my-wallet');
-      set({ wallet: res, thongTinVi: res, isLoading: false, dangTai: false });
+      set({ wallet: res, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message, loi: err.message, isLoading: false, dangTai: false });
+      set({ error: err.message, isLoading: false });
     }
   };
 
@@ -97,7 +81,7 @@ export const useWalletStore = create<WalletState>((set) => {
     try {
       const res: any = await apiClient.get('/wallets/transactions');
       const list = Array.isArray(res) ? res : [];
-      set({ ledgers: list, danhSachGiaoDich: list });
+      set({ ledgers: list });
     } catch (err) {
       console.error(err);
     }
@@ -107,7 +91,7 @@ export const useWalletStore = create<WalletState>((set) => {
     try {
       const res: any = await apiClient.get('/wallets/packages');
       if (Array.isArray(res) && res.length > 0) {
-        set({ packages: res, danhSachGoiCredit: res });
+        set({ packages: res });
         return res;
       }
     } catch (err) {
@@ -119,9 +103,9 @@ export const useWalletStore = create<WalletState>((set) => {
   const buyPackageFn = async (packageId: string) => {
     try {
       const res: any = await apiClient.post('/wallets/buy-package', { packageId });
-      set({ wallet: res, thongTinVi: res });
+      set({ wallet: res });
       const txRes: any = await apiClient.get('/wallets/transactions');
-      if (Array.isArray(txRes)) set({ ledgers: txRes, danhSachGiaoDich: txRes });
+      if (Array.isArray(txRes)) set({ ledgers: txRes });
       return res;
     } catch (err: any) {
       throw err;
@@ -131,7 +115,7 @@ export const useWalletStore = create<WalletState>((set) => {
   const depositFn = async (amount: number, note?: string) => {
     try {
       const res: any = await apiClient.post('/wallets/deposit', { amount, note });
-      set({ wallet: res, thongTinVi: res });
+      set({ wallet: res });
       return res;
     } catch (err: any) {
       throw err;
@@ -163,10 +147,10 @@ export const useWalletStore = create<WalletState>((set) => {
     try {
       const res: any = await apiClient.post('/wallets/sandbox-payment', payload);
       if (res.wallet) {
-        set({ wallet: res.wallet, thongTinVi: res.wallet });
+        set({ wallet: res.wallet });
       }
       const txRes: any = await apiClient.get('/wallets/transactions');
-      if (Array.isArray(txRes)) set({ ledgers: txRes, danhSachGiaoDich: txRes });
+      if (Array.isArray(txRes)) set({ ledgers: txRes });
       return res;
     } catch (err: any) {
       throw err;
@@ -175,29 +159,17 @@ export const useWalletStore = create<WalletState>((set) => {
 
   return {
     wallet: null,
-    thongTinVi: null,
     ledgers: [],
-    danhSachGiaoDich: [],
     packages: defaultPackages,
-    danhSachGoiCredit: defaultPackages,
     isLoading: false,
-    dangTai: false,
     error: null,
-    loi: null,
 
     fetchWallet: fetchWalletFn,
-    layThongTinVi: fetchWalletFn,
     fetchLedgers: fetchLedgersFn,
-    layDanhSachGiaoDich: fetchLedgersFn,
     fetchPackages: fetchPackagesFn,
-    layDanhSachGoiCredit: fetchPackagesFn,
     buyPackage: buyPackageFn,
-    muaGoiCredit: buyPackageFn,
     deposit: depositFn,
-    napTien: depositFn,
     generateDepositQR: generateDepositQRFn,
-    taoMaVietQrNapTien: generateDepositQRFn,
     processSandboxPayment: processSandboxPaymentFn,
-    xuLyThanhToanSandbox: processSandboxPaymentFn,
   };
 });

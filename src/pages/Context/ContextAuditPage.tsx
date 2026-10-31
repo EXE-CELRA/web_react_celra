@@ -54,6 +54,7 @@ import {
 } from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
+import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
 import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
 import { isGroupSurveyCompleted } from '../../data/questionSurvey';
@@ -866,6 +867,40 @@ export const ContextAuditPage: React.FC = () => {
     return detectTaxIncentiveZone(orgAddress);
   }, [orgAddress]);
 
+  // Rà soát thuế suất TNDN động theo Luật Thuế TNDN 67/2025 & NĐ 141/2026, NĐ 20/2026
+  const citTierResult: CitTaxTierResult = useMemo(() => {
+    let priorRev = 0;
+    let priorMonths = 12;
+    let isFirstStartup = false;
+    let hasRelated = false;
+
+    if (activeOrg?.id) {
+      try {
+        const raw = localStorage.getItem(`celra_survey_profile_${activeOrg.id}`);
+        if (raw) {
+          const p = JSON.parse(raw);
+          priorRev = p.annualRevenue || 0;
+          priorMonths = p.operatingMonthsPriorYear || 12;
+          isFirstStartup = Boolean(p.isFirstTimeStartup);
+          hasRelated = Boolean(p.hasRelatedParty);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return determineCitTaxRate({
+      priorYearRevenue: priorRev,
+      operatingMonthsPriorYear: priorMonths,
+      isNewlyEstablished: activeOrg?.revenueStatus === 'newly_established',
+      isFirstTimeStartup: isFirstStartup,
+      hasRelatedParty: hasRelated,
+      zoneTaxRate: incentiveInfo.taxRate,
+      zoneTitle: incentiveInfo.title,
+      zoneLegalBasis: incentiveInfo.legalBasis,
+    });
+  }, [activeOrg, incentiveInfo]);
+
   // 1. TẢI DỮ LIỆU TỪ DATABASE (POSTGRESQL QUA NESTJS API) KHI MỞ TRANG
   useEffect(() => {
     if (!isLoading && facts) {
@@ -969,10 +1004,17 @@ export const ContextAuditPage: React.FC = () => {
 
   // 3. TÍNH TOÁN LẠI NGHĨA VỤ THUẾ & LỢI NHUẬN RÒNG SAU THUẾ TỨC THÌ MỖI KHI DỮ LIỆU ĐỔI
   useEffect(() => {
-    const res = calculateCitTax(revenues, expenses, incentiveInfo, orgModel);
+    const res = calculateCitTax(
+      revenues,
+      expenses,
+      incentiveInfo,
+      orgModel,
+      citTierResult.taxRate,
+      citTierResult.taxRatePercentText,
+    );
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCitCalcResult(res);
-  }, [revenues, expenses, incentiveInfo, orgModel]);
+  }, [revenues, expenses, incentiveInfo, orgModel, citTierResult]);
 
   // Thay đổi Quý / Năm
   const handleQuarterChange = (val: number | 'ALL') => {
@@ -1052,8 +1094,14 @@ export const ContextAuditPage: React.FC = () => {
         return false;
       }
 
-      const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
-
+      const res = calculateCitTax(
+        parsed.revenues,
+        parsed.expenses,
+        incentiveInfo,
+        orgModel,
+        citTierResult.taxRate,
+        citTierResult.taxRatePercentText,
+      );
       // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
       try {
         const formData = new FormData();
@@ -1757,9 +1805,9 @@ export const ContextAuditPage: React.FC = () => {
                     {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
                   </div>
                   <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                    <span>Tạm nộp 80%: <strong className="text-slate-700 font-mono">{citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ</strong></span>
-                    <span className="font-bold text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded">
-                      {citSummary.taxRate ? (citSummary.taxRate * 100).toFixed(0) + '%' : '20%'}
+                    <span>Tạm nộp 80%: <strong className="text-slate-700 font-mono">{(citCalcResult?.statutoryPrepayment80 || citSummary.statutoryPrepayment80).toLocaleString('vi-VN')} đ</strong></span>
+                    <span className={`font-bold text-[10px] px-2 py-0.5 rounded border ${citTierResult.badgeColor}`}>
+                      {citTierResult.taxRatePercentText}
                     </span>
                   </div>
                 </div>
@@ -1786,6 +1834,27 @@ export const ContextAuditPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* BANNER THÔNG TIN THUẾ SUẤT TNDN 2026 & CĂN CỨ PHÁP LUẬT */}
+              <div className="bg-gradient-to-r from-teal-50 via-emerald-50 to-blue-50 border border-teal-200/80 rounded-xl p-3.5 mb-5 flex items-center justify-between flex-wrap gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${citTierResult.badgeColor}`}>
+                      {citTierResult.title}
+                    </span>
+                    <span className="text-xs text-slate-700 font-medium">
+                      {citTierResult.explanation}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Căn cứ pháp lý: <strong>{citTierResult.legalBasis}</strong>
+                  </div>
+                </div>
+                {citTierResult.isExempted && (
+                  <Tag color="green" className="font-bold text-xs m-0">
+                    ✓ ĐỦ ĐIỀU KIỆN XÉT MIỄN THUẾ
+                  </Tag>
+                )}
+              </div>
               {/* THÔNG BÁO CHẾ ĐỘ CẢ NĂM (TỰ ĐỘNG GỘP 4 QUÝ CHUẨN KẾ TOÁN) */}
               {taxQuarter === 'ALL' && (
                 <Alert

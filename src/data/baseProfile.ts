@@ -214,7 +214,7 @@ export const DEFAULT_BASE_PROFILE: BaseProfile = {
   isNewlyEstablished: false,
   requiresLaborRuleBook: false,
   companyTypeTag: 'TAG_TNHH_2TV',
-  industryTags: ['TAG_FNB']
+  industryTags: [], // Bắt đầu bằng mảng rỗng để bắt buộc người dùng chủ động chọn ngành nghề thực tế
 };
 
 export const STANDARD_OPTIONS = [

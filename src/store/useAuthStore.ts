@@ -8,30 +8,18 @@ import { useWalletStore } from './useWalletStore';
 
 interface AuthState {
   user: User | null;
-  nguoiDung: User | null;
   memberships: Membership[];
-  thanhVien: Membership[];
   isAuthenticated: boolean;
-  daXacThuc: boolean;
   isLoading: boolean;
-  dangTai: boolean;
   error: string | null;
-  loi: string | null;
   activeRole: string | null;
-  vaiTroHienTai: string | null;
 
-  login: (credentials: { email: string; password?: string; passwordHash?: string; matKhau?: string }) => Promise<any>;
-  dangNhap: (credentials: { email: string; password?: string; passwordHash?: string; matKhau?: string }) => Promise<any>;
-  register: (data: { email: string; password?: string; passwordHash?: string; matKhau?: string; fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; otp?: string; }) => Promise<any>;
-  dangKy: (data: { email: string; password?: string; passwordHash?: string; matKhau?: string; fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string, otp?: string; }) => Promise<any>;
+  login: (credentials: { email: string; password?: string }) => Promise<any>;
+  register: (data: { email: string; password?: string; name?: string; phone?: string; otp?: string }) => Promise<any>;
   logout: () => void;
-  dangXuat: () => void;
   loadUserProfile: () => Promise<void>;
-  taiThongTinNguoiDung: () => Promise<void>;
-  updateProfile: (data: { fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; email?: string; avatar?: string }) => Promise<any>;
-  capNhatThongTin: (data: { fullName?: string; name?: string; hoVaTen?: string; phoneNumber?: string; phone?: string; soDienThoai?: string; email?: string; avatar?: string }) => Promise<any>;
+  updateProfile: (data: { name?: string; phone?: string; email?: string; avatar?: string }) => Promise<any>;
   setActiveRole: (role: string) => void;
-  datVaiTroHienTai: (role: string) => void;
 }
 
 
@@ -52,56 +40,35 @@ export const resetAllAppStores = () => {
   try {
     useOrgStore.setState({
       organizations: [],
-      danhSachDoanhNghiep: [],
       activeOrg: null,
-      doanhNghiepHienTai: null,
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
 
     useTaskStore.setState({
       tasks: [],
-      danhSachNhiemVu: [],
       selectedTask: null,
-      nhiemVuChon: null,
       comments: [],
-      binhLuan: [],
       notifications: [],
-      thongBao: [],
       unreadNotificationsCount: 0,
-      soThongBaoChuaDoc: 0,
       checklists: [],
-      danhMucKiemTra: [],
       calendarNotes: [],
-      ghiChuLich: [],
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
 
     useContextStore.setState({
       facts: [],
-      danhSachDuKien: [],
       factHistories: [],
-      lichSuDuKien: [],
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
 
     useWalletStore.setState({
       wallet: null,
-      thongTinVi: null,
       ledgers: [],
-      danhSachGiaoDich: [],
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
   } catch (e) {
     console.warn('Lỗi khi reset stores:', e);
@@ -116,11 +83,11 @@ export const useAuthStore = create<AuthState>((set) => {
   const loginFn = async (credentials: any) => {
     // 🛡️ Xóa sạch bộ nhớ store của phiên trước đó
     resetAllAppStores();
-    set({ isLoading: true, dangTai: true, error: null, loi: null });
+    set({ isLoading: true, error: null });
     try {
       const payload = {
         email: credentials.email,
-        password: credentials.matKhau || credentials.password || credentials.passwordHash,
+        password: credentials.password || credentials.matKhau || credentials.passwordHash,
       };
 
       const res: any = await apiClient.post('/auth/login', payload);
@@ -144,21 +111,16 @@ export const useAuthStore = create<AuthState>((set) => {
 
       set({
         user,
-        nguoiDung: user,
         memberships: memberships || [],
-        thanhVien: memberships || [],
         isAuthenticated: true,
-        daXacThuc: true,
         isLoading: false,
-        dangTai: false,
         activeRole: defaultRole,
-        vaiTroHienTai: defaultRole,
       });
 
       return res;
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Đăng nhập thất bại';
-      set({ error: msg, loi: msg, isLoading: false, dangTai: false });
+      set({ error: msg, isLoading: false });
       throw new Error(msg);
     }
   };
@@ -166,7 +128,7 @@ export const useAuthStore = create<AuthState>((set) => {
   const registerFn = async (data: any) => {
     // 🛡️ Xóa sạch toàn bộ store trước khi đăng ký tài khoản mới
     resetAllAppStores();
-    set({ isLoading: true, dangTai: true, error: null, loi: null });
+    set({ isLoading: true, error: null });
     try {
       const payload = {
         name: data.hoVaTen || data.fullName || data.name,
@@ -183,11 +145,11 @@ export const useAuthStore = create<AuthState>((set) => {
       localStorage.removeItem('celra_survey_draft_profile');
       localStorage.removeItem('celra_survey_completed_profile');
       const res: any = await apiClient.post('/auth/register', payload);
-      set({ isLoading: false, dangTai: false });
+      set({ isLoading: false });
       return res;
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Đăng ký thất bại';
-      set({ error: msg, loi: msg, isLoading: false, dangTai: false });
+      set({ error: msg, isLoading: false });
       throw new Error(msg);
     }
   };
@@ -197,19 +159,15 @@ export const useAuthStore = create<AuthState>((set) => {
     resetAllAppStores();
     set({
       user: null,
-      nguoiDung: null,
       memberships: [],
-      thanhVien: [],
       isAuthenticated: false,
-      daXacThuc: false,
       activeRole: null,
-      vaiTroHienTai: null,
     });
   };
 
   const loadProfileFn = async () => {
     if (!localStorage.getItem('celra_access_token')) return;
-    set({ isLoading: true, dangTai: true });
+    set({ isLoading: true });
     try {
       const userRes: any = await apiClient.get('/auth/profile');
       localStorage.setItem('celra_user', JSON.stringify(userRes));
@@ -218,15 +176,10 @@ export const useAuthStore = create<AuthState>((set) => {
         localStorage.setItem('celra_active_role', 'admin');
         set({
           user: userRes,
-          nguoiDung: userRes,
           memberships: [],
-          thanhVien: [],
           isAuthenticated: true,
-          daXacThuc: true,
           isLoading: false,
-          dangTai: false,
           activeRole: 'admin',
-          vaiTroHienTai: 'admin',
         });
         return;
       }
@@ -244,16 +197,12 @@ export const useAuthStore = create<AuthState>((set) => {
 
       set({
         user: userRes,
-        nguoiDung: userRes,
         memberships: mems,
-        thanhVien: mems,
         isAuthenticated: true,
-        daXacThuc: true,
         isLoading: false,
-        dangTai: false,
       });
     } catch (err: unknown) {
-      set({ isLoading: false, dangTai: false });
+      set({ isLoading: false });
       // Nếu tải profile thất bại (token hết hạn hoặc tài khoản bị xóa trong DB) -> đá ra login ngay lập tức
       logoutFn();
       if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
@@ -263,7 +212,7 @@ export const useAuthStore = create<AuthState>((set) => {
   };
 
   const updateProfileFn = async (data: any) => {
-    set({ isLoading: true, dangTai: true, error: null, loi: null });
+    set({ isLoading: true, error: null });
     try {
       const payload: any = {
         name: data.hoVaTen || data.fullName || data.name,
@@ -295,44 +244,32 @@ export const useAuthStore = create<AuthState>((set) => {
       };
 
       localStorage.setItem('celra_user', JSON.stringify(mergedUser));
-      set({ user: mergedUser, nguoiDung: mergedUser, isLoading: false, dangTai: false });
+      set({ user: mergedUser, isLoading: false });
       return { success: true, user: mergedUser };
     } catch (err: any) {
-      set({ isLoading: false, dangTai: false, error: err.message || 'Cập nhật thông tin thất bại', loi: err.message || 'Cập nhật thông tin thất bại' });
+      set({ isLoading: false, error: err.message || 'Cập nhật thông tin thất bại' });
       throw err;
     }
   };
 
   const setActiveRoleFn = (role: string) => {
     localStorage.setItem('celra_active_role', role);
-    set({ activeRole: role, vaiTroHienTai: role });
+    set({ activeRole: role });
   };
 
   return {
     user: initialUser,
-    nguoiDung: initialUser,
     memberships: [],
-    thanhVien: [],
     isAuthenticated: initialAuth,
-    daXacThuc: initialAuth,
     isLoading: false,
-    dangTai: false,
     error: null,
-    loi: null,
     activeRole: initialRole,
-    vaiTroHienTai: initialRole,
 
     login: loginFn,
-    dangNhap: loginFn,
     register: registerFn,
-    dangKy: registerFn,
     logout: logoutFn,
-    dangXuat: logoutFn,
     loadUserProfile: loadProfileFn,
-    taiThongTinNguoiDung: loadProfileFn,
     updateProfile: updateProfileFn,
-    capNhatThongTin: updateProfileFn,
     setActiveRole: setActiveRoleFn,
-    datVaiTroHienTai: setActiveRoleFn,
   };
 });

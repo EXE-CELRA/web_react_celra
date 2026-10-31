@@ -8,20 +8,18 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 const { Text } = Typography;
 
 export const LoginPage: React.FC = () => {
-  const { login, dangNhap, isLoading, dangTai } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
 
   const onFinish = async (values: any) => {
     try {
-      const loginMethod = dangNhap || login;
-      const res = await loginMethod({
+      const res = await login({
         email: values.email,
-        password: values.password || values.matKhau,
-        matKhau: values.password || values.matKhau,
+        password: values.password,
       });
 
       message.success('Đăng nhập thành công!');
-      const userObj = res.user || res.nguoiDung;
-      if (userObj?.role === 'admin' || userObj?.vaiTro === 'admin' || userObj?.isSuperAdmin) {
+      const userObj = res.user;
+      if (userObj?.role === 'admin' || userObj?.isSuperAdmin) {
         window.location.href = '/admin/dashboard';
       } else {
         window.location.href = '/dashboard';
@@ -94,7 +92,7 @@ export const LoginPage: React.FC = () => {
         <Button
           type="primary"
           htmlType="submit"
-          loading={isLoading || dangTai}
+          loading={isLoading}
           block
           style={{
             height: 46,

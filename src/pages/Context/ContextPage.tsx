@@ -172,10 +172,10 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
   const mstValue = taxCode && name ? `${taxCode} - ${name}` : (taxCode || name || 'Chưa cập nhật mã số thuế & tên doanh nghiệp');
   const typeValue = legalType || 'Chưa cập nhật loại hình doanh nghiệp';
   const capitalValue = charterCapital > 0
-    ? `${Number(charterCapital).toLocaleString('vi-VN')} VNĐ (${Number(charterCapital) > 10000000000 ? 'Bậc 1: Lệ phí môn bài 3.000.000đ/năm' : 'Bậc 2: Lệ phí môn bài 2.000.000đ/năm'})`
+    ? `${Number(charterCapital).toLocaleString('vi-VN')} VNĐ`
     : 'Chưa cập nhật vốn điều lệ';
   const empValue = count !== undefined && count !== null
-    ? `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`
+    ? `${count} nhân sự`
     : 'Chưa cập nhật quy mô lao động';
   const industryValue = formattedIndustry || 'Chưa cập nhật ngành nghề kinh doanh';
 
@@ -352,17 +352,14 @@ export const ContextPage: React.FC = () => {
         }
       } else if (key === 'charter_capital') {
         formattedLabel = 'Vốn điều lệ đăng ký trên ĐKKD';
-        const capNum = Number(String(formattedValue).replace(/\D/g, '')) || 0;
-        if (capNum > 0) {
-          const monBai = capNum > 10000000000 ? 'Bậc 1: Lệ phí môn bài 3.000.000đ/năm' : 'Bậc 2: Lệ phí môn bài 2.000.000đ/năm';
-          formattedValue = `${capNum.toLocaleString('vi-VN')} VNĐ (${monBai})`;
-        }
+        // Trích xuất số thực tế, bỏ sạch các chuỗi môn bài thừa
+        const digitsOnly = String(formattedValue).split('VNĐ')[0].replace(/\D/g, '');
+        const capNum = savedBaseProfile?.charterCapital || Number(digitsOnly) || 0;
+        formattedValue = capNum > 0 ? `${capNum.toLocaleString('vi-VN')} VNĐ` : 'Chưa cập nhật vốn điều lệ';
       } else if (key === 'employee_scale') {
-        formattedLabel = 'Quy mô lao động & Nghĩa vụ Nội quy lao động (NQLĐ)';
+        formattedLabel = 'Quy mô nhân sự';
         const count = activeOrg?.employeeCount ?? savedBaseProfile?.employeeCount;
-        if (!formattedValue.includes('Điều 218 BLLĐ 2019') && !formattedValue.includes('Điều 119 BLLĐ 2019')) {
-          formattedValue = `${count} nhân sự thực tế (Quy mô: ${count < 10 ? 'Dưới 10 người - Miễn thủ tục NQLĐ bằng văn bản theo Điều 218 BLLĐ 2019' : 'Từ 10 người trở lên - Bắt buộc ban hành và đăng ký NQLĐ bằng văn bản theo Điều 119 BLLĐ 2019'})`;
-        }
+        formattedValue = count !== undefined && count !== null ? `${count} nhân sự` : 'Chưa cập nhật quy mô lao động';
       } else if (key === 'industry_tags') {
         formattedLabel = 'Ngành nghề & Hoạt động kinh doanh thực tế';
         const rawTags = (formattedValue || '').split(',').map((t) => t.trim());
@@ -571,19 +568,21 @@ export const ContextPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* Nút tính năng: Rà soát Thuế TNDN (Vào thẳng trang rà soát) */}
-        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
-          <button
-            type="button"
-            onClick={handleStartComplianceAudit}
-            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
-            title="Chuyển sang trang rà soát sổ thu chi và tính thuế TNDN"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
-            <span>Rà soát Thuế TNDN (Sổ Thu Chi)</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Nút tính năng: Chỉ hiện nút Rà soát khi không ở tab Bối Cảnh Ban Đầu */}
+        {selectedTab !== 'boi_canh_co_so' && (
+          <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={handleStartComplianceAudit}
+              className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
+              title="Chuyển sang trang rà soát sổ thu chi và tính thuế TNDN"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
+              <span>Rà soát Thuế TNDN (Sổ Thu Chi)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* TABS PHÂN LOẠI 9 NHÓM BỐI CẢNH DOANH NGHIỆP ĐỘNG */}
@@ -629,51 +628,6 @@ export const ContextPage: React.FC = () => {
         })}
       </div>
 
-      {/* BANNER THÔNG TIN: BỐI CẢNH BAN ĐẦU */}
-      {selectedTab === 'boi_canh_co_so' && (
-        <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs ${
-          baseProfileFacts.length > 0 
-            ? 'bg-gradient-to-r from-teal-50 via-slate-50 to-teal-50 border-teal-200/90' 
-            : 'bg-gradient-to-r from-amber-50/80 via-slate-50 to-amber-50/80 border-amber-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
-              baseProfileFacts.length > 0 ? 'bg-teal-100 border-teal-200 text-teal-700' : 'bg-amber-100 border-amber-200 text-amber-700'
-            }`}>
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <span>Hồ Sơ &amp; Bối Cảnh Ban Đầu Của Doanh Nghiệp</span>
-                {baseProfileFacts.length > 0 ? (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">Đã xác thực</span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase">Chưa khảo sát</span>
-                )}
-              </h4>
-              <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
-                {baseProfileFacts.length > 0
-                  ? 'Các thông số pháp lý, vốn, nhân sự và ngành nghề kinh doanh được đồng bộ từ hồ sơ doanh nghiệp. Bấm vào tab Thuế TNDN phía trên khi bạn muốn bắt đầu rà soát tuân thủ.'
-                  : 'Doanh nghiệp chưa hoàn thành khảo sát bối cảnh ban đầu. Vui lòng bấm nút Khảo sát hồ sơ để hệ thống kích hoạt bối cảnh tuân thủ và nghĩa vụ thuế.'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
-            <button
-              type="button"
-              onClick={() => navigate('/survey')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer flex items-center gap-1.5 ${
-                baseProfileFacts.length > 0
-                  ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
-                  : 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{baseProfileFacts.length > 0 ? 'Chỉnh sửa hồ sơ' : 'Làm khảo sát ngay'}</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {!ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
         <div className="bg-white p-8 sm:p-12 rounded-2xl border border-dashed border-slate-300 text-center space-y-5 shadow-xs">

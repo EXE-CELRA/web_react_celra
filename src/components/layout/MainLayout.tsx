@@ -4,7 +4,6 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
   DatabaseOutlined,
-  FormOutlined,
   CheckSquareOutlined,
   FolderOpenOutlined,
   WalletOutlined,
@@ -35,8 +34,6 @@ const ROUTE_PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Bảng Điều Khiển',
   '/context': 'Context Doanh Nghiệp',
   '/context/audit': 'Rà Soát Tuân Thủ & Thuế TNDN',
-  '/survey': 'Hồ Sơ Doanh Nghiệp',
-  '/onboarding': 'Hồ Sơ Doanh Nghiệp',
   '/tasks': 'Danh Sách Tác Vụ Tuân Thủ',
   '/tasks/calendar': 'Lịch Tuân Thủ & Ghi Chú',
   '/checklists': 'Danh Sách Tác Vụ Tuân Thủ',
@@ -122,7 +119,6 @@ export const MainLayout: React.FC = () => {
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: 'Bảng Điều Khiển' },
     { key: '/context', icon: <DatabaseOutlined />, label: 'Context Doanh Nghiệp' },
-    { key: '/survey', icon: <FormOutlined />, label: 'Hồ Sơ Doanh Nghiệp' },
     {
       key: '/tasks-parent',
       icon: <CheckSquareOutlined />,

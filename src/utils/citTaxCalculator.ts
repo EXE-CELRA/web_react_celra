@@ -22,7 +22,8 @@ export interface CitCalculationResult {
   totalDeductibleExpense: number;   // Chi phí được trừ thực tế
   assessableIncome: number;         // Thu nhập tính thuế
   incentiveInfo: TaxIncentiveInfo;  // Vùng ưu đãi
-  taxRate: number;                  // Thuế suất áp dụng (0.10, 0.17 hoặc 0.20)
+  taxRate: number;                  // Thuế suất áp dụng (0, 0.10, 0.15, 0.17 hoặc 0.20)
+  taxRatePercentText?: string;      // '0% (Miễn thuế)', '15%', '17%', '20%'
   estimatedTaxAmount: number;       // Thuế TNDN cả năm dự kiến
   statutoryPrepayment80: number;    // Nghĩa vụ tạm nộp 4 quý tối thiểu 80% (NĐ 91/2022)
   accountingProfitBeforeTax: number;// Lợi nhuận kế toán trước thuế (Doanh thu - Chi phí)
@@ -39,7 +40,9 @@ export function calculateCitTax(
   revenues: RevenueRow[],
   expenses: ExpenseRow[],
   incentiveInfo: TaxIncentiveInfo,
-  companyTypeTag: string = 'TAG_TNHH_1TV'
+  companyTypeTag: string = 'TAG_TNHH_1TV',
+  customEffectiveRate?: number,
+  customRateText?: string,
 ): CitCalculationResult {
   const isTnhh1Tv = companyTypeTag === 'TAG_TNHH_1TV';
   const totalRevenue = revenues.reduce((sum, r) => sum + r.amount, 0);
@@ -136,7 +139,12 @@ export function calculateCitTax(
   const totalDisallowedExpense = disallowedItems.reduce((sum, item) => sum + item.amount, 0);
   const totalDeductibleExpense = Math.max(0, totalAccountingExpense - totalDisallowedExpense);
   const assessableIncome = Math.max(0, totalRevenue - totalDeductibleExpense);
-  const estimatedTaxAmount = Math.round(assessableIncome * incentiveInfo.taxRate);
+  
+  // Ưu tiên thuế suất tính theo quy mô doanh thu chuẩn 2026 (15%, 17%, 20% hoặc miễn 0%)
+  const effectiveRate = typeof customEffectiveRate === 'number' ? customEffectiveRate : incentiveInfo.taxRate;
+  const effectiveRateText = customRateText || (effectiveRate === 0 ? '0% (Miễn thuế)' : `${Math.round(effectiveRate * 100)}%`);
+
+  const estimatedTaxAmount = Math.round(assessableIncome * effectiveRate);
   const statutoryPrepayment80 = Math.round(estimatedTaxAmount * 0.8);
   const accountingProfitBeforeTax = totalRevenue - totalAccountingExpense;
   const netProfitAfterTax = accountingProfitBeforeTax - estimatedTaxAmount;
@@ -148,13 +156,14 @@ export function calculateCitTax(
     totalDeductibleExpense,
     assessableIncome,
     incentiveInfo,
-    taxRate: incentiveInfo.taxRate,
+    taxRate: effectiveRate,
+    taxRatePercentText: effectiveRateText,
     estimatedTaxAmount,
     statutoryPrepayment80,
     accountingProfitBeforeTax,
     netProfitAfterTax,
     disallowedItems,
     warningAdsItems,
-    isExemptedIncentive: incentiveInfo.tier !== 'ZONE_STANDARD'
+    isExemptedIncentive: effectiveRate === 0 || incentiveInfo.tier !== 'ZONE_STANDARD'
   };
 }
