@@ -13,3 +13,4 @@ export * from './audit.interface';
 export * from './legal.interface';
 export * from './aiAssistant.interface';
 export * from './components.interface';
+export * from './subscription.interface';

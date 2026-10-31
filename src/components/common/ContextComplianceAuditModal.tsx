@@ -30,14 +30,12 @@ import {
   ShieldCheck, 
   X, 
   CheckCircle2, 
-  Wallet, 
   ArrowRight, 
   Sparkles, 
   PlusCircle, 
   ExternalLink,
   Coins,
   Check,
-  AlertTriangle
 } from 'lucide-react';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from '../../pages/Context/ContextPage';
@@ -46,7 +44,6 @@ import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from '../../pages/Context/
 
 
 
-const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
 // Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế & Hóa đơn
 // eslint-disable-next-line react-refresh/only-export-components
@@ -181,7 +178,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 }) => {
   const navigate = useNavigate();
   const { facts, fetchFacts } = useContextStore();
-  const { wallet, fetchWallet, buyPackage } = useWalletStore();
+  const { fetchWallet } = useWalletStore();
 
   const [activeTab, setActiveTab] = useState<string>('thue_ke_toan');
   const [step, setStep] = useState<'select' | 'confirm' | 'scanning' | 'results'>('select');
@@ -249,12 +246,8 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     }
   }, [isOpen, displayedFacts]);
 
-  // Tính toán chi phí: 25 Credit / thẻ
-  const totalCost = selectedFactIds.length * COST_PER_CARD;
-  const currentBalance = wallet?.balance ?? (wallet as any)?.soDu ?? 40;
-  const isBalanceSufficient = currentBalance >= totalCost;
-  const missingCredit = Math.max(0, totalCost - currentBalance);
-
+  // Quyền lợi gói thuê bao: Rà soát không giới hạn
+  const isBalanceSufficient = true;
   // 🏢 DỮ LIỆU DOANH NGHIỆP & DỰ TOÁN THUẾ TNDN QUA EXCEL
   const { activeOrg } = useOrgStore();
   const currentYear = useMemo(() => new Date().getFullYear(), []);
@@ -483,10 +476,6 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
   // 1. GỌI API RÀ SOÁT BỐI CẢNH (BATCH AUDIT)
   const handleStartAudit = async () => {
-    if (!isBalanceSufficient) {
-      message.error(`Số dư Ví CELRA không đủ. Bạn đang thiếu ${missingCredit} Credit. Vui lòng nạp thêm.`);
-      return;
-    }
 
     setIsProcessing(true);
     setStep('scanning');
@@ -595,17 +584,6 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       message.error(err?.message || 'Lỗi khi xác nhận tạo toàn bộ Checklist');
     } finally {
       setIsCreatingAll(false);
-    }
-  };
-
-  // Nạp nhanh gói Credit
-  const handleDepositQuick = async () => {
-    try {
-      await buyPackage('PKG_120');
-      message.success('Đã nạp gói (+120 Credit) vào ví CELRA thành công!');
-      await fetchWallet();
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi khi nạp Credit');
     }
   };
 
@@ -1205,14 +1183,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           {step === 'confirm' && (
             <div className="max-w-2xl mx-auto py-4 space-y-5">
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Coins className="w-6 h-6" />
+                <div className="w-12 h-12 bg-teal-100 text-teal-700 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                  <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h4 className="text-base font-bold text-slate-900">
-                  Xác nhận Chi phí Lượt Rà soát Tuân thủ
+                  Xác nhận Rà soát Tuân thủ Bối cảnh
                 </h4>
                 <p className="text-xs text-slate-600">
-                  Hệ thống sẽ khấu trừ số dư Credit ví CELRA để cấp quyền rà soát tức thì.
+                  Tính năng được cấp quyền tự động theo gói thuê bao của doanh nghiệp.
                 </p>
               </div>
 
@@ -1225,51 +1203,31 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <span className="text-xs text-slate-600 font-medium">Đơn giá kiểm toán tuân thủ / thẻ:</span>
-                  <span className="text-xs font-semibold text-slate-800">{COST_PER_CARD} Credit / thẻ</span>
+                  <span className="text-xs text-slate-600 font-medium">Chế độ phân tích:</span>
+                  <span className="text-xs font-semibold text-teal-800">Trọn gói theo Subscription</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-bold text-slate-900">Tổng Credit cần thanh toán:</span>
-                  <span className="text-lg font-extrabold text-teal-700">{totalCost} Credit</span>
+                  <span className="text-sm font-bold text-slate-900">Chi phí phát sinh thêm:</span>
+                  <span className="text-lg font-extrabold text-emerald-600">0 ₫ (Đã bao gồm trong gói)</span>
                 </div>
               </div>
 
-              {/* KHUNG SỐ DƯ VÍ CREDIT */}
-              <div
-                className={`p-4 rounded-xl border ${
-                  isBalanceSufficient 
-                    ? 'bg-emerald-50/70 border-emerald-200' 
-                    : 'bg-rose-50/70 border-rose-200'
-                }`}
-              >
+              {/* KHUNG TRẠNG THÁI GÓI DỊCH VỤ */}
+              <div className="p-4 rounded-xl border bg-emerald-50/70 border-emerald-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${isBalanceSufficient ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                      <Wallet className="w-5 h-5" />
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                      <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500 font-medium">Số dư Ví Credit hiện tại:</div>
-                      <div className="text-base font-extrabold text-slate-900">{currentBalance} Credit</div>
+                      <div className="text-xs text-slate-500 font-medium">Trạng thái quyền lợi:</div>
+                      <div className="text-base font-extrabold text-slate-900">Gói Thuê Bao Đang Kích Hoạt</div>
                     </div>
                   </div>
 
-                  {!isBalanceSufficient ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> Thiếu {missingCredit} Credit
-                      </span>
-                      <button
-                        onClick={handleDepositQuick}
-                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                      >
-                        + Nạp 120 Credit ngay
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full">
-                      ✓ Đủ điều kiện thanh toán
-                    </span>
-                  )}
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full">
+                    ✓ Sẵn sàng rà soát
+                  </span>
                 </div>
               </div>
 
@@ -1464,9 +1422,9 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           {step === 'select' && (
             <>
               <div className="text-xs text-slate-600">
-                Tổng chi phí:{' '}
-                <strong className="text-teal-800 text-sm font-extrabold">{totalCost} đ</strong>{' '}
-                <span className="text-slate-500">({selectedFactIds.length} thẻ × {COST_PER_CARD}đ)</span>
+                Chế độ rà soát:{' '}
+                <strong className="text-teal-800 text-sm font-extrabold">Trọn gói Subscription</strong>{' '}
+                <span className="text-slate-500">({selectedFactIds.length} thẻ bối cảnh)</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
