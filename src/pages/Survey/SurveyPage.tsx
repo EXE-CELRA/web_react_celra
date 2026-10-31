@@ -30,7 +30,9 @@ import {
   Lock,
   Search,
   Loader2,
+  ShieldCheck,
 } from 'lucide-react';
+import { determineCitTaxRate, calculateNormalizedRevenue } from '../../utils/taxRateChecker';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
@@ -58,26 +60,29 @@ const formatCurrencyToWords = (amount: number): string => {
 export const SurveyPage: React.FC = () => {
   const navigate = useNavigate();
   const { activeOrg } = useOrgStore();
+  // Kiểm tra tức thì từ localStorage & activeOrg để chặn đứng hoàn toàn việc chớp modal
+  const activeOrgId = activeOrg?.id || (typeof window !== 'undefined' ? localStorage.getItem('celra_active_org_id') : null);
+  const initialCompleted = Boolean(
+    (activeOrgId && typeof window !== 'undefined' && localStorage.getItem(`celra_survey_completed_${activeOrgId}`) === 'true') ||
+    (activeOrg?.taxCode && activeOrg?.name)
+  );
 
-  const [isSurveyCompleted, setIsSurveyCompleted] = useState<boolean>(() => {
-    if (activeOrg?.id) {
-      return localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true' || Boolean(activeOrg.taxCode && activeOrg.name);
-    }
-    return false;
-  });
-
+  const [isSurveyCompleted, setIsSurveyCompleted] = useState<boolean>(initialCompleted);
   const [baseProfile, setBaseProfile] = useState<BaseProfile>(() => {
-    try {
-      const savedCompleted = localStorage.getItem('celra_survey_completed_profile');
-      if (savedCompleted) {
-        return JSON.parse(savedCompleted);
+    const orgId = activeOrg?.id || (typeof window !== 'undefined' ? localStorage.getItem('celra_active_org_id') : null);
+    if (orgId) {
+      try {
+        const savedProfile = localStorage.getItem(`celra_survey_profile_${orgId}`);
+        if (savedProfile) {
+          return JSON.parse(savedProfile);
+        }
+        const savedDraft = localStorage.getItem(`celra_survey_draft_profile_${orgId}`);
+        if (savedDraft) {
+          return JSON.parse(savedDraft);
+        }
+      } catch {
+        // Fallback
       }
-      const savedDraft = localStorage.getItem('celra_survey_draft_profile');
-      if (savedDraft) {
-        return JSON.parse(savedDraft);
-      }
-    } catch {
-      // Fallback
     }
     return {
       taxCode: '',
@@ -85,7 +90,7 @@ export const SurveyPage: React.FC = () => {
       employeeScale: DEFAULT_BASE_PROFILE.employeeScale,
       requiresLaborRuleBook: DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
       companyTypeTag: DEFAULT_BASE_PROFILE.companyTypeTag,
-      industryTags: DEFAULT_BASE_PROFILE.industryTags,
+      industryTags: [], // Mặc định trống 100% để người dùng bắt buộc phải chọn ngành nghề
     };
   });
 
@@ -167,7 +172,7 @@ export const SurveyPage: React.FC = () => {
         isNewlyEstablished: activeOrg.revenueStatus ? (activeOrg.revenueStatus === 'newly_established') : (scopedProfile?.isNewlyEstablished ?? false),
         requiresLaborRuleBook: scopedProfile?.requiresLaborRuleBook ?? DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
         companyTypeTag: scopedProfile?.companyTypeTag || DEFAULT_BASE_PROFILE.companyTypeTag,
-        industryTags: scopedProfile?.industryTags || DEFAULT_BASE_PROFILE.industryTags,
+        industryTags: scopedProfile?.industryTags || [],
       };
 
       setBaseProfile(next);
@@ -178,6 +183,12 @@ export const SurveyPage: React.FC = () => {
       );
       setIsSurveyCompleted(completed);
 
+      // Nếu doanh nghiệp này đã hoàn thành khảo sát trước đó rồi -> tự động chuyển ngay vào Context, không hiện lại Modal
+      if (completed) {
+        navigate('/context', { replace: true });
+        return;
+      }
+
       if (activeOrg.taxCode && activeOrg.name) {
         setTaxLookupDetails({
           taxCode: activeOrg.taxCode || '',
@@ -187,9 +198,20 @@ export const SurveyPage: React.FC = () => {
           isOperating: true,
         });
       }
+    } else {
+      // Nếu không có activeOrg (vừa xóa doanh nghiệp trong DB hoặc tài khoản mới toanh): XÓA TRẮNG HOÀN TOÀN
+      setIsSurveyCompleted(false);
+      setTaxLookupDetails(null);
+      setBaseProfile({
+        taxCode: '',
+        companyName: '',
+        employeeScale: DEFAULT_BASE_PROFILE.employeeScale,
+        requiresLaborRuleBook: DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
+        companyTypeTag: DEFAULT_BASE_PROFILE.companyTypeTag,
+        industryTags: [], // Bắt đầu bằng mảng rỗng khi xóa doanh nghiệp
+      });
     }
   }, [activeOrg]);
-
   const updateBaseProfile = (updates: Partial<BaseProfile>) => {
     setBaseProfile(prev => {
       const next = { ...prev, ...updates };
@@ -197,7 +219,10 @@ export const SurveyPage: React.FC = () => {
         next.requiresLaborRuleBook = next.employeeScale === '10_to_50' || next.employeeScale === 'over_50';
       }
       try {
-        localStorage.setItem('celra_survey_draft_profile', JSON.stringify(next));
+        const orgId = activeOrg?.id || localStorage.getItem('celra_active_org_id');
+        if (orgId) {
+          localStorage.setItem(`celra_survey_draft_profile_${orgId}`, JSON.stringify(next));
+        }
         if (updates.companyName) {
           window.dispatchEvent(new Event('celra_profile_updated'));
         }
@@ -328,14 +353,29 @@ export const SurveyPage: React.FC = () => {
       return;
     }
     if (!baseProfile.taxCode || !baseProfile.companyName) {
-      message.warning('Vui lòng nhập Mã số thuế và thực hiện Tra cứu để xác thực doanh nghiệp trước khi tiếp tục.');
+      message.warning('⚠️ Bắt buộc: Vui lòng nhập Mã số thuế và nhấn "Tra cứu" để hệ thống tự động xác thực pháp nhân từ CSDL Thuế Quốc gia.');
+      return;
+    }
+    if (!taxLookupDetails && !activeOrg?.name) {
+      message.warning('⚠️ Bắt buộc: Vui lòng nhấn nút "Tra cứu" để xác nhận thông tin doanh nghiệp trước khi lưu.');
+      return;
+    }
+    if (!baseProfile.isNewlyEstablished && (baseProfile.annualRevenue === undefined || baseProfile.annualRevenue < 0)) {
+      message.warning('⚠️ Bắt buộc: Vui lòng nhập Doanh thu năm trước liền kề (nếu mới thành lập vui lòng chọn checkbox "Doanh nghiệp mới thành lập").');
+      return;
+    }
+    if (!baseProfile.charterCapital || baseProfile.charterCapital <= 0) {
+      message.warning('⚠️ Bắt buộc: Vui lòng nhập Vốn điều lệ đăng ký trên ĐKKD lớn hơn 0 VNĐ.');
+      return;
+    }
+    if (!baseProfile.employeeCount || baseProfile.employeeCount <= 0) {
+      message.warning('⚠️ Bắt buộc: Vui lòng nhập Số lượng nhân sự đang làm việc thực tế lớn hơn 0 người.');
       return;
     }
     if (!baseProfile.industryTags || baseProfile.industryTags.length === 0) {
-      message.warning('Vui lòng chọn ít nhất 1 Ngành nghề & Hoạt động thực tế để tiếp tục.');
+      message.warning('⚠️ Bắt buộc: Vui lòng chọn ít nhất 1 Ngành nghề & Hoạt động thực tế của doanh nghiệp để hệ thống kích hoạt đúng bộ quy tắc tuân thủ.');
       return;
     }
-
     setSubmitting(true);
     try {
       // Khởi tạo Base Profile và các Context Facts cơ sở
@@ -397,14 +437,35 @@ export const SurveyPage: React.FC = () => {
     }
   };
 
+  // NẾU ĐÃ HOÀN THÀNH: KHÔNG RENDER MODAL NỮA (Chống chớp giật modal 100%)
+  if (isSurveyCompleted || initialCompleted) {
+    return null;
+  }
+
   // =========================================================================
   return (
-    <div className="w-full space-y-6 pb-28">
-      {/* ========================================================================= */}
-      {/* 🟢 KHỐI THU THẬP NỀN TẢNG (Base Profile - FULL WIDTH)                      */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-        <div className="border-b border-slate-100 pb-4">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-2 sm:p-5 bg-slate-900/40 backdrop-blur-xs overflow-y-auto no-scrollbar">
+      <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-2xl max-w-7xl w-full my-auto space-y-6 max-h-[96vh] overflow-y-auto no-scrollbar relative animate-in fade-in zoom-in-95 duration-200">
+        {/* CẢNH BÁO BẮT BUỘC HOÀN TẤT KHẢO SÁT BAN ĐẦU */}
+        {!isSurveyCompleted && (
+          <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 border-2 border-amber-400/90 rounded-2xl p-4 sm:p-5 shadow-xs flex items-start gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30 mt-0.5">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-extrabold text-amber-950 m-0">
+                Thiết Lập Hồ Sơ Cơ Sở &amp; Bối Cảnh Doanh Nghiệp Ban Đầu
+              </h3>
+              <p className="text-xs text-amber-900 leading-relaxed m-0 font-medium">
+                Hệ thống CELRA yêu cầu xác thực các thông số pháp lý, quy mô nhân sự, tài chính và ngành nghề kinh doanh ban đầu bên dưới để tự động thiết lập <strong>Ma Trận Quản Trị &amp; Tuân Thủ Pháp Luật</strong>.
+                <strong className="block mt-1 text-amber-950 font-bold">
+                  👉 Vui lòng hoàn tất và bấm "Lưu &amp; Khởi Tạo Bối Cảnh Doanh Nghiệp" ở cuối để kích hoạt toàn bộ không gian làm việc.
+                </strong>
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-teal-100 text-teal-800 rounded-lg">
               <SlidersHorizontal className="w-5 h-5 text-teal-700" />
@@ -418,8 +479,17 @@ export const SurveyPage: React.FC = () => {
               </p>
             </div>
           </div>
+          {isSurveyCompleted && (
+            <button
+              type="button"
+              onClick={() => navigate('/context')}
+              className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Đóng modal"
+            >
+              ✕
+            </button>
+          )}
         </div>
-
         {/* Khối Nhập Mã Số Thuế & Tra Cứu */}
         <div className="space-y-3">
           <div>
@@ -627,12 +697,7 @@ export const SurveyPage: React.FC = () => {
 
         {/* Thông số Tài chính & Doanh thu thực tế */}
         <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/90 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Thông số Doanh thu &amp; Vốn điều lệ
-              </span>
-            </div>
+          <div className="flex items-center justify-end flex-wrap gap-2">
             <label className={`flex items-center gap-2 text-xs font-medium select-none ${isSurveyCompleted ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 cursor-pointer'}`}>
               <input
                 type="checkbox"
@@ -652,9 +717,9 @@ export const SurveyPage: React.FC = () => {
             </label>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Doanh thu */}
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Doanh thu năm trước */}
+            <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 Doanh thu năm trước liền kề (VNĐ) <span className="text-rose-500">*</span>
               </label>
@@ -668,7 +733,7 @@ export const SurveyPage: React.FC = () => {
                     const rawDigits = e.target.value.replace(/\D/g, '');
                     updateBaseProfile({ annualRevenue: Number(rawDigits) || 0 });
                   }}
-                  placeholder="VD: 18,500,000,000"
+                  placeholder="VD: 2,500,000,000"
                   className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                 />
                 <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">
@@ -677,36 +742,143 @@ export const SurveyPage: React.FC = () => {
               </div>
               <div className="text-[11px] text-teal-700 font-medium mt-1">
                 {baseProfile.isNewlyEstablished
-                  ? '🌟 Doanh nghiệp mới thành lập: Tự động áp dụng kê khai thuế theo Quý'
+                  ? '🌟 Doanh nghiệp mới thành lập: Tạm nộp theo bậc khởi điểm, quyết toán thực tế cuối kỳ'
                   : 'Đọc số: ~ ' + formatCurrencyToWords(baseProfile.annualRevenue || 0)}
               </div>
             </div>
 
-            {/* Vốn điều lệ */}
+            {/* Số tháng hoạt động năm trước */}
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                Vốn điều lệ đăng ký trên ĐKKD (VNĐ) <span className="text-rose-500">*</span>
+                Số tháng hoạt động kỳ trước <span className="text-rose-500">*</span>
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  disabled={isSurveyCompleted}
-                  value={Number(baseProfile.charterCapital || 0).toLocaleString('vi-VN')}
-                  onChange={(e) => {
-                    if (isSurveyCompleted) return;
-                    const rawDigits = e.target.value.replace(/\D/g, '');
-                    updateBaseProfile({ charterCapital: Number(rawDigits) || 0 });
-                  }}
-                  placeholder="VD: 5,000,000,000"
-                  className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                />
-                <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">
-                  VNĐ
-                </span>
+              <select
+                disabled={baseProfile.isNewlyEstablished || isSurveyCompleted}
+                value={baseProfile.operatingMonthsPriorYear || 12}
+                onChange={(e) => {
+                  if (isSurveyCompleted) return;
+                  updateBaseProfile({ operatingMonthsPriorYear: Number(e.target.value) || 12 });
+                }}
+                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>
+                    {m} tháng {m === 12 ? '(Đủ cả năm)' : '(Quy đổi đủ 12T)'}
+                  </option>
+                ))}
+              </select>
+              <div className="text-[11px] text-slate-500 font-medium mt-1">
+                {baseProfile.operatingMonthsPriorYear && baseProfile.operatingMonthsPriorYear < 12 && !baseProfile.isNewlyEstablished ? (
+                  <span className="text-amber-700 font-semibold">
+                    Doanh thu quy đổi 12T: {calculateNormalizedRevenue(baseProfile.annualRevenue || 0, baseProfile.operatingMonthsPriorYear).toLocaleString('vi-VN')} đ
+                  </span>
+                ) : (
+                  'Dùng để quy đổi chuẩn 12 tháng theo luật'
+                )}
               </div>
-              <div className="text-[11px] text-slate-600 font-medium mt-1">
-                {'Đọc số: ~ ' + formatCurrencyToWords(baseProfile.charterCapital || 0)}
+            </div>
+          </div>
+
+          {/* Câu hỏi xác minh điều kiện miễn giảm & quan hệ liên kết */}
+          <div className="pt-2 border-t border-slate-200/80 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className={`flex items-start gap-2.5 p-2.5 bg-white rounded-xl border border-slate-200 select-none ${isSurveyCompleted ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:border-teal-400'}`}>
+              <input
+                type="checkbox"
+                disabled={isSurveyCompleted}
+                checked={baseProfile.isFirstTimeStartup || false}
+                onChange={(e) => {
+                  if (isSurveyCompleted) return;
+                  updateBaseProfile({ isFirstTimeStartup: e.target.checked });
+                }}
+                className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 mt-0.5"
+              />
+              <div>
+                <div className="text-xs font-bold text-slate-800">Doanh nghiệp vừa &amp; nhỏ đăng ký lần đầu</div>
+                <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                  Đề xuất chính sách miễn thuế TNDN 03 năm theo Khoản 3 Điều 7 NĐ 20/2026/NĐ-CP (nếu đáp ứng đủ điều kiện)
+                </div>
               </div>
+            </label>
+
+            <label className={`flex items-start gap-2.5 p-2.5 bg-white rounded-xl border border-slate-200 select-none ${isSurveyCompleted ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:border-teal-400'}`}>
+              <input
+                type="checkbox"
+                disabled={isSurveyCompleted}
+                checked={baseProfile.hasRelatedParty || false}
+                onChange={(e) => {
+                  if (isSurveyCompleted) return;
+                  updateBaseProfile({ hasRelatedParty: e.target.checked });
+                }}
+                className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 mt-0.5"
+              />
+              <div>
+                <div className="text-xs font-bold text-slate-800">Có quan hệ công ty con / giao dịch liên kết</div>
+                <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                  Rà soát loại trừ ưu đãi thuế theo Nghị định 132/2020/NĐ-CP chống chuyển giá
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {/* WIDGET KẾT QUẢ SÀNG LỌC THUẾ SUẤT TNDN DỰ KIẾN (THEO CHUẨN ĐOẠN CHAT) */}
+          {(() => {
+            const taxResult = determineCitTaxRate({
+              priorYearRevenue: baseProfile.annualRevenue || 0,
+              operatingMonthsPriorYear: baseProfile.operatingMonthsPriorYear || 12,
+              isNewlyEstablished: baseProfile.isNewlyEstablished,
+              isFirstTimeStartup: baseProfile.isFirstTimeStartup,
+              hasRelatedParty: baseProfile.hasRelatedParty,
+            });
+            return (
+              <div className="bg-gradient-to-r from-teal-50 via-emerald-50 to-blue-50 border border-teal-200/90 rounded-xl p-3.5 mt-2">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-teal-700" />
+                    <span className="text-xs font-extrabold text-teal-950 uppercase tracking-wide">
+                      Kết quả sàng lọc thuế suất TNDN dự kiến (Năm 2026):
+                    </span>
+                  </div>
+                  <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${taxResult.badgeColor}`}>
+                    Thuế suất: {taxResult.taxRatePercentText}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-700 font-medium leading-relaxed">
+                  {taxResult.explanation}
+                </div>
+                <div className="text-[11px] text-slate-500 font-mono mt-1 pt-1 border-t border-teal-100 flex items-center justify-between flex-wrap gap-2">
+                  <span>Căn cứ: <strong>{taxResult.legalBasis}</strong></span>
+                  {taxResult.normalizedRevenue > 0 && (
+                    <span>Doanh thu tính bậc: <strong>{taxResult.normalizedRevenue.toLocaleString('vi-VN')} đ</strong></span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Vốn điều lệ */}
+          <div className="pt-2 border-t border-slate-200/80">
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">
+              Vốn điều lệ đăng ký trên ĐKKD (VNĐ) <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                disabled={isSurveyCompleted}
+                value={Number(baseProfile.charterCapital || 0).toLocaleString('vi-VN')}
+                onChange={(e) => {
+                  if (isSurveyCompleted) return;
+                  const rawDigits = e.target.value.replace(/\D/g, '');
+                  updateBaseProfile({ charterCapital: Number(rawDigits) || 0 });
+                }}
+                placeholder="VD: 5,000,000,000"
+                className="w-full p-2.5 pr-14 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+              />
+              <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">
+                VNĐ
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-600 font-medium mt-1">
+              {'Đọc số: ~ ' + formatCurrencyToWords(baseProfile.charterCapital || 0)}
             </div>
           </div>
         </div>

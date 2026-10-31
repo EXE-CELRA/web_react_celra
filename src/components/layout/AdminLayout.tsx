@@ -5,6 +5,7 @@ import {
   DashboardOutlined,
   ShopOutlined,
   BookOutlined,
+  ThunderboltOutlined,
   DollarCircleOutlined,
   SettingOutlined,
   LogoutOutlined,
@@ -20,7 +21,8 @@ const { Header, Sider, Content } = Layout;
 const ADMIN_PAGE_TITLES: Record<string, string> = {
   '/admin/dashboard': 'Tổng Quan Hệ Thống',
   '/admin/enterprises': 'Quản Lý Doanh Nghiệp',
-  '/admin/dlpl-quota': 'Tri Thức Luật & Quota AI',
+  '/admin/dlpl-quota': 'Tri Thức Luật',
+  '/admin/ai-quota': 'Hạn Mức AI',
   '/admin/finance': 'Doanh Thu & Sổ Cái Sàn',
   '/admin/settings': 'Cấu Hình Nền Tảng',
 };
@@ -54,7 +56,12 @@ export const AdminLayout: React.FC = () => {
     {
       key: '/admin/dlpl-quota',
       icon: <BookOutlined style={{ fontSize: 16 }} />,
-      label: 'Tri Thức Luật & Quota AI',
+      label: 'Tri Thức Luật',
+    },
+    {
+      key: '/admin/ai-quota',
+      icon: <ThunderboltOutlined style={{ fontSize: 16 }} />,
+      label: 'Hạn Mức AI',
     },
     {
       key: '/admin/finance',

@@ -106,7 +106,32 @@ function clearChatHistory(orgId?: string): void {
     // ignore
   }
 }
-
+const getDefaultWelcomeMessage = (companyName?: string): MessageItem => ({
+  id: 'welcome-msg',
+  sender: 'AI',
+  text: `Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh Nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi thấu hiểu bối cảnh dữ liệu của **${companyName || 'doanh nghiệp của bạn'}** và sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật.`,
+  citations: [
+    {
+      title: 'Nghị định 91/2022/NĐ-CP',
+      docNumber: '91/2022/NĐ-CP',
+      articleNumber: 'Tạm nộp TNDN 80%',
+      sourceUrl: CORE_LEGAL_DOC_LINKS['91/2022'],
+    },
+    {
+      title: 'Nghị định 126/2020/NĐ-CP',
+      docNumber: '126/2020/NĐ-CP',
+      articleNumber: 'Kê khai thuế',
+      sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020'],
+    },
+    {
+      title: 'Thông tư 96/2015/TT-BTC',
+      docNumber: '96/2015/TT-BTC',
+      articleNumber: 'Chi phí lương',
+      sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015'],
+    },
+  ],
+  actionType: 'info',
+});
 
 import { cleanDLPLUrl, matchCoreLegalDocUrl, CORE_LEGAL_DOC_LINKS } from '../../api/legalApi';
 
@@ -135,40 +160,20 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 }) => {
   const navigate = useNavigate();
   const { activeOrg } = useOrgStore();
+  const currentOrgId = activeOrg?.id || localStorage.getItem('celra_active_org_id') || undefined;
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     return localStorage.getItem('celra_chat_expanded') === 'true';
   });
   const [messages, setMessages] = useState<MessageItem[]>(() => {
-    const orgId = localStorage.getItem('celra_active_org_id') || undefined;
-    return loadChatHistory(orgId) ?? [
-      {
-        id: 'welcome-msg',
-        sender: 'AI',
-        text: 'Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh Nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi thấu hiểu bối cảnh dữ liệu của công ty bạn và sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật F&B.',
-        citations: [
-          { 
-            title: 'Nghị định 91/2022/NĐ-CP', 
-            docNumber: '91/2022/NĐ-CP', 
-            articleNumber: 'Tạm nộp TNDN 80%',
-            sourceUrl: CORE_LEGAL_DOC_LINKS['91/2022']
-          },
-          { 
-            title: 'Nghị định 126/2020/NĐ-CP', 
-            docNumber: '126/2020/NĐ-CP', 
-            articleNumber: 'Kê khai thuế',
-            sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020']
-          },
-          { 
-            title: 'Thông tư 96/2015/TT-BTC', 
-            docNumber: '96/2015/TT-BTC', 
-            articleNumber: 'Chi phí lương',
-            sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015']
-          },
-        ],
-        actionType: 'info',
-      },
-    ];
+    return loadChatHistory(currentOrgId) ?? [getDefaultWelcomeMessage(activeOrg?.name)];
   });
+
+  // 🛡️ ĐẢM BẢO CÔ LẬP TUYỆT ĐỐI: Tải đúng lịch sử chat của Doanh nghiệp hiện hành khi đổi workspace
+  useEffect(() => {
+    if (!currentOrgId) return;
+    const history = loadChatHistory(currentOrgId);
+    setMessages(history && history.length > 0 ? history : [getDefaultWelcomeMessage(activeOrg?.name)]);
+  }, [currentOrgId, activeOrg?.name]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [acceptedProposals, setAcceptedProposals] = useState<Record<string, boolean>>({});
@@ -199,9 +204,10 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   }, [messages, loading]);
 
   useEffect(() => {
-    const orgId = localStorage.getItem('celra_active_org_id') || undefined;
-    saveChatHistory(messages, orgId);
-  }, [messages]);
+    if (currentOrgId && messages.length > 0) {
+      saveChatHistory(messages, currentOrgId);
+    }
+  }, [messages, currentOrgId]);
 
   // Danh mục câu hỏi gợi ý nhanh (Quick Prompts)
   const quickPrompts = [
@@ -515,22 +521,9 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => {
-              const orgId = localStorage.getItem('celra_active_org_id') || undefined;
-              clearChatHistory(orgId);
-              setMessages([
-                {
-                  id: 'welcome-msg',
-                  sender: 'AI',
-                  text: 'Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật F&B.',
-                  citations: [
-                    { title: 'Nghị định 91/2022/NĐ-CP', docNumber: '91/2022/NĐ-CP', articleNumber: 'Tạm nộp TNDN 80%', sourceUrl: CORE_LEGAL_DOC_LINKS['91/2022'] },
-                    { title: 'Nghị định 126/2020/NĐ-CP', docNumber: '126/2020/NĐ-CP', articleNumber: 'Kê khai thuế', sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020'] },
-                    { title: 'Thông tư 96/2015/TT-BTC', docNumber: '96/2015/TT-BTC', articleNumber: 'Chi phí lương', sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015'] },
-                  ],
-                  actionType: 'info',
-                },
-              ]);
-              antMessage.success('Đã làm mới phiên hội thoại!');
+              clearChatHistory(currentOrgId);
+              setMessages([getDefaultWelcomeMessage(activeOrg?.name)]);
+              antMessage.success('Đã làm mới phiên hội thoại của doanh nghiệp hiện tại!');
             }}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
             title="Làm mới lịch sử chat"
@@ -618,7 +611,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                             Kích hoạt Rà soát Tuân thủ Doanh nghiệp
                           </h5>
                           <span className="text-[10px] text-teal-800">
-                            Chỉ từ 25 Credit/thẻ • Tự động tạo Checklist điều phối
+                            Phân tích bối cảnh tự động • Tạo Checklist điều phối theo gói thuê bao
                           </span>
                         </div>
                       </div>

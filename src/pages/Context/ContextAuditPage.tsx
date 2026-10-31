@@ -22,8 +22,7 @@ import {
 import { useTaskStore } from '../../store/useTaskStore';
 import { 
   ShieldCheck,
-  Wallet, 
-  ArrowRight, 
+  ArrowRight,
   Sparkles,
   PlusCircle, 
   ExternalLink,
@@ -54,12 +53,12 @@ import {
 } from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
+import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
 import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
 import { isGroupSurveyCompleted } from '../../data/questionSurvey';
 import type { ContextFact, AuditFindingItem } from '../../interfaces';
 
-const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
 // Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế & Hóa đơn
 // eslint-disable-next-line react-refresh/only-export-components
@@ -157,7 +156,7 @@ export const ContextAuditPage: React.FC = () => {
   const initialGroup = (rawGroup === 'boi_canh_co_so' ? null : rawGroup) || 'thue_ke_toan';
 
   const { facts, fetchFacts, isLoading, createFact, updateFact } = useContextStore();
-  const { wallet, fetchWallet, buyPackage } = useWalletStore();
+  const { fetchWallet } = useWalletStore();
   const { activeOrg } = useOrgStore();
 
   const [activeTab, setActiveTab] = useState<string>(initialGroup);
@@ -866,6 +865,40 @@ export const ContextAuditPage: React.FC = () => {
     return detectTaxIncentiveZone(orgAddress);
   }, [orgAddress]);
 
+  // Rà soát thuế suất TNDN động theo Luật Thuế TNDN 67/2025 & NĐ 141/2026, NĐ 20/2026
+  const citTierResult: CitTaxTierResult = useMemo(() => {
+    let priorRev = 0;
+    let priorMonths = 12;
+    let isFirstStartup = false;
+    let hasRelated = false;
+
+    if (activeOrg?.id) {
+      try {
+        const raw = localStorage.getItem(`celra_survey_profile_${activeOrg.id}`);
+        if (raw) {
+          const p = JSON.parse(raw);
+          priorRev = p.annualRevenue || 0;
+          priorMonths = p.operatingMonthsPriorYear || 12;
+          isFirstStartup = Boolean(p.isFirstTimeStartup);
+          hasRelated = Boolean(p.hasRelatedParty);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return determineCitTaxRate({
+      priorYearRevenue: priorRev,
+      operatingMonthsPriorYear: priorMonths,
+      isNewlyEstablished: activeOrg?.revenueStatus === 'newly_established',
+      isFirstTimeStartup: isFirstStartup,
+      hasRelatedParty: hasRelated,
+      zoneTaxRate: incentiveInfo.taxRate,
+      zoneTitle: incentiveInfo.title,
+      zoneLegalBasis: incentiveInfo.legalBasis,
+    });
+  }, [activeOrg, incentiveInfo]);
+
   // 1. TẢI DỮ LIỆU TỪ DATABASE (POSTGRESQL QUA NESTJS API) KHI MỞ TRANG
   useEffect(() => {
     if (!isLoading && facts) {
@@ -969,10 +1002,17 @@ export const ContextAuditPage: React.FC = () => {
 
   // 3. TÍNH TOÁN LẠI NGHĨA VỤ THUẾ & LỢI NHUẬN RÒNG SAU THUẾ TỨC THÌ MỖI KHI DỮ LIỆU ĐỔI
   useEffect(() => {
-    const res = calculateCitTax(revenues, expenses, incentiveInfo, orgModel);
+    const res = calculateCitTax(
+      revenues,
+      expenses,
+      incentiveInfo,
+      orgModel,
+      citTierResult.taxRate,
+      citTierResult.taxRatePercentText,
+    );
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCitCalcResult(res);
-  }, [revenues, expenses, incentiveInfo, orgModel]);
+  }, [revenues, expenses, incentiveInfo, orgModel, citTierResult]);
 
   // Thay đổi Quý / Năm
   const handleQuarterChange = (val: number | 'ALL') => {
@@ -1052,8 +1092,14 @@ export const ContextAuditPage: React.FC = () => {
         return false;
       }
 
-      const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
-
+      const res = calculateCitTax(
+        parsed.revenues,
+        parsed.expenses,
+        incentiveInfo,
+        orgModel,
+        citTierResult.taxRate,
+        citTierResult.taxRatePercentText,
+      );
       // 📥 TỰ ĐỘNG LƯU FILE VÀO KHO HỒ SƠ & BẰNG CHỨNG
       try {
         const formData = new FormData();
@@ -1415,18 +1461,11 @@ export const ContextAuditPage: React.FC = () => {
     }
   }, [displayedFacts]);
 
-  // Tính toán chi phí: 25 Credit / thẻ
-  const totalCost = selectedFactIds.length * COST_PER_CARD;
-  const currentBalance = wallet?.balance ?? (wallet as any)?.soDu ?? 40;
-  const isBalanceSufficient = currentBalance >= totalCost;
-  const missingCredit = Math.max(0, totalCost - currentBalance);
+  // Quyền lợi gói thuê bao: Rà soát không giới hạn
+  const isBalanceSufficient = true;
 
   // GỌI API RÀ SOÁT BỐI CẢNH (BATCH AUDIT DÀNH CHO CÁC PHÂN HỆ KHÁC)
   const handleStartAudit = async () => {
-    if (!isBalanceSufficient) {
-      message.error(`Số dư Ví CELRA không đủ. Bạn đang thiếu ${missingCredit} Credit. Vui lòng nạp thêm.`);
-      return;
-    }
 
     setIsProcessing(true);
     setStep('scanning');
@@ -1531,17 +1570,6 @@ export const ContextAuditPage: React.FC = () => {
       setIsCreatingAll(false);
     }
   };
-
-  const handleDepositQuick = async () => {
-    try {
-      await buyPackage('PKG_120');
-      message.success('Đã nạp gói (+120 Credit) vào ví CELRA thành công!');
-      await fetchWallet();
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi khi nạp Credit');
-    }
-  };
-
   const getModuleTag = (groupKey?: string) => {
     switch (groupKey) {
       case 'thue_ke_toan': return 'MODULE 1: THUẾ TNDN';
@@ -1757,9 +1785,9 @@ export const ContextAuditPage: React.FC = () => {
                     {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
                   </div>
                   <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                    <span>Tạm nộp 80%: <strong className="text-slate-700 font-mono">{citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ</strong></span>
-                    <span className="font-bold text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded">
-                      {citSummary.taxRate ? (citSummary.taxRate * 100).toFixed(0) + '%' : '20%'}
+                    <span>Tạm nộp 80%: <strong className="text-slate-700 font-mono">{(citCalcResult?.statutoryPrepayment80 || citSummary.statutoryPrepayment80).toLocaleString('vi-VN')} đ</strong></span>
+                    <span className={`font-bold text-[10px] px-2 py-0.5 rounded border ${citTierResult.badgeColor}`}>
+                      {citTierResult.taxRatePercentText}
                     </span>
                   </div>
                 </div>
@@ -1786,6 +1814,27 @@ export const ContextAuditPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* BANNER THÔNG TIN THUẾ SUẤT TNDN 2026 & CĂN CỨ PHÁP LUẬT */}
+              <div className="bg-gradient-to-r from-teal-50 via-emerald-50 to-blue-50 border border-teal-200/80 rounded-xl p-3.5 mb-5 flex items-center justify-between flex-wrap gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${citTierResult.badgeColor}`}>
+                      {citTierResult.title}
+                    </span>
+                    <span className="text-xs text-slate-700 font-medium">
+                      {citTierResult.explanation}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Căn cứ pháp lý: <strong>{citTierResult.legalBasis}</strong>
+                  </div>
+                </div>
+                {citTierResult.isExempted && (
+                  <Tag color="green" className="font-bold text-xs m-0">
+                    ✓ ĐỦ ĐIỀU KIỆN XÉT MIỄN THUẾ
+                  </Tag>
+                )}
+              </div>
               {/* THÔNG BÁO CHẾ ĐỘ CẢ NĂM (TỰ ĐỘNG GỘP 4 QUÝ CHUẨN KẾ TOÁN) */}
               {taxQuarter === 'ALL' && (
                 <Alert
@@ -2119,11 +2168,11 @@ export const ContextAuditPage: React.FC = () => {
               {/* FOOTER BƯỚC 1: XÁC NHẬN CHI PHÍ */}
               <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="text-xs text-slate-600">
-                  Tổng chi phí rà soát:{' '}
+                  Chế độ phân tích:{' '}
                   <strong className="text-teal-700 font-mono text-sm">
-                    {totalCost.toLocaleString('vi-VN')} Credit
+                    Trọn gói Subscription
                   </strong>{' '}
-                  ({selectedFactIds.length} thẻ $\times$ {COST_PER_CARD} Credit).
+                  ({selectedFactIds.length} thẻ bối cảnh).
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2152,13 +2201,13 @@ export const ContextAuditPage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6 max-w-2xl mx-auto">
           <div className="text-center space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 mx-auto flex items-center justify-center">
-              <Wallet className="w-6 h-6" />
+              <ShieldCheck className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-black text-slate-800 m-0">
-              Xác Nhận Thanh Toán Phí Kiểm Toán Rà Soát
+              Xác Nhận Rà Soát Tuân Thủ Bối Cảnh
             </h3>
             <p className="text-xs text-slate-500 m-0">
-              Phí dịch vụ sẽ được trừ trực tiếp từ số dư Ví CELRA của doanh nghiệp bạn.
+              Tính năng nằm trong gói thuê bao của bạn. Hệ thống sẽ đối soát dữ liệu và phân tích rủi ro tức thì.
             </p>
           </div>
 
@@ -2168,37 +2217,22 @@ export const ContextAuditPage: React.FC = () => {
               <span className="font-bold text-slate-800">{selectedFactIds.length} thẻ trọn gói</span>
             </div>
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-              <span className="text-slate-500">Đơn giá mỗi thẻ:</span>
-              <span className="font-mono text-slate-700">{COST_PER_CARD} Credit</span>
+              <span className="text-slate-500">Chế độ phân tích:</span>
+              <span className="font-semibold text-teal-800">Trọn gói Subscription</span>
             </div>
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200 text-sm">
-              <span className="font-bold text-slate-800">Tổng phí thanh toán:</span>
-              <span className="font-mono font-black text-teal-700 text-base">{totalCost} Credit</span>
-            </div>
-            <div className="flex justify-between items-center pt-1">
-              <span className="text-slate-500">Số dư ví hiện tại:</span>
-              <span className="font-mono font-bold text-slate-800">{currentBalance} Credit</span>
+            <div className="flex justify-between items-center pt-1 text-sm">
+              <span className="font-bold text-slate-800">Chi phí phát sinh thêm:</span>
+              <span className="font-mono font-black text-emerald-600 text-base">0 ₫ (Miễn phí theo gói)</span>
             </div>
           </div>
 
-          {!isBalanceSufficient && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-2">
-              <div className="flex items-center gap-2 font-bold">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>Số dư không đủ để thực hiện (Thiếu {missingCredit} Credit)</span>
-              </div>
-              <p className="m-0 text-[11px]">
-                Vui lòng nạp nhanh gói Credit để tiếp tục quy trình kiểm toán tuân thủ.
-              </p>
-              <Button
-                type="primary"
-                onClick={handleDepositQuick}
-                className="bg-rose-600 hover:bg-rose-700 border-none font-bold text-xs rounded-xl h-8.5"
-              >
-                Nạp Nhanh +120 Credit
-              </Button>
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <span className="font-bold block">Gói Dịch Vụ Đang Hoạt Động</span>
+              <span className="text-[11px] text-emerald-700">Đủ điều kiện rà soát và tạo danh mục kiểm tra tuân thủ.</span>
             </div>
-          )}
+          </div>
 
           <div className="flex items-center justify-between pt-2">
             <Button onClick={() => setStep('select')} className="rounded-xl text-xs font-semibold h-10 px-4">

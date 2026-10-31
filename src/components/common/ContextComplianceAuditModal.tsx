@@ -24,20 +24,19 @@ import { useOrgStore } from '../../store/useOrgStore';
 import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData, type ParsedCitData } from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
+import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
 import { EtaxPaymentGuideModal } from '../tax/EtaxPaymentGuideModal';
 import type { ContextFact, AuditFindingItem, ContextComplianceAuditModalProps } from '../../interfaces';
 import { 
   ShieldCheck, 
   X, 
   CheckCircle2, 
-  Wallet, 
   ArrowRight, 
   Sparkles, 
   PlusCircle, 
   ExternalLink,
   Coins,
   Check,
-  AlertTriangle
 } from 'lucide-react';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from '../../pages/Context/ContextPage';
@@ -46,7 +45,6 @@ import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from '../../pages/Context/
 
 
 
-const COST_PER_CARD = 25; // 25 Credit / thẻ bối cảnh
 
 // Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế & Hóa đơn
 // eslint-disable-next-line react-refresh/only-export-components
@@ -181,7 +179,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 }) => {
   const navigate = useNavigate();
   const { facts, fetchFacts } = useContextStore();
-  const { wallet, fetchWallet, buyPackage } = useWalletStore();
+  const { fetchWallet } = useWalletStore();
 
   const [activeTab, setActiveTab] = useState<string>('thue_ke_toan');
   const [step, setStep] = useState<'select' | 'confirm' | 'scanning' | 'results'>('select');
@@ -249,12 +247,8 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     }
   }, [isOpen, displayedFacts]);
 
-  // Tính toán chi phí: 25 Credit / thẻ
-  const totalCost = selectedFactIds.length * COST_PER_CARD;
-  const currentBalance = wallet?.balance ?? (wallet as any)?.soDu ?? 40;
-  const isBalanceSufficient = currentBalance >= totalCost;
-  const missingCredit = Math.max(0, totalCost - currentBalance);
-
+  // Quyền lợi gói thuê bao: Rà soát không giới hạn
+  const isBalanceSufficient = true;
   // 🏢 DỮ LIỆU DOANH NGHIỆP & DỰ TOÁN THUẾ TNDN QUA EXCEL
   const { activeOrg } = useOrgStore();
   const currentYear = useMemo(() => new Date().getFullYear(), []);
@@ -352,6 +346,39 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     return detectTaxIncentiveZone(orgAddress);
   }, [orgAddress]);
 
+  // Rà soát thuế suất TNDN động theo Luật Thuế TNDN 67/2025 & NĐ 141/2026, NĐ 20/2026
+  const citTierResult: CitTaxTierResult = useMemo(() => {
+    let priorRev = 0;
+    let priorMonths = 12;
+    let isFirstStartup = false;
+    let hasRelated = false;
+
+    if (activeOrg?.id) {
+      try {
+        const raw = localStorage.getItem(`celra_survey_profile_${activeOrg.id}`);
+        if (raw) {
+          const p = JSON.parse(raw);
+          priorRev = p.annualRevenue || 0;
+          priorMonths = p.operatingMonthsPriorYear || 12;
+          isFirstStartup = Boolean(p.isFirstTimeStartup);
+          hasRelated = Boolean(p.hasRelatedParty);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return determineCitTaxRate({
+      priorYearRevenue: priorRev,
+      operatingMonthsPriorYear: priorMonths,
+      isNewlyEstablished: activeOrg?.revenueStatus === 'newly_established',
+      isFirstTimeStartup: isFirstStartup,
+      hasRelatedParty: hasRelated,
+      zoneTaxRate: incentiveInfo.taxRate,
+      zoneTitle: incentiveInfo.title,
+      zoneLegalBasis: incentiveInfo.legalBasis,
+    });
+  }, [activeOrg, incentiveInfo]);
   // Tự động khôi phục dữ liệu Thu - Chi từ Cơ sở dữ liệu PostgreSQL khi mở Modal hoặc đổi Kỳ
   const loadCitFromDb = useCallback(async (quarter: number | 'ALL', year: number) => {
     try {
@@ -383,7 +410,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           })),
         };
         setParsedExcelData(parsed);
-        const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
+        const res = calculateCitTax(
+          parsed.revenues,
+          parsed.expenses,
+          incentiveInfo,
+          orgModel,
+          citTierResult.taxRate,
+          citTierResult.taxRatePercentText,
+        );
         setCitCalcResult(res);
       } else {
         setParsedExcelData(null);
@@ -416,8 +450,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
         setTaxQuarter(detected.quarter);
       }
 
-      const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
-      setCitCalcResult(res);
+      const res = calculateCitTax(
+        parsed.revenues,
+        parsed.expenses,
+        incentiveInfo,
+        orgModel,
+        citTierResult.taxRate,
+        citTierResult.taxRatePercentText,
+      );
       setParsedExcelData(parsed);
 
       // 💾 LƯU DỮ LIỆU VĨNH VIỄN VÀO CƠ SỞ DỮ LIỆU POSTGRESQL QUA API NESTJS
@@ -483,10 +523,6 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
 
   // 1. GỌI API RÀ SOÁT BỐI CẢNH (BATCH AUDIT)
   const handleStartAudit = async () => {
-    if (!isBalanceSufficient) {
-      message.error(`Số dư Ví CELRA không đủ. Bạn đang thiếu ${missingCredit} Credit. Vui lòng nạp thêm.`);
-      return;
-    }
 
     setIsProcessing(true);
     setStep('scanning');
@@ -595,17 +631,6 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
       message.error(err?.message || 'Lỗi khi xác nhận tạo toàn bộ Checklist');
     } finally {
       setIsCreatingAll(false);
-    }
-  };
-
-  // Nạp nhanh gói Credit
-  const handleDepositQuick = async () => {
-    try {
-      await buyPackage('PKG_120');
-      message.success('Đã nạp gói (+120 Credit) vào ví CELRA thành công!');
-      await fetchWallet();
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi khi nạp Credit');
     }
   };
 
@@ -763,11 +788,11 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                     <div className="bg-white/90 border border-amber-200/90 rounded-xl px-3.5 py-2 shrink-0 flex items-center gap-2.5 shadow-xs">
                       <CompassOutlined className="text-teal-600 text-base" />
                       <div>
-                        <span className="text-[10px] text-slate-500 font-bold uppercase block">Ưu đãi vùng & Thuế suất:</span>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase block">Thuế suất TNDN 2026:</span>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-800">{incentiveInfo.title}</span>
-                          <Tag color={incentiveInfo.tier === 'ZONE_STANDARD' ? 'default' : 'success'} className="font-extrabold text-xs m-0">
-                            {incentiveInfo.taxRatePercentText}
+                          <span className="text-xs font-bold text-slate-800">{citTierResult.title}</span>
+                          <Tag color="purple" className="font-extrabold text-xs m-0">
+                            {citTierResult.taxRatePercentText}
                           </Tag>
                         </div>
                       </div>
@@ -1050,10 +1075,10 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                           <div className="space-y-1.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="px-2 py-0.5 rounded-md bg-teal-400/20 text-teal-300 text-[11px] font-black uppercase tracking-wider border border-teal-400/30">
-                                % Thuế Suất Áp Dụng: {citCalcResult.incentiveInfo.taxRatePercentText}
+                                % Thuế Suất Áp Dụng: {citCalcResult.taxRatePercentText || citTierResult.taxRatePercentText}
                               </span>
                               <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-300 text-[11px] font-medium border border-white/10">
-                                {incentiveInfo.title}
+                                {citTierResult.title}
                               </span>
                               <span className="text-xs text-slate-300">
                                 Thu nhập tính thuế: <strong className="font-mono text-white">{citCalcResult.assessableIncome.toLocaleString('vi-VN')} đ</strong>
@@ -1205,14 +1230,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           {step === 'confirm' && (
             <div className="max-w-2xl mx-auto py-4 space-y-5">
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Coins className="w-6 h-6" />
+                <div className="w-12 h-12 bg-teal-100 text-teal-700 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                  <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h4 className="text-base font-bold text-slate-900">
-                  Xác nhận Chi phí Lượt Rà soát Tuân thủ
+                  Xác nhận Rà soát Tuân thủ Bối cảnh
                 </h4>
                 <p className="text-xs text-slate-600">
-                  Hệ thống sẽ khấu trừ số dư Credit ví CELRA để cấp quyền rà soát tức thì.
+                  Tính năng được cấp quyền tự động theo gói thuê bao của doanh nghiệp.
                 </p>
               </div>
 
@@ -1225,51 +1250,31 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <span className="text-xs text-slate-600 font-medium">Đơn giá kiểm toán tuân thủ / thẻ:</span>
-                  <span className="text-xs font-semibold text-slate-800">{COST_PER_CARD} Credit / thẻ</span>
+                  <span className="text-xs text-slate-600 font-medium">Chế độ phân tích:</span>
+                  <span className="text-xs font-semibold text-teal-800">Trọn gói theo Subscription</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-bold text-slate-900">Tổng Credit cần thanh toán:</span>
-                  <span className="text-lg font-extrabold text-teal-700">{totalCost} Credit</span>
+                  <span className="text-sm font-bold text-slate-900">Chi phí phát sinh thêm:</span>
+                  <span className="text-lg font-extrabold text-emerald-600">0 ₫ (Đã bao gồm trong gói)</span>
                 </div>
               </div>
 
-              {/* KHUNG SỐ DƯ VÍ CREDIT */}
-              <div
-                className={`p-4 rounded-xl border ${
-                  isBalanceSufficient 
-                    ? 'bg-emerald-50/70 border-emerald-200' 
-                    : 'bg-rose-50/70 border-rose-200'
-                }`}
-              >
+              {/* KHUNG TRẠNG THÁI GÓI DỊCH VỤ */}
+              <div className="p-4 rounded-xl border bg-emerald-50/70 border-emerald-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${isBalanceSufficient ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                      <Wallet className="w-5 h-5" />
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                      <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500 font-medium">Số dư Ví Credit hiện tại:</div>
-                      <div className="text-base font-extrabold text-slate-900">{currentBalance} Credit</div>
+                      <div className="text-xs text-slate-500 font-medium">Trạng thái quyền lợi:</div>
+                      <div className="text-base font-extrabold text-slate-900">Gói Thuê Bao Đang Kích Hoạt</div>
                     </div>
                   </div>
 
-                  {!isBalanceSufficient ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> Thiếu {missingCredit} Credit
-                      </span>
-                      <button
-                        onClick={handleDepositQuick}
-                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                      >
-                        + Nạp 120 Credit ngay
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full">
-                      ✓ Đủ điều kiện thanh toán
-                    </span>
-                  )}
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full">
+                    ✓ Sẵn sàng rà soát
+                  </span>
                 </div>
               </div>
 
@@ -1464,9 +1469,9 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           {step === 'select' && (
             <>
               <div className="text-xs text-slate-600">
-                Tổng chi phí:{' '}
-                <strong className="text-teal-800 text-sm font-extrabold">{totalCost} đ</strong>{' '}
-                <span className="text-slate-500">({selectedFactIds.length} thẻ × {COST_PER_CARD}đ)</span>
+                Chế độ rà soát:{' '}
+                <strong className="text-teal-800 text-sm font-extrabold">Trọn gói Subscription</strong>{' '}
+                <span className="text-slate-500">({selectedFactIds.length} thẻ bối cảnh)</span>
               </div>
               <div className="flex items-center gap-2">
                 <button

@@ -24,7 +24,7 @@ const { Text } = Typography;
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register, dangKy, isLoading, dangTai } = useAuthStore();
+  const { register, isLoading } = useAuthStore();
   const [formValues, setFormValues] = React.useState<any>(null);
   const [isOtpModalOpen, setIsOtpModalOpen] = React.useState(false);
   const [otpCode, setOtpCode] = React.useState("");
@@ -78,15 +78,11 @@ export const RegisterPage: React.FC = () => {
 
     try {
       setIsSubmittingOtp(true);
-      const registerMethod = dangKy || register;
-      await registerMethod({
+      await register({
         name: formValues.fullName,
-        hoVaTen: formValues.fullName,
         email: formValues.email,
         password: formValues.password,
-        matKhau: formValues.password,
         phone: formValues.phoneNumber,
-        soDienThoai: formValues.phoneNumber,
         otp: otpCode,
       });
 
@@ -248,7 +244,7 @@ export const RegisterPage: React.FC = () => {
         <Button
           type="primary"
           htmlType="submit"
-          loading={isLoading || dangTai || isSendingOtp}
+          loading={isLoading || isSendingOtp}
           block
           style={{
             height: 42,

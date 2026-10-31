@@ -10,16 +10,13 @@ import {
   Space,
   Spin,
   message,
-  Badge,
   Alert,
   Modal,
 } from 'antd';
 import {
   BookOutlined,
-  ThunderboltOutlined,
   CloudSyncOutlined,
   ClockCircleOutlined,
-  ApiOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   DiffOutlined,
@@ -34,7 +31,6 @@ export const AdminDLPLQuotaPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [quotaData, setQuotaData] = useState<any>(null);
-  const [aiData, setAiData] = useState<any>(null);
   const [rules, setRules] = useState<any[]>([]);
 
   // Hàng đợi các thay đổi quy định từ DLPL chờ Admin xác minh (Human-in-the-Loop)
@@ -84,13 +80,11 @@ export const AdminDLPLQuotaPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [quotaRes, aiRes, rulesRes]: [any, any, any] = await Promise.all([
+      const [quotaRes, rulesRes]: [any, any] = await Promise.all([
         apiClient.get('/admin/dlpl/quota'),
-        apiClient.get('/admin/ai/status'),
         apiClient.get('/rules'),
       ]);
       setQuotaData(quotaRes);
-      setAiData(aiRes);
       setRules(Array.isArray(rulesRes) ? rulesRes : []);
     } catch (err: any) {
       message.error('Không thể tải thông tin Quota: ' + (err.message || 'Lỗi'));
@@ -127,7 +121,7 @@ export const AdminDLPLQuotaPage: React.FC = () => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '100px 0' }}>
-        <Spin size="large" tip="Đang kiểm tra kết nối API Dữ Liệu Pháp Luật & Trợ lý AI..." />
+        <Spin size="large" tip="Đang kiểm tra kết nối API Dữ Liệu Pháp Luật..." />
       </div>
     );
   }
@@ -183,8 +177,11 @@ export const AdminDLPLQuotaPage: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <Title level={3} style={{ margin: 0, color: '#0f172a' }}>
-            Quản Trị Đồng Bộ DLPL & Giám Sát Quota AI
+            Quản Trị Tri Thức Luật
           </Title>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            Đồng bộ văn bản luật từ Cổng Dữ Liệu Pháp Luật Việt Nam (dulieuphapluat.vn) và kiểm soát bộ quy tắc tuân thủ.
+          </Text>
         </div>
         <Button
           type="primary"
@@ -255,52 +252,55 @@ export const AdminDLPLQuotaPage: React.FC = () => {
         />
       )}
 
-      {/* Main Row: DLPL Quota vs AI Engine Status */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {/* Card 1: Dữ Liệu Pháp Luật (DLPL) */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <Space>
-                <BookOutlined style={{ color: '#2563eb' }} />
-                <span>Hạn Mức & Đồng Bộ API Dữ Liệu Pháp Luật (DLPL)</span>
-              </Space>
-            }
-            bordered={false}
-            style={{ borderRadius: 12, height: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-          >
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>SỐ LƯỢT GỌI API CÒN LẠI TRONG THÁNG</Text>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: '#2563eb' }}>
-                    {quotaData?.remainingCalls || 0}{' '}
-                    <span style={{ fontSize: 16, fontWeight: 400, color: '#64748b' }}>
-                      / {quotaData?.totalMonthlyLimit || 1000} lượt
-                    </span>
-                  </div>
-                </div>
-                <Tag color="green" style={{ fontSize: 12, padding: '4px 8px' }}>
-                  Đã dùng {quotaData?.usedCalls || 0} lượt ({quotaData?.usagePercent || 0}%)
-                </Tag>
+      {/* Card: Dữ Liệu Pháp Luật (DLPL) Quota */}
+      <Card
+        title={
+          <Space>
+            <BookOutlined style={{ color: '#2563eb' }} />
+            <span>Hạn Mức &amp; Đồng Bộ API Dữ Liệu Pháp Luật (DLPL)</span>
+          </Space>
+        }
+        bordered={false}
+        style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 24 }}
+      >
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+            <div>
+              <Text type="secondary" style={{ fontSize: 12 }}>SỐ LƯỢT GỌI API CÒN LẠI TRONG THÁNG</Text>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#2563eb' }}>
+                {quotaData?.remainingCalls || 0}{' '}
+                <span style={{ fontSize: 16, fontWeight: 400, color: '#64748b' }}>
+                  / {quotaData?.totalMonthlyLimit || 1000} lượt
+                </span>
               </div>
-
-              <Progress
-                percent={quotaData?.usagePercent || 0}
-                strokeColor="#2563eb"
-                status="active"
-              />
             </div>
+            <Tag color="green" style={{ fontSize: 12, padding: '4px 8px' }}>
+              Đã dùng {quotaData?.usedCalls || 0} lượt ({quotaData?.usagePercent || 0}%)
+            </Tag>
+          </div>
 
-            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, marginBottom: 20 }}>
+          <Progress
+            percent={quotaData?.usagePercent || 0}
+            strokeColor="#2563eb"
+            status="active"
+          />
+        </div>
+
+        <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+          <Col xs={24} md={12}>
+            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, height: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={{ fontSize: 12, color: '#64748b' }}>Nhà cung cấp:</Text>
                 <Text strong>{quotaData?.provider}</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: 12, color: '#64748b' }}>Endpoint kết nối:</Text>
                 <Text code style={{ fontSize: 11 }}>{quotaData?.apiUrl}</Text>
               </div>
+            </div>
+          </Col>
+          <Col xs={24} md={12}>
+            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, height: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={{ fontSize: 12, color: '#64748b' }}>Lần đồng bộ gần nhất:</Text>
                 <Text strong style={{ color: '#16a34a' }}>
@@ -310,117 +310,30 @@ export const AdminDLPLQuotaPage: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: 12, color: '#64748b' }}>Chu kỳ tự động:</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  <ClockCircleOutlined /> 15 ngày/lần (Ngày 1 & 15 hàng tháng)
+                  <ClockCircleOutlined /> 15 ngày/lần (Ngày 1 &amp; 15 hàng tháng)
                 </Text>
               </div>
             </div>
+          </Col>
+        </Row>
 
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 8,
-                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08))',
-                border: '1px solid rgba(37, 99, 235, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <CloudSyncOutlined style={{ color: '#2563eb', fontSize: 20 }} />
-              <div style={{ fontSize: 12, color: '#334155' }}>
-                Hệ thống tự động đồng bộ theo chu kỳ 15 ngày/lần. Sử dụng nút <strong>Cập Nhật API Luật</strong> ở góc trên để đối chiếu và nạp quy tắc mới nhất từ DLPL ngay lập tức.
-              </div>
-            </div>
-          </Card>
-        </Col>
-
-        {/* Card 2: OpenCode Go AI Status */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <Space>
-                <ThunderboltOutlined style={{ color: '#9333ea' }} />
-                <span>Giám Sát Quota & Sức Khỏe AI Copilot (OpenCode Go)</span>
-              </Space>
-            }
-            bordered={false}
-            style={{ borderRadius: 12, height: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-          >
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>TRẠNG THÁI KẾT NỐI MÔ HÌNH</Text>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <Badge status="processing" color="#10b981" />
-                    <span style={{ fontSize: 22, fontWeight: 700, color: '#16a34a' }}>
-                      {aiData?.status || 'ONLINE'}
-                    </span>
-                  </div>
-                </div>
-                <Tag color="purple" style={{ fontSize: 13, padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
-                  Latency: {aiData?.latencyMs || 142} ms
-                </Tag>
-              </div>
-            </div>
-
-            <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
-              <Col span={12}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8 }}>
-                  <Text type="secondary" style={{ fontSize: 11 }}>SỐ YÊU CẦU TRONG NGÀY</Text>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>
-                    {aiData?.todayRequests || 48} <span style={{ fontSize: 12, fontWeight: 400 }}>requests</span>
-                  </div>
-                </div>
-              </Col>
-              <Col span={12}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8 }}>
-                  <Text type="secondary" style={{ fontSize: 11 }}>TOKEN TIÊU THỤ ƯỚC TÍNH</Text>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#9333ea', marginTop: 4 }}>
-                    {(aiData?.estimatedTokensUsed || 62450).toLocaleString('vi-VN')}{' '}
-                    <span style={{ fontSize: 12, fontWeight: 400 }}>tokens</span>
-                  </div>
-                </div>
-              </Col>
-            </Row>
-
-            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Mô hình AI vận hành:</Text>
-                <Text strong code>{aiData?.model}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Chi phí ước tính hôm nay:</Text>
-                <Text strong style={{ color: '#16a34a' }}>~{aiData?.estimatedCostUsd || 0.087} USD</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Ngữ cảnh tối đa (Context Window):</Text>
-                <Text strong>{aiData?.maxContextWindow || '64k tokens'}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Cơ chế bảo vệ (Fallback):</Text>
-                <Tag color="cyan">Tra cứu cục bộ DLPL khi mất mạng</Tag>
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 8,
-                background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.08), rgba(59, 130, 246, 0.08))',
-                border: '1px solid rgba(147, 51, 234, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <ApiOutlined style={{ color: '#9333ea', fontSize: 20 }} />
-              <div style={{ fontSize: 12, color: '#334155' }}>
-                CELRA sử dụng OpenCode Go API để phân tích ngữ cảnh dày và sinh nhiệm vụ tuân thủ tự động theo chuẩn Nghị định & Thông tư Việt Nam.
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: 8,
+            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08))',
+            border: '1px solid rgba(37, 99, 235, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <CloudSyncOutlined style={{ color: '#2563eb', fontSize: 20 }} />
+          <div style={{ fontSize: 12, color: '#334155' }}>
+            Hệ thống tự động đồng bộ theo chu kỳ 15 ngày/lần. Sử dụng nút <strong>Cập Nhật API Luật</strong> ở góc trên để đối chiếu và nạp quy tắc mới nhất từ DLPL ngay lập tức.
+          </div>
+        </div>
+      </Card>
 
       {/* Rules Table */}
       <Card
@@ -439,43 +352,41 @@ export const AdminDLPLQuotaPage: React.FC = () => {
           rowKey="id"
           pagination={{
             pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
-            showTotal: (total: number, range: [number, number]) =>
-              `${range[0]}-${range[1]} trên tổng số ${total} quy tắc`,
+            showTotal: (total: number) => `Tổng số ${total} quy tắc pháp lý`,
           }}
         />
       </Card>
 
-      {/* MODAL SO SÁNH DIFF & PHÊ DUYỆT BỘ CÂU HỎI MỚI (HUMAN-IN-THE-LOOP) */}
+      {/* MODAL SO SÁNH DIFF VÀ PHÊ DUYỆT THAY ĐỔI VĂN BẢN (HUMAN-IN-THE-LOOP) */}
       <Modal
         title={
           <Space>
-            <DiffOutlined style={{ color: '#2563eb' }} />
-            <span>Xác Minh &amp; Ban Hành Bộ Câu Hỏi Tuân Thủ Mới (Human-in-the-Loop)</span>
+            <DiffOutlined style={{ color: '#d97706' }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Phê Duyệt Thay Đổi Quy Định Pháp Luật (Human-in-the-Loop)</span>
           </Space>
         }
         open={verifyModalVisible}
         onCancel={() => setVerifyModalVisible(false)}
-        width={860}
         footer={[
           <Button key="cancel" onClick={() => setVerifyModalVisible(false)}>
-            Đóng
+            Để Sau
           </Button>,
           <Button
-            key="confirm"
+            key="approve"
             type="primary"
-            icon={<SafetyCertificateOutlined />}
-            style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 600 }}
+            style={{ background: '#16a34a', borderColor: '#16a34a' }}
             onClick={handleApproveNewQuestions}
           >
-            Xác Nhận &amp; Ban Hành Bộ Câu Hỏi Mới (v2.0)
+            Phê Duyệt &amp; Kích Hoạt Vi Khảo Sát
           </Button>,
         ]}
+        width={750}
+        centered
+        destroyOnClose
       >
         {activeDiff && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <div style={{ marginBottom: 16, background: '#f8fafc', padding: '10px 14px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Space>
                 <Tag color="blue">{activeDiff.domainLabel}</Tag>
                 <Text code>{activeDiff.ruleCode}</Text>
@@ -485,18 +396,17 @@ export const AdminDLPLQuotaPage: React.FC = () => {
               </Text>
             </div>
 
-            {/* BẢNG SO SÁNH 2 CỘT */}
-            <Row gutter={16}>
-              {/* Cột 1: Hiện tại (Cũ) */}
+            <Row gutter={[16, 16]}>
+              {/* Cột 1: Quy định hiện tại */}
               <Col span={12}>
                 <Card
                   size="small"
-                  title={<span style={{ color: '#64748b' }}>📌 Quy Định &amp; Câu Hỏi Hiện Tại (v1.0)</span>}
-                  style={{ background: '#f8fafc', borderColor: '#cbd5e1', borderRadius: 8 }}
+                  title={<span style={{ color: '#64748b' }}>Quy Định Hiện Tại (Đang áp dụng)</span>}
+                  style={{ background: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 8 }}
                 >
                   <div style={{ marginBottom: 8 }}>
-                    <Text strong style={{ fontSize: 12, color: '#475569' }}>Căn cứ văn bản:</Text>
-                    <div style={{ fontSize: 12, color: '#334155', marginTop: 2 }}>{activeDiff.oldLegal}</div>
+                    <Text strong style={{ fontSize: 12, color: '#475569' }}>Văn bản căn cứ:</Text>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{activeDiff.oldLegal}</div>
                   </div>
                   <div>
                     <Text strong style={{ fontSize: 12, color: '#475569' }}>Nội dung câu hỏi khảo sát:</Text>

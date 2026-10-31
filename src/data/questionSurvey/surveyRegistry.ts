@@ -40,34 +40,8 @@ export function isGroupSurveyCompleted(facts: ContextFact[], groupKey: string): 
   if (!facts) return false;
 
   if (groupKey === 'thue_ke_toan') {
-    // Phân hệ Thuế TNDN: Phải có ít nhất 1 câu hỏi tình huống thuế đã trả lời
-    const hasTaxSurveyFacts = facts.some((f) => {
-      if (f.group !== 'thue_ke_toan') return false;
-      const k = f.key || '';
-      return (
-        k.startsWith('q_tax_') ||
-        k === 'q_tax_corp_1' ||
-        k === 'q_tax_corp_2' ||
-        k === 'q_tax_monbai' ||
-        k === 'q_tax_tncn_withholding' ||
-        k === 'q_tax_corp_fct_ads' ||
-        k === 'fact-tax-1'
-      );
-    });
-
-    if (hasTaxSurveyFacts) return true;
-
-    // Kiểm tra thêm flag đánh dấu khảo sát thuế đã hoàn thành trong localStorage riêng của doanh nghiệp này
-    try {
-      const activeOrgId = localStorage.getItem('celra_active_org_id');
-      if (activeOrgId && localStorage.getItem(`celra_survey_tax_completed_${activeOrgId}`) === 'true') {
-        return true;
-      }
-    } catch {
-      // Ignore
-    }
-
-    return false;
+    // Phân hệ Thuế TNDN hoạt động thuần túy qua Sổ Thu Chi & Kê khai Excel (Zero survey requirement)
+    return true;
   }
 
   // Các phân hệ khác: Kiểm tra xem đã có dữ kiện nào thuộc nhóm đó chưa

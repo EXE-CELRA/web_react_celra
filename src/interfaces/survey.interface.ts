@@ -28,9 +28,12 @@ export interface BaseProfile {
   companyName: string;
   employeeScale: EmployeeScale;
   employeeCount?: number;
-  annualRevenue?: number;
+  annualRevenue?: number; // Doanh thu năm trước liền kề
+  operatingMonthsPriorYear?: number; // Số tháng hoạt động thực tế năm trước (1-12)
+  isFirstTimeStartup?: boolean; // Doanh nghiệp vừa & nhỏ đăng ký lần đầu (xét miễn thuế 3 năm)
+  hasRelatedParty?: boolean; // Có quan hệ công ty con / giao dịch liên kết
   charterCapital?: number;
-  isNewlyEstablished?: boolean;
+  isNewlyEstablished?: boolean; // Thành lập trong năm hiện tại
   requiresLaborRuleBook: boolean;
   companyTypeTag: CompanyTypeTag;
   industryTags: IndustryTag[];

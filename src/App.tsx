@@ -54,8 +54,8 @@ const EvidencePage = React.lazy(() =>
     default: m.EvidencePage,
   })),
 );
-const WalletPage = React.lazy(() =>
-  import("./pages/Wallet/WalletPage").then((m) => ({ default: m.WalletPage })),
+const SubscriptionPage = React.lazy(() =>
+  import("./pages/Subscription/SubscriptionPage").then((m) => ({ default: m.SubscriptionPage })),
 );
 const MobileSandboxPaymentPage = React.lazy(() =>
   import("./pages/Payment/MobileSandboxPaymentPage").then((m) => ({
@@ -75,6 +75,11 @@ const AdminEnterprisesPage = React.lazy(() =>
 const AdminDLPLQuotaPage = React.lazy(() =>
   import("./pages/Admin/AdminDLPLQuotaPage").then((m) => ({
     default: m.AdminDLPLQuotaPage,
+  })),
+);
+const AdminAIQuotaPage = React.lazy(() =>
+  import("./pages/Admin/AdminAIQuotaPage").then((m) => ({
+    default: m.AdminAIQuotaPage,
   })),
 );
 const AdminFinancePage = React.lazy(() =>
@@ -149,7 +154,8 @@ export const App: React.FC = () => {
                   element={<Navigate to="/tasks" replace />}
                 />
                 <Route path="/evidence" element={<EvidencePage />} />
-                <Route path="/wallet" element={<WalletPage />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
+                <Route path="/wallet" element={<SubscriptionPage />} />
               </Route>
             </Route>
 
@@ -171,6 +177,10 @@ export const App: React.FC = () => {
                 <Route
                   path="/admin/dlpl-quota"
                   element={<AdminDLPLQuotaPage />}
+                />
+                <Route
+                  path="/admin/ai-quota"
+                  element={<AdminAIQuotaPage />}
                 />
                 <Route path="/admin/finance" element={<AdminFinancePage />} />
                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
