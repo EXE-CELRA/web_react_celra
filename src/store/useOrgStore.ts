@@ -26,45 +26,28 @@ export const resetTenantStores = () => {
   try {
     useContextStore.setState({
       facts: [],
-      danhSachDuKien: [],
       factHistories: [],
-      lichSuDuKien: [],
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
 
     useTaskStore.setState({
       tasks: [],
-      danhSachNhiemVu: [],
       selectedTask: null,
-      nhiemVuChon: null,
       comments: [],
-      binhLuan: [],
       notifications: [],
-      thongBao: [],
       unreadNotificationsCount: 0,
-      soThongBaoChuaDoc: 0,
       checklists: [],
-      danhMucKiemTra: [],
       calendarNotes: [],
-      ghiChuLich: [],
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
 
     useWalletStore.setState({
       wallet: null,
-      thongTinVi: null,
       ledgers: [],
-      danhSachGiaoDich: [],
       isLoading: false,
-      dangTai: false,
       error: null,
-      loi: null,
     });
   } catch (err) {
     console.warn('Lỗi khi dọn dẹp tenant stores:', err);
@@ -73,27 +56,19 @@ export const resetTenantStores = () => {
 
 interface OrgState {
   organizations: Organization[];
-  danhSachDoanhNghiep: Organization[];
   activeOrg: Organization | null;
-  doanhNghiepHienTai: Organization | null;
   isLoading: boolean;
-  dangTai: boolean;
   error: string | null;
-  loi: string | null;
 
   fetchMyOrganizations: () => Promise<void>;
-  layDanhSachDoanhNghiep: () => Promise<void>;
   setActiveOrg: (org: Organization) => void;
-  datDoanhNghiepHienTai: (org: Organization) => void;
   submitOnboarding: (data: any) => Promise<Organization>;
-  nopHoSoKhoiTao: (data: any) => Promise<Organization>;
   fetchOrgDetails: (id: string) => Promise<void>;
-  layChiTietDoanhNghiep: (id: string) => Promise<void>;
 }
 
 export const useOrgStore = create<OrgState>((set) => {
   const fetchMyOrgsFn = async () => {
-    set({ isLoading: true, dangTai: true });
+    set({ isLoading: true });
     try {
       const res: any = await apiClient.get('/organizations/my-workspaces');
       const list = Array.isArray(res) ? res : [];
@@ -105,25 +80,23 @@ export const useOrgStore = create<OrgState>((set) => {
         localStorage.setItem('celra_active_org_id', currentActive.id);
       } else {
         localStorage.removeItem('celra_active_org_id');
+        resetTenantStores();
       }
 
       set({
         organizations: list,
-        danhSachDoanhNghiep: list,
         activeOrg: currentActive,
-        doanhNghiepHienTai: currentActive,
         isLoading: false,
-        dangTai: false,
       });
     } catch (err: any) {
-      set({ error: err.message, loi: err.message, isLoading: false, dangTai: false });
+      set({ error: err.message, isLoading: false });
     }
   };
 
   const setActiveOrgFn = (org: Organization) => {
     localStorage.setItem('celra_active_org_id', org.id);
     resetTenantStores();
-    set({ activeOrg: org, doanhNghiepHienTai: org });
+    set({ activeOrg: org });
 
     // Kích hoạt nạp mới ngay lập tức các phân hệ cho doanh nghiệp mới
     try {
@@ -136,7 +109,7 @@ export const useOrgStore = create<OrgState>((set) => {
   };
 
   const submitOnboardingFn = async (data: any) => {
-    set({ isLoading: true, dangTai: true, error: null, loi: null });
+    set({ isLoading: true, error: null });
     try {
       const res: any = await apiClient.post('/organizations/onboarding', data);
       localStorage.setItem('celra_active_org_id', res.id);
@@ -145,16 +118,13 @@ export const useOrgStore = create<OrgState>((set) => {
         const updatedList = [res, ...state.organizations.filter((o) => o.id !== res.id)];
         return {
           organizations: updatedList,
-          danhSachDoanhNghiep: updatedList,
           activeOrg: res,
-          doanhNghiepHienTai: res,
           isLoading: false,
-          dangTai: false,
         };
       });
       return res;
     } catch (err: any) {
-      set({ error: err.message, loi: err.message, isLoading: false, dangTai: false });
+      set({ error: err.message, isLoading: false });
       throw err;
     }
   };
@@ -162,7 +132,7 @@ export const useOrgStore = create<OrgState>((set) => {
   const fetchOrgDetailsFn = async (id: string) => {
     try {
       const res: any = await apiClient.get(`/organizations/${id}`);
-      set({ activeOrg: res, doanhNghiepHienTai: res });
+      set({ activeOrg: res });
     } catch (err) {
       console.error(err);
     }
@@ -170,21 +140,13 @@ export const useOrgStore = create<OrgState>((set) => {
 
   return {
     organizations: [],
-    danhSachDoanhNghiep: [],
     activeOrg: null,
-    doanhNghiepHienTai: null,
     isLoading: false,
-    dangTai: false,
     error: null,
-    loi: null,
 
     fetchMyOrganizations: fetchMyOrgsFn,
-    layDanhSachDoanhNghiep: fetchMyOrgsFn,
     setActiveOrg: setActiveOrgFn,
-    datDoanhNghiepHienTai: setActiveOrgFn,
     submitOnboarding: submitOnboardingFn,
-    nopHoSoKhoiTao: submitOnboardingFn,
     fetchOrgDetails: fetchOrgDetailsFn,
-    layChiTietDoanhNghiep: fetchOrgDetailsFn,
   };
 });

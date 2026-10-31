@@ -77,6 +77,11 @@ const AdminDLPLQuotaPage = React.lazy(() =>
     default: m.AdminDLPLQuotaPage,
   })),
 );
+const AdminAIQuotaPage = React.lazy(() =>
+  import("./pages/Admin/AdminAIQuotaPage").then((m) => ({
+    default: m.AdminAIQuotaPage,
+  })),
+);
 const AdminFinancePage = React.lazy(() =>
   import("./pages/Admin/AdminFinancePage").then((m) => ({
     default: m.AdminFinancePage,
@@ -172,6 +177,10 @@ export const App: React.FC = () => {
                 <Route
                   path="/admin/dlpl-quota"
                   element={<AdminDLPLQuotaPage />}
+                />
+                <Route
+                  path="/admin/ai-quota"
+                  element={<AdminAIQuotaPage />}
                 />
                 <Route path="/admin/finance" element={<AdminFinancePage />} />
                 <Route path="/admin/settings" element={<AdminSettingsPage />} />

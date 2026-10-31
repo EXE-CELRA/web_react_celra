@@ -24,6 +24,7 @@ import { useOrgStore } from '../../store/useOrgStore';
 import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData, type ParsedCitData } from '../../utils/excelTaxTemplate';
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
+import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
 import { EtaxPaymentGuideModal } from '../tax/EtaxPaymentGuideModal';
 import type { ContextFact, AuditFindingItem, ContextComplianceAuditModalProps } from '../../interfaces';
 import { 
@@ -345,6 +346,39 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     return detectTaxIncentiveZone(orgAddress);
   }, [orgAddress]);
 
+  // Rà soát thuế suất TNDN động theo Luật Thuế TNDN 67/2025 & NĐ 141/2026, NĐ 20/2026
+  const citTierResult: CitTaxTierResult = useMemo(() => {
+    let priorRev = 0;
+    let priorMonths = 12;
+    let isFirstStartup = false;
+    let hasRelated = false;
+
+    if (activeOrg?.id) {
+      try {
+        const raw = localStorage.getItem(`celra_survey_profile_${activeOrg.id}`);
+        if (raw) {
+          const p = JSON.parse(raw);
+          priorRev = p.annualRevenue || 0;
+          priorMonths = p.operatingMonthsPriorYear || 12;
+          isFirstStartup = Boolean(p.isFirstTimeStartup);
+          hasRelated = Boolean(p.hasRelatedParty);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return determineCitTaxRate({
+      priorYearRevenue: priorRev,
+      operatingMonthsPriorYear: priorMonths,
+      isNewlyEstablished: activeOrg?.revenueStatus === 'newly_established',
+      isFirstTimeStartup: isFirstStartup,
+      hasRelatedParty: hasRelated,
+      zoneTaxRate: incentiveInfo.taxRate,
+      zoneTitle: incentiveInfo.title,
+      zoneLegalBasis: incentiveInfo.legalBasis,
+    });
+  }, [activeOrg, incentiveInfo]);
   // Tự động khôi phục dữ liệu Thu - Chi từ Cơ sở dữ liệu PostgreSQL khi mở Modal hoặc đổi Kỳ
   const loadCitFromDb = useCallback(async (quarter: number | 'ALL', year: number) => {
     try {
@@ -376,7 +410,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
           })),
         };
         setParsedExcelData(parsed);
-        const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
+        const res = calculateCitTax(
+          parsed.revenues,
+          parsed.expenses,
+          incentiveInfo,
+          orgModel,
+          citTierResult.taxRate,
+          citTierResult.taxRatePercentText,
+        );
         setCitCalcResult(res);
       } else {
         setParsedExcelData(null);
@@ -409,8 +450,14 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
         setTaxQuarter(detected.quarter);
       }
 
-      const res = calculateCitTax(parsed.revenues, parsed.expenses, incentiveInfo, orgModel);
-      setCitCalcResult(res);
+      const res = calculateCitTax(
+        parsed.revenues,
+        parsed.expenses,
+        incentiveInfo,
+        orgModel,
+        citTierResult.taxRate,
+        citTierResult.taxRatePercentText,
+      );
       setParsedExcelData(parsed);
 
       // 💾 LƯU DỮ LIỆU VĨNH VIỄN VÀO CƠ SỞ DỮ LIỆU POSTGRESQL QUA API NESTJS
@@ -741,11 +788,11 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                     <div className="bg-white/90 border border-amber-200/90 rounded-xl px-3.5 py-2 shrink-0 flex items-center gap-2.5 shadow-xs">
                       <CompassOutlined className="text-teal-600 text-base" />
                       <div>
-                        <span className="text-[10px] text-slate-500 font-bold uppercase block">Ưu đãi vùng & Thuế suất:</span>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase block">Thuế suất TNDN 2026:</span>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-800">{incentiveInfo.title}</span>
-                          <Tag color={incentiveInfo.tier === 'ZONE_STANDARD' ? 'default' : 'success'} className="font-extrabold text-xs m-0">
-                            {incentiveInfo.taxRatePercentText}
+                          <span className="text-xs font-bold text-slate-800">{citTierResult.title}</span>
+                          <Tag color="purple" className="font-extrabold text-xs m-0">
+                            {citTierResult.taxRatePercentText}
                           </Tag>
                         </div>
                       </div>
@@ -1028,10 +1075,10 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                           <div className="space-y-1.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="px-2 py-0.5 rounded-md bg-teal-400/20 text-teal-300 text-[11px] font-black uppercase tracking-wider border border-teal-400/30">
-                                % Thuế Suất Áp Dụng: {citCalcResult.incentiveInfo.taxRatePercentText}
+                                % Thuế Suất Áp Dụng: {citCalcResult.taxRatePercentText || citTierResult.taxRatePercentText}
                               </span>
                               <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-300 text-[11px] font-medium border border-white/10">
-                                {incentiveInfo.title}
+                                {citTierResult.title}
                               </span>
                               <span className="text-xs text-slate-300">
                                 Thu nhập tính thuế: <strong className="font-mono text-white">{citCalcResult.assessableIncome.toLocaleString('vi-VN')} đ</strong>
