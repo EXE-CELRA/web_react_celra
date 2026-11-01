@@ -572,7 +572,7 @@ export function getDeadlineStatus(
       originalDueDate: original,
       daysLeft: -daysOver,
       daysOverOriginal: daysOver,
-      label: `Quá hạn ${daysOver} ngày theo lịch`,
+      label: 'Quá hạn theo lịch – Chưa xác nhận hoàn thành',
       tagColor: '#ff4d4f',
       iconType: 'exclamation',
       isUsingExtension: false,
@@ -639,24 +639,14 @@ export function getRemainingDaysInfo(dueDateStr: string | Date): {
 export function adjustDeadlineForWeekendAndHoliday(targetDate: Date): { adjustedDate: Date; wasAdjusted: boolean; originalFormatted: string; explanation?: string } {
   const original = new Date(targetDate);
   const originalFormatted = formatVNCalendarDate(original);
-  const current = new Date(targetDate);
-  let wasAdjusted = false;
-  let explanation = '';
-
-  // Nếu rơi vào Thứ 7 (6) -> Lùi 2 ngày sang Thứ 2
-  if (current.getDay() === 6) {
-    current.setDate(current.getDate() + 2);
-    wasAdjusted = true;
-    explanation = `Ngày gốc (${originalFormatted}) rơi vào Thứ Bảy, hạn luật định tự động dời sang ngày làm việc tiếp theo (Thứ Hai).`;
-  } else if (current.getDay() === 0) {
-    // Nếu rơi vào Chủ Nhật (0) -> Lùi 1 ngày sang Thứ 2
-    current.setDate(current.getDate() + 1);
-    wasAdjusted = true;
-    explanation = `Ngày gốc (${originalFormatted}) rơi vào Chủ Nhật, hạn luật định tự động dời sang ngày làm việc tiếp theo (Thứ Hai).`;
-  }
+  const adjusted = adjustForWeekendAndHolidays(targetDate);
+  const wasAdjusted = adjusted.getTime() !== original.getTime();
+  const explanation = wasAdjusted
+    ? `Ngày gốc (${originalFormatted}) rơi vào ngày nghỉ/ngày lễ, hạn luật định tự động dời sang ngày làm việc tiếp theo (${formatVNCalendarDate(adjusted)}).`
+    : undefined;
 
   return {
-    adjustedDate: current,
+    adjustedDate: adjusted,
     wasAdjusted,
     originalFormatted,
     explanation,
@@ -699,4 +689,31 @@ export function getCalculatedQuarterDeadline(quarter: number | 'ALL', year: numb
     wasAdjusted,
     explanation: wasAdjusted ? `${explanation} (Căn cứ Luật Quản lý thuế số 38/2019/QH14 & Luật số 108/2025/QH15).` : undefined,
   };
+}
+
+/**
+ * Helper tính hạn nộp tờ khai và tiền thuế các Quý có điều chỉnh ngày nghỉ lễ (NĐ 126/2020)
+ * và chính sách gia hạn cho doanh nghiệp đủ điều kiện.
+ */
+export function getQuarterDeadline(quarter: number | 'ALL' | string, year: number, isExtensionEligible = false): string {
+  if (isExtensionEligible) {
+    if (String(quarter) === '2') {
+      const { adjustedDate } = adjustDeadlineForWeekendAndHoliday(new Date(year, 9, 31, 23, 59, 59));
+      return formatVNCalendarDate(adjustedDate);
+    }
+    if (String(quarter) === '3') {
+      const { adjustedDate } = adjustDeadlineForWeekendAndHoliday(new Date(year, 11, 30, 23, 59, 59));
+      return formatVNCalendarDate(adjustedDate);
+    }
+  }
+  const q = quarter === 'ALL' ? 'ALL' : Number(quarter);
+  return getCalculatedQuarterDeadline(q as number | 'ALL', year).formattedDate;
+}
+
+export function getQuarterReminderDate(quarter: number | 'ALL' | string, year: number, isExtensionEligible = false): string {
+  const deadlineStr = getQuarterDeadline(quarter, year, isExtensionEligible);
+  const [d, m, y] = deadlineStr.split('/').map(Number);
+  const reminder = new Date(y, m - 1, d);
+  reminder.setDate(reminder.getDate() - 7);
+  return formatVNCalendarDate(reminder);
 }

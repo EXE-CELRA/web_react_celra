@@ -44,7 +44,7 @@ import { TaskStatusTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
 import { TaskDetailDrawer } from '../../components/common/TaskDetailDrawer';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
-import { formatVNCalendarDate, getRemainingDaysInfo, getDeadlineStatus, getExtensionInfo, STATUTORY_PERIOD_METAS } from '../../utils/taxCalendar';
+import { formatVNCalendarDate, getDeadlineStatus, getExtensionInfo, STATUTORY_PERIOD_METAS } from '../../utils/taxCalendar';
 
 const { Text, Paragraph } = Typography;
 
