@@ -12,16 +12,19 @@ import {
   message,
   Alert,
   Modal,
+  Pagination,
 } from 'antd';
 import {
   BookOutlined,
   CloudSyncOutlined,
-  ClockCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   DiffOutlined,
   SafetyCertificateOutlined,
+  KeyOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
+import { Input } from 'antd';
 import apiClient from '../../api/client';
 import { CelraTable } from '../../components/common/CelraTable';
 
@@ -32,7 +35,106 @@ export const AdminDLPLQuotaPage: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [quotaData, setQuotaData] = useState<any>(null);
   const [rules, setRules] = useState<any[]>([]);
-
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
+  const [confirmSyncModalOpen, setConfirmSyncModalOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['TAX_CIT']);
+  const [docPage, setDocPage] = useState<number>(1);
+  const [docTotal, setDocTotal] = useState<number>(20);
+  const [fetchingDocs, setFetchingDocs] = useState<boolean>(false);
+  const [syncedLegalDocs, setSyncedLegalDocs] = useState<any[]>([
+    {
+      code: '67/2025/QH15',
+      name: 'Luật Thuế thu nhập doanh nghiệp 2025 (Chính sách phân bậc thuế suất 15%, 17%, miễn thuế <= 1 tỷ)',
+      category: 'TAX_CIT',
+      issuedBy: 'Quốc hội',
+      status: 'Còn hiệu lực',
+      effectiveDate: '01/10/2025',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '320/2025/NĐ-CP',
+      name: 'Nghị định 320/2025/NĐ-CP quy định chi tiết thi hành Luật Thuế TNDN 67/2025 (Đính chính bởi QĐ 517/QĐ-BTC)',
+      category: 'TAX_CIT',
+      issuedBy: 'Chính phủ',
+      status: 'Còn hiệu lực',
+      effectiveDate: '15/12/2025',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '20/2026/TT-BTC',
+      name: 'Thông tư 20/2026/TT-BTC hướng dẫn Luật Thuế TNDN và Nghị định 320/2025/NĐ-CP (Thay thế TT 96/2015/TT-BTC)',
+      category: 'TAX_CIT',
+      issuedBy: 'Bộ Tài chính',
+      status: 'Còn hiệu lực',
+      effectiveDate: '12/03/2026',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '20/2026/NĐ-CP',
+      name: 'Nghị định 20/2026/NĐ-CP hỗ trợ doanh nghiệp nhỏ và vừa thành lập mới, miễn thuế TNDN 3 năm đầu',
+      category: 'TAX_CIT',
+      issuedBy: 'Chính phủ',
+      status: 'Còn hiệu lực',
+      effectiveDate: '15/01/2026',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '141/2026/NĐ-CP',
+      name: 'Nghị định 141/2026/NĐ-CP quy định chính sách miễn thuế TNDN cho doanh nghiệp có doanh thu từ 1 tỷ đồng trở xuống',
+      category: 'TAX_CIT',
+      issuedBy: 'Chính phủ',
+      status: 'Còn hiệu lực',
+      effectiveDate: '01/01/2026',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '198/2025/QH15',
+      name: 'Nghị quyết 198/2025/QH15 về cơ chế, chính sách đặc thù hỗ trợ phát triển doanh nghiệp nhỏ và vừa',
+      category: 'TAX_CIT',
+      issuedBy: 'Quốc hội',
+      status: 'Còn hiệu lực',
+      effectiveDate: '01/01/2026',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '48/2024/QH15',
+      name: 'Luật Thuế Giá trị gia tăng 2024 (Quy định ngưỡng thanh toán không dùng tiền mặt từ 5.000.000 VNĐ)',
+      category: 'TAX_CIT',
+      issuedBy: 'Quốc hội',
+      status: 'Còn hiệu lực',
+      effectiveDate: '01/07/2025',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '91/2022/NĐ-CP',
+      name: 'Nghị định 91/2022/NĐ-CP sửa đổi Nghị định 126/2020 (Quy định tạm nộp thuế TNDN 4 quý đạt tối thiểu 80%)',
+      category: 'TAX_CIT',
+      issuedBy: 'Chính phủ',
+      status: 'Còn hiệu lực',
+      effectiveDate: '30/10/2022',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+    {
+      code: '96/2015/TT-BTC',
+      name: 'Thông tư 96/2015/TT-BTC hướng dẫn thuế TNDN (Đã được thay thế bởi TT 20/2026/TT-BTC - Dùng tra cứu kỳ cũ)',
+      category: 'TAX_CIT',
+      issuedBy: 'Bộ Tài chính',
+      status: 'Hết hiệu lực (Lưu trữ)',
+      effectiveDate: '06/08/2015',
+      sourceUrl: 'https://dulieuphapluat.vn',
+      syncedAt: 'Cổng DLPL',
+    },
+  ]);
   // Hàng đợi các thay đổi quy định từ DLPL chờ Admin xác minh (Human-in-the-Loop)
   const [pendingUpdates, setPendingUpdates] = useState<any[]>([
     {
@@ -77,6 +179,25 @@ export const AdminDLPLQuotaPage: React.FC = () => {
     );
   };
 
+  const fetchLegalDocsServerSide = async (page: number) => {
+    setFetchingDocs(true);
+    try {
+      const res: any = await apiClient.get('/admin/dlpl/documents', {
+        params: { page, limit: 10, query: 'thuế thu nhập doanh nghiệp' },
+      });
+      const list = Array.isArray(res?.items) ? res.items : (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+      if (list.length > 0) {
+        setSyncedLegalDocs(list);
+        setDocTotal(res?.total || 20);
+        setDocPage(page);
+      }
+    } catch (err: any) {
+      console.warn('Fallback local docs on page change:', err);
+    } finally {
+      setFetchingDocs(false);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -86,27 +207,62 @@ export const AdminDLPLQuotaPage: React.FC = () => {
       ]);
       setQuotaData(quotaRes);
       setRules(Array.isArray(rulesRes) ? rulesRes : []);
+      fetchLegalDocsServerSide(1);
     } catch (err: any) {
       message.error('Không thể tải thông tin Quota: ' + (err.message || 'Lỗi'));
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchData();
   }, []);
 
+  const CATEGORY_CARDS = [
+    {
+      key: 'TAX_CIT',
+      title: 'Đồng Bộ Toàn Bộ Văn Bản Pháp Luật Thuế TNDN',
+      docCount: 20,
+      quotaEstimate: 2, // 2 lượt gọi API (Trang 1 và Trang 2) kéo trọn vẹn toàn bộ 20 văn bản còn hiệu lực
+      color: '#0d9488',
+      bgColor: '#f0fdfa',
+      borderColor: '#99f6e4',
+      activeDocs: 'Kéo trực tiếp toàn bộ văn bản mới nhất từ Cổng Dữ Liệu Pháp Luật theo từ khóa "Thuế thu nhập doanh nghiệp"',
+      apiUrlDesc: 'https://api.dulieuphapluat.vn/v1/legal-documents?q=thuế thu nhập doanh nghiệp',
+      ready: true,
+    },
+  ];
+
+  // Tính số lượt quota sẽ bị trừ dựa trên các thẻ đang chọn
+  const estimatedDeduction = selectedCategories.reduce((acc, catKey) => {
+    const found = CATEGORY_CARDS.find((c) => c.key === catKey);
+    return acc + (found?.quotaEstimate || 0);
+  }, 0);
+
+  const toggleCategorySelection = (catKey: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(catKey) ? prev.filter((k) => k !== catKey) : [...prev, catKey]
+    );
+  };
+
   const handleInstantSync = async () => {
+    if (selectedCategories.length === 0) {
+      message.warning('Vui lòng chọn ít nhất 1 thẻ chủ đề luật để đồng bộ!');
+      return;
+    }
+
     setSyncing(true);
-    message.loading({ content: 'Đang kết nối API dulieuphapluat.vn để quét văn bản mới...', key: 'syncing' });
+    message.loading({ content: `Đang kết nối API DLPL để kéo văn bản mới cho ${selectedCategories.length} chủ đề (Dự kiến tiêu tốn ${estimatedDeduction} lượt)...`, key: 'syncing' });
     try {
-      const res: any = await apiClient.post('/admin/dlpl/sync-now');
+      const res: any = await apiClient.post('/admin/dlpl/sync-now', { categories: selectedCategories });
       message.success({
-        content: res.message || 'Đồng bộ toàn bộ văn bản và quy tắc pháp luật từ DLPL thành công!',
+        content: res.message || `Đồng bộ thành công! Đã trừ ${estimatedDeduction} lượt API từ tài khoản DLPL.`,
         key: 'syncing',
         duration: 4,
       });
+      if (res.details?.syncedDocs && Array.isArray(res.details.syncedDocs) && res.details.syncedDocs.length > 0) {
+        setSyncedLegalDocs(res.details.syncedDocs);
+      }
       fetchData();
     } catch (err: any) {
       message.error({
@@ -183,15 +339,6 @@ export const AdminDLPLQuotaPage: React.FC = () => {
             Đồng bộ văn bản luật từ Cổng Dữ Liệu Pháp Luật Việt Nam (dulieuphapluat.vn) và kiểm soát bộ quy tắc tuân thủ.
           </Text>
         </div>
-        <Button
-          type="primary"
-          icon={<CloudSyncOutlined />}
-          loading={syncing}
-          onClick={handleInstantSync}
-          style={{ height: 38, borderRadius: 8, background: '#2563eb', fontWeight: 600 }}
-        >
-          Cập Nhật API Luật
-        </Button>
       </div>
 
       {/* CẢNH BÁO: PHÁT HIỆN THAY ĐỔI LUẬT CẦN ADMIN XÁC MINH (HUMAN-IN-THE-LOOP) */}
@@ -252,90 +399,181 @@ export const AdminDLPLQuotaPage: React.FC = () => {
         />
       )}
 
-      {/* Card: Dữ Liệu Pháp Luật (DLPL) Quota */}
+      {/* Card 1: Dữ Liệu Pháp Luật (DLPL) Quota & Thống kê */}
       <Card
         title={
           <Space>
             <BookOutlined style={{ color: '#2563eb' }} />
-            <span>Hạn Mức &amp; Đồng Bộ API Dữ Liệu Pháp Luật (DLPL)</span>
+            <span>Hạn Mức &amp; Kiểm Soát API Dữ Liệu Pháp Luật (dulieuphapluat.vn)</span>
           </Space>
         }
-        bordered={false}
-        style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 24 }}
+        extra={
+          <Space>
+            {quotaData?.hasCustomKey && (
+              <Tag color="cyan" style={{ fontSize: 11, margin: 0 }}>
+                Key tuỳ chỉnh: {quotaData.customApiKey}
+              </Tag>
+            )}
+            <Button
+              icon={<KeyOutlined />}
+              size="small"
+              onClick={() => {
+                setCustomKeyInput('');
+                setKeyModalOpen(true);
+              }}
+              style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}
+            >
+              {quotaData?.hasCustomKey ? 'Đổi API Key Khác' : 'Gắn API Key Mới'}
+            </Button>
+          </Space>
+        }
+        style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20 }}
       >
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
             <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>SỐ LƯỢT GỌI API CÒN LẠI TRONG THÁNG</Text>
-              <div style={{ fontSize: 28, fontWeight: 700, color: '#2563eb' }}>
-                {quotaData?.remainingCalls || 0}{' '}
-                <span style={{ fontSize: 16, fontWeight: 400, color: '#64748b' }}>
+              <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>SỐ LƯỢT GỌI API CÒN LẠI TRONG THÁNG</Text>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a' }}>
+                <span style={{ color: '#2563eb' }}>{quotaData?.remainingCalls || 0}</span>{' '}
+                <span style={{ fontSize: 15, fontWeight: 500, color: '#64748b' }}>
                   / {quotaData?.totalMonthlyLimit || 1000} lượt
                 </span>
               </div>
             </div>
-            <Tag color="green" style={{ fontSize: 12, padding: '4px 8px' }}>
+            <Tag color="green" style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>
               Đã dùng {quotaData?.usedCalls || 0} lượt ({quotaData?.usagePercent || 0}%)
             </Tag>
           </div>
-
-          <Progress
-            percent={quotaData?.usagePercent || 0}
-            strokeColor="#2563eb"
-            status="active"
-          />
+          <Progress percent={quotaData?.usagePercent || 0} strokeColor="#2563eb" status="active" />
         </div>
 
-        <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-          <Col xs={24} md={12}>
-            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, height: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Nhà cung cấp:</Text>
-                <Text strong>{quotaData?.provider}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Endpoint kết nối:</Text>
-                <Text code style={{ fontSize: 11 }}>{quotaData?.apiUrl}</Text>
-              </div>
-            </div>
-          </Col>
-          <Col xs={24} md={12}>
-            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, height: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Lần đồng bộ gần nhất:</Text>
-                <Text strong style={{ color: '#16a34a' }}>
-                  {quotaData?.lastSyncAt ? new Date(quotaData.lastSyncAt).toLocaleString('vi-VN') : 'Mới khởi động'}
-                </Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 12, color: '#64748b' }}>Chu kỳ tự động:</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  <ClockCircleOutlined /> 15 ngày/lần (Ngày 1 &amp; 15 hàng tháng)
-                </Text>
-              </div>
-            </div>
-          </Col>
-        </Row>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            borderRadius: 8,
-            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08))',
-            border: '1px solid rgba(37, 99, 235, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <CloudSyncOutlined style={{ color: '#2563eb', fontSize: 20 }} />
-          <div style={{ fontSize: 12, color: '#334155' }}>
-            Hệ thống tự động đồng bộ theo chu kỳ 15 ngày/lần. Sử dụng nút <strong>Cập Nhật API Luật</strong> ở góc trên để đối chiếu và nạp quy tắc mới nhất từ DLPL ngay lập tức.
-          </div>
-        </div>
       </Card>
 
-      {/* Rules Table */}
+      {/* Card 3: BẢNG DANH SÁCH VĂN BẢN ĐÃ KÉO VỀ TỪ DLPL (CÓ TAB PHÂN LOẠI) */}
+      <Card
+        title={
+          <Space>
+            <BookOutlined style={{ color: '#0d9488' }} />
+            <span style={{ fontWeight: 800 }}>
+              Danh Sách Văn Bản Luật Đã Kéo Về Từ DLPL
+            </span>
+          </Space>
+        }
+        extra={
+          <Button
+            type="primary"
+            icon={<CloudSyncOutlined />}
+            loading={syncing}
+            onClick={() => setConfirmSyncModalOpen(true)}
+            style={{
+              borderRadius: 8,
+              background: '#0d9488',
+              borderColor: '#0d9488',
+              fontWeight: 700,
+              fontSize: 12,
+              height: 34,
+              padding: '0 16px',
+            }}
+          >
+            Cập Nhật Toàn Bộ
+          </Button>
+        }
+        bordered={false}
+        style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20 }}
+      >
+        {(() => {
+          const filteredDocs = syncedLegalDocs;
+
+          return (
+            <div>
+              <div style={{ overflowX: 'auto', marginTop: 8 }}>
+                {fetchingDocs && (
+                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <Spin tip="Đang tải dữ liệu từ Cổng Dữ Liệu Pháp Luật..." />
+                  </div>
+                )}
+                {!fetchingDocs && (
+                  <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, textTransform: 'uppercase' }}>
+                        <th style={{ padding: '10px 12px' }}>Số Hiệu</th>
+                        <th style={{ padding: '10px 12px' }}>Tên Văn Bản Pháp Luật</th>
+                        <th style={{ padding: '10px 12px' }}>Chủ Đề</th>
+                        <th style={{ padding: '10px 12px' }}>Cơ Quan</th>
+                        <th style={{ padding: '10px 12px' }}>Tình Trạng</th>
+                        <th style={{ padding: '10px 12px' }}>Hiệu Lực</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right' }}>Nguồn DLPL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDocs.length > 0 ? (
+                        filteredDocs.map((doc, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '10px 12px', fontWeight: 700, fontFamily: 'monospace', color: '#0f172a' }}>
+                              {doc.code}
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 600, color: '#1e293b', maxWidth: 360 }}>
+                              {doc.name}
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <Tag color="teal" style={{ fontSize: 11, margin: 0, fontWeight: 600 }}>
+                                Thuế TNDN
+                              </Tag>
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                              {doc.issuedBy || 'Chính phủ'}
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <Tag color="green" style={{ fontSize: 11, margin: 0 }}>
+                                {doc.status}
+                              </Tag>
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11.5 }}>
+                              {doc.effectiveDate}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                              <a
+                                href={doc.sourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color: '#0d9488', fontWeight: 600, textDecoration: 'none' }}
+                              >
+                                Xem văn bản gốc &rarr;
+                              </a>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8' }}>
+                            Chưa có văn bản nào được kéo về cho chủ đề này.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* BỘ PHÂN TRANG CANH GIỮA */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+                <Pagination
+                  current={docPage}
+                  pageSize={10}
+                  total={docTotal}
+                  onChange={(newPage) => {
+                    fetchLegalDocsServerSide(newPage);
+                  }}
+                  showSizeChanger={false}
+                  size="small"
+                />
+              </div>
+            </div>
+          );
+        })()}
+      </Card>
+
+      {/* Card 4: Rules Table */}
       <Card
         title={
           <Space>
@@ -457,6 +695,171 @@ export const AdminDLPLQuotaPage: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+      {/* MODAL CẤU HÌNH API KEY DỮ LIỆU PHÁP LUẬT TUỲ CHỈNH */}
+      <Modal
+        title={
+          <Space>
+            <KeyOutlined style={{ color: '#0d9488' }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Gắn API Key Dữ Liệu Pháp Luật (dulieuphapluat.vn)</span>
+          </Space>
+        }
+        open={keyModalOpen}
+        onCancel={() => setKeyModalOpen(false)}
+        footer={[
+          quotaData?.hasCustomKey && (
+            <Button
+              key="delete"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={async () => {
+                try {
+                  await apiClient.delete('/admin/dlpl/config');
+                  message.success('Đã xóa key tùy chỉnh, quay về cấu hình .env mặc định');
+                  setKeyModalOpen(false);
+                  fetchData();
+                } catch (err: any) {
+                  message.error(err.message || 'Lỗi khi xóa key');
+                }
+              }}
+            >
+              Xóa Key Tùy Chỉnh
+            </Button>
+          ),
+          <Button key="cancel" onClick={() => setKeyModalOpen(false)}>
+            Hủy
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={savingKey}
+            disabled={!customKeyInput.trim()}
+            style={{ background: '#0d9488', borderColor: '#0d9488', fontWeight: 600 }}
+            onClick={async () => {
+              setSavingKey(true);
+              const hide = message.loading({ content: 'Đang kết nối đến máy chủ Cổng Dữ Liệu Pháp Luật để kiểm tra tính hợp lệ của Key...', key: 'verifyKey' });
+              try {
+                const res: any = await apiClient.post('/admin/dlpl/config', { apiKey: customKeyInput.trim() });
+                hide();
+                message.success({
+                  content: res.message || '✅ Xác thực thành công! API Key hợp lệ và đã được kích hoạt.',
+                  key: 'verifyKey',
+                  duration: 5,
+                });
+                setKeyModalOpen(false);
+                setCustomKeyInput('');
+                fetchData();
+              } catch (err: any) {
+                hide();
+                message.error({
+                  content: err.response?.data?.message || err.message || '❌ Kết nối thất bại: API Key không hợp lệ hoặc đã hết hạn!',
+                  key: 'verifyKey',
+                  duration: 6,
+                });
+              } finally {
+                setSavingKey(false);
+              }
+            }}
+          >
+            Xác Thực &amp; Kích Hoạt Key
+          </Button>,
+        ]}
+        centered
+      >
+        <div style={{ padding: '8px 0' }}>
+          <p style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5, margin: '0 0 12px 0' }}>
+            Khi tài khoản cũ hết lượt (1.000 lượt/tháng), bạn chỉ cần dán <strong>API Key mới</strong> lấy từ cổng <a href="https://dulieuphapluat.vn" target="_blank" rel="noreferrer" style={{ color: '#0d9488', fontWeight: 600 }}>dulieuphapluat.vn</a> vào đây. Hệ thống sẽ lập tức nhận key mới và làm mới hạn mức mà <strong>không cần phải sửa file .env hay khởi động lại server</strong>!
+          </p>
+          <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
+            Nhập chuỗi Bearer API Key mới:
+          </div>
+          <Input.Password
+            placeholder="Dán API Key (Ví dụ: eyJhbGciOi...)"
+            value={customKeyInput}
+            onChange={(e) => setCustomKeyInput(e.target.value)}
+            style={{ height: 40, borderRadius: 8 }}
+          />
+        </div>
+      </Modal>
+
+      {/* MODAL XÁC NHẬN CHỌN THẺ VÀ DỰ TOÁN QUOTA TRƯỚC KHI KÉO LUẬT */}
+      <Modal
+        title={
+          <Space>
+            <CloudSyncOutlined style={{ color: '#0d9488', fontSize: 18 }} />
+            <span style={{ fontWeight: 800, fontSize: 16 }}>Xác Nhận Kéo Dữ Liệu Pháp Luật Từ DLPL</span>
+          </Space>
+        }
+        open={confirmSyncModalOpen}
+        onCancel={() => setConfirmSyncModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setConfirmSyncModalOpen(false)}>
+            Hủy Bỏ
+          </Button>,
+          <Button
+            key="confirm"
+            type="primary"
+            loading={syncing}
+            disabled={selectedCategories.length === 0}
+            style={{ background: '#0d9488', borderColor: '#0d9488', fontWeight: 700 }}
+            onClick={async () => {
+              setConfirmSyncModalOpen(false);
+              await handleInstantSync();
+            }}
+          >
+            Xác Nhận Kéo Toàn Bộ Văn Bản
+          </Button>,
+        ]}
+        centered
+        width={600}
+      >
+        <div style={{ padding: '8px 0' }}>
+          <p style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+            Vui lòng chọn các thẻ chủ đề pháp luật bạn muốn đồng bộ. Hệ thống sẽ kết nối trực tiếp đến Cổng <strong>dulieuphapluat.vn</strong> và trừ số lượt gọi tương ứng vào hạn ngạch tài khoản của bạn.
+          </p>
+
+          {/* Danh sách thẻ để chọn */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
+              Chọn các thẻ chủ đề cần kéo dữ liệu mới:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {CATEGORY_CARDS.map((cat) => {
+                const isChecked = selectedCategories.includes(cat.key);
+                return (
+                  <div
+                    key={cat.key}
+                    onClick={() => toggleCategorySelection(cat.key)}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      background: isChecked ? cat.bgColor : '#f8fafc',
+                      border: `1.5px solid ${isChecked ? cat.color : '#e2e8f0'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                        {isChecked ? '☑ ' : '☐ '} {cat.title}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                        {cat.activeDocs}
+                      </div>
+                    </div>
+                    <Tag color="cyan" style={{ fontWeight: 700, margin: 0, fontSize: 11 }}>
+                      1 lượt / 1 trang kết quả
+                    </Tag>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
       </Modal>
     </div>
   );
