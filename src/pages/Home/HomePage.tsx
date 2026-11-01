@@ -241,9 +241,9 @@ export const HomePage: React.FC = () => {
               }}
             >
               <span style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: '#091e42' }}>
-                Không còn lo lắng về nguy cơ bị phạt thuế, trễ hạn kê khai hay bỏ sót nghĩa vụ pháp lý.
+                Chủ động theo dõi nghĩa vụ thuế, quản lý hồ sơ và hạn chế rủi ro tuân thủ.
               </span>
-              CELRA giúp doanh nghiệp chủ động kiểm soát nghĩa vụ thuế và tuân thủ pháp luật trên một nền tảng duy nhất. Tự động nhắc hạn, quản lý hồ sơ chứng từ, giúp giảm thiểu rủi ro vi phạm, hạn chế phát sinh tiền phạt và an tâm vận hành doanh nghiệp.
+              CELRA giúp doanh nghiệp tập trung quản lý nghĩa vụ thuế, theo dõi thời hạn và lưu trữ chứng từ trên một nền tảng. Thông qua các công cụ rà soát và cảnh báo, CELRA hỗ trợ chủ doanh nghiệp nhận diện những công việc cần xử lý, hạn chế bỏ sót nghĩa vụ và chủ động hơn trong quá trình vận hành.
             </Paragraph>
 
             {/* Nút hành động chính duy nhất (đã bỏ mũi tên và bỏ nút trắng) */}
@@ -289,10 +289,10 @@ export const HomePage: React.FC = () => {
                 }}
               >
                 <Title level={5} style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 6px 0', color: '#091e42', lineHeight: 1.35 }}>
-                  1. Khảo Sát Hiện Trạng & Bắt Bệnh Rủi Ro
+                  1. Đánh Giá Hiện Trạng &amp; Nhận Diện Rủi Ro
                 </Title>
                 <Paragraph type="secondary" style={{ fontSize: 13, lineHeight: 1.5, margin: 0, color: '#475569' }}>
-                  Khảo sát nhanh theo ngành nghề (F&B, thương mại, dịch vụ...) để phát hiện ngay các lỗ hổng tuân thủ tiềm ẩn kèm khung tiền phạt tương ứng.
+                  Thiết lập hồ sơ theo ngành nghề, loại hình và quy mô doanh nghiệp để nhận diện những nghĩa vụ tuân thủ liên quan và các vấn đề cần kiểm tra.
                 </Paragraph>
               </Card>
             </Col>
@@ -310,10 +310,10 @@ export const HomePage: React.FC = () => {
                 }}
               >
                 <Title level={5} style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 6px 0', color: '#091e42', lineHeight: 1.35 }}>
-                  2. Lịch Nghĩa Vụ & Nhắc Hạn Thuế Tự Động
+                  2. Lịch Tuân Thủ &amp; Cảnh Báo Thời Hạn
                 </Title>
                 <Paragraph type="secondary" style={{ fontSize: 13, lineHeight: 1.5, margin: 0, color: '#475569' }}>
-                  Tự động sinh lịch nộp tờ khai quý, tạm nộp TNDN đạt 80% (NĐ 91 & 252), thuế GTGT, BCTC; cảnh báo sớm trước hạn tránh bị tính tiền phạt chậm nộp.
+                  Theo dõi thời hạn khai thuế, tạm nộp thuế TNDN, quyết toán và báo cáo tài chính theo từng trường hợp áp dụng. Hỗ trợ cảnh báo các công việc sắp đến hạn hoặc cần xử lý.
                 </Paragraph>
               </Card>
             </Col>
@@ -331,10 +331,10 @@ export const HomePage: React.FC = () => {
                 }}
               >
                 <Title level={5} style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 6px 0', color: '#091e42', lineHeight: 1.35 }}>
-                  3. Tra Cứu Căn Cứ Pháp Điển & Khung Xử Phạt
+                  3. Tra Cứu Căn Cứ Pháp Lý &amp; Khung Xử Phạt
                 </Title>
                 <Paragraph type="secondary" style={{ fontSize: 13, lineHeight: 1.5, margin: 0, color: '#475569' }}>
-                  Tích hợp Cổng Dữ Liệu Pháp Luật Quốc Gia, trích dẫn chính xác từng số Điều, Khoản và mức phạt tiền thực tế theo các Nghị định mới nhất.
+                  Hỗ trợ tìm hiểu quy định pháp luật, tham khảo các căn cứ và khung xử phạt có liên quan, giúp doanh nghiệp nhận diện rủi ro và chủ động kiểm tra thông tin trước khi thực hiện.
                 </Paragraph>
               </Card>
             </Col>
