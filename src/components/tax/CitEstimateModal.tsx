@@ -30,6 +30,7 @@ import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData } 
 import { detectTaxIncentiveZone, type TaxIncentiveInfo } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult, type DisallowedExpenseFinding } from '../../utils/citTaxCalculator';
 import { EtaxPaymentGuideModal } from './EtaxPaymentGuideModal';
+import { getQuarterDeadline, getQuarterReminderDate } from '../../utils/taxCalendar';
 
 const { Dragger } = Upload;
 
@@ -80,27 +81,6 @@ export const CitEstimateModal: React.FC<CitEstimateModalProps> = ({
     return years.map((y) => ({ value: y, label: `Năm ${y}` }));
   }, [currentYear, taxYear]);
 
-  const getQuarterDeadline = (quarter: number | 'ALL', year: number) => {
-    switch (quarter) {
-      case 1: return `30/04/${year}`;
-      case 2: return `31/07/${year}`;
-      case 3: return `31/10/${year}`;
-      case 4: return `31/01/${year + 1}`;
-      case 'ALL': return `31/03/${year + 1}`;
-      default: return `30/01/${year + 1}`;
-    }
-  };
-
-  const getQuarterReminderDate = (quarter: number | 'ALL', year: number) => {
-    switch (quarter) {
-      case 1: return `23/04/${year}`;
-      case 2: return `24/07/${year}`;
-      case 3: return `24/10/${year}`;
-      case 4: return `24/01/${year + 1}`;
-      case 'ALL': return `24/03/${year + 1}`;
-      default: return `24/01/${year + 1}`;
-    }
-  };
 
   // Đồng bộ Checklist Hạn nộp thuế và kích hoạt nhắc hạn trước 7 ngày
   const handleSyncChecklist = async () => {

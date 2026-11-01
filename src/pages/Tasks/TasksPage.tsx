@@ -25,6 +25,8 @@ import {
 } from 'antd';
 import {
   CheckSquareOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
   PlusOutlined,
   AuditOutlined,
   UserOutlined,
@@ -42,7 +44,7 @@ import { TaskStatusTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
 import { TaskDetailDrawer } from '../../components/common/TaskDetailDrawer';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
-import { formatVNCalendarDate, getRemainingDaysInfo, STATUTORY_PERIOD_METAS } from '../../utils/taxCalendar';
+import { formatVNCalendarDate, getDeadlineStatus, getExtensionInfo, STATUTORY_PERIOD_METAS } from '../../utils/taxCalendar';
 
 const { Text, Paragraph } = Typography;
 
@@ -158,6 +160,13 @@ export const TasksPage: React.FC = () => {
       if (statusFilter === 'NEW' && !isNewStatus(t.status)) return false;
       if (statusFilter === 'IN_PROGRESS' && !isInProgressStatus(t.status)) return false;
       if (statusFilter === 'COMPLETED' && !isCompletedStatus(t.status)) return false;
+
+      // Yêu cầu #2: Bỏ nghĩa vụ môn bài năm 2026 trở đi (vẫn giữ dữ liệu <= 2025)
+      const isMonBai = t.ruleCode === 'RULE-TAX-MB' || t.title?.toLowerCase().includes('môn bài');
+      if (isMonBai) {
+        const taskYear = t.dueDate ? new Date(t.dueDate).getFullYear() : (t.createdAt ? new Date(t.createdAt).getFullYear() : 2026);
+        if (taskYear >= 2026) return false;
+      }
 
       if (periodFilter !== 'ALL') {
         if (t.periodCycle) {
@@ -375,26 +384,109 @@ export const TasksPage: React.FC = () => {
       title: 'Kỳ hạn & Hạn chót pháp lý',
       dataIndex: 'dueDate',
       key: 'dueDate',
-      width: 195,
+      width: 260,
       render: (date: string, record: TaskItem) => {
-        const remaining = getRemainingDaysInfo(date);
         const periodMeta = record.periodCycle ? STATUTORY_PERIOD_METAS[record.periodCycle as StatutoryCycleType] : null;
+
+        // Yêu cầu #3: Kiểm tra thông tin gia hạn (opt-in per-org, không tự động)
+        const orgExtKey = `celra_ext_2026_${activeOrg?.id}`;
+        const orgHasExtension = localStorage.getItem(orgExtKey) === 'true';
+        const extInfo = getExtensionInfo(record.ruleCode, date, orgHasExtension);
+
+        // Yêu cầu #4: Deadline status độc lập với task status
+        const isCompleted = Boolean(
+          String(record.status || '').toLowerCase().match(/completed|done|verified/)
+        );
+        const dlStatus = getDeadlineStatus(
+          date,
+          extInfo.hasExtension && extInfo.extensionStatus === 'ELIGIBLE' ? extInfo.extendedDueDate : null,
+          isCompleted,
+        );
+
         return (
-          <Space direction="vertical" size={2}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <CalendarOutlined style={{ color: '#1677ff', fontSize: 12 }} />
-              <Text strong style={{ fontSize: 12.5 }}>{formatVNCalendarDate(date)}</Text>
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            {/* 1. Hiển thị cảnh báo thời hạn — chuẩn 100% theo ảnh quy định CELRA */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {dlStatus.iconType === 'check' && (
+                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 13 }} />
+              )}
+              {dlStatus.iconType === 'calendar' && (
+                <CalendarOutlined style={{ color: '#52c41a', fontSize: 13 }} />
+              )}
+              {dlStatus.iconType === 'exclamation' && (
+                <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: 13 }} />
+              )}
+              {dlStatus.iconType === 'clock-warning' && (
+                <ClockCircleOutlined style={{ color: '#fa541c', fontSize: 13 }} />
+              )}
+              {dlStatus.iconType === 'clock' && (
+                <ClockCircleOutlined style={{ color: '#1677ff', fontSize: 13 }} />
+              )}
+
+              <Tooltip
+                title={
+                  dlStatus.deadlineStatus === 'OVERDUE_BY_CALENDAR'
+                    ? 'Quá hạn theo lịch – Chưa xác nhận hoàn thành (CELRA không tự ý kết luận vi phạm khi người nộp thuế chưa xác nhận)'
+                    : undefined
+                }
+              >
+                <span
+                  style={{
+                    color: dlStatus.tagColor,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: dlStatus.deadlineStatus === 'OVERDUE_BY_CALENDAR' ? 'help' : 'default',
+                  }}
+                >
+                  {dlStatus.label}
+                </span>
+              </Tooltip>
             </div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <Tag color={remaining.tagColor} style={{ margin: 0, fontSize: 10.5, fontWeight: 500 }}>
-                <ClockCircleOutlined /> {remaining.label}
-              </Tag>
+
+            {/* 2. Hạn thông thường theo lịch luật định */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748b' }}>
+              <span>Hạn luật định:</span>
+              <Text strong style={{ fontSize: 12, color: '#334155' }}>
+                {formatVNCalendarDate(date)}
+              </Text>
               {periodMeta && (
                 <Tag color={periodMeta.color} style={{ margin: 0, fontSize: 10 }}>
                   {periodMeta.badge}
                 </Tag>
               )}
             </div>
+
+            {/* 3. Trường hợp được gia hạn (Yêu cầu #3: NĐ 245/2026/NĐ-CP) */}
+            {extInfo.hasExtension && !isCompleted && (
+              <Tooltip
+                title={
+                  <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+                    <div><strong>Hạn thông thường:</strong> {formatVNCalendarDate(date)}</div>
+                    <div><strong>Hạn được gia hạn:</strong> {formatVNCalendarDate(extInfo.extendedDueDate!)}</div>
+                    <div style={{ marginTop: 4 }}>
+                      <strong>Căn cứ:</strong> {extInfo.policy?.legalBasis}
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <strong>Điều kiện:</strong> {extInfo.policy?.conditions}
+                    </div>
+                    {extInfo.extensionStatus === 'PENDING_VERIFICATION' && (
+                      <div style={{ marginTop: 6, color: '#ffd666', fontWeight: 600 }}>
+                        ⚠️ Trạng thái: Cần xác minh hồ sơ đề nghị gia hạn để áp dụng.
+                      </div>
+                    )}
+                  </div>
+                }
+              >
+                <Tag
+                  color={extInfo.extensionStatus === 'ELIGIBLE' ? 'success' : 'gold'}
+                  style={{ margin: 0, fontSize: 10.5, cursor: 'help', fontWeight: 500 }}
+                >
+                  {extInfo.extensionStatus === 'ELIGIBLE'
+                    ? `📅 Hạn gia hạn: ${formatVNCalendarDate(extInfo.extendedDueDate!)}`
+                    : '⏳ Có chính sách gia hạn — Cần xác minh'}
+                </Tag>
+              </Tooltip>
+            )}
           </Space>
         );
       },
@@ -535,7 +627,7 @@ export const TasksPage: React.FC = () => {
                     6 Tháng / Bán niên ({getPeriodCount('BIANNUAL_6M')})
                   </Radio.Button>
                   <Radio.Button value="ANNUAL" style={{ borderRadius: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    Cả năm (Môn bài, BCTC) ({getPeriodCount('ANNUAL')})
+                    Quyết toán thuế năm ({getPeriodCount('ANNUAL')})
                   </Radio.Button>
                 </Radio.Group>
               </div>
@@ -624,7 +716,7 @@ export const TasksPage: React.FC = () => {
                 if (m === 'BEFORE_3D') return <Tag color="orange">Trước 3 ngày</Tag>;
                 if (m === 'BEFORE_1D') return <Tag color="volcano">Ngày mai</Tag>;
                 if (m === 'DUE_TODAY') return <Tag color="red">Hôm nay</Tag>;
-                if (m === 'OVERDUE') return <Tag color="magenta">Quá hạn</Tag>;
+                if (m === 'OVERDUE') return <Tag color="magenta">Quá hạn theo lịch</Tag>;
                 return <Tag>{m}</Tag>;
               };
 

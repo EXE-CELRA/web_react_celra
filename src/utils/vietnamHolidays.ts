@@ -186,3 +186,22 @@ export function getVietnamHoliday(dateInput: Date | string | any): VietnamHolida
 
   return null;
 }
+
+/**
+ * Tự động chuyển dời hạn nộp thuế sang ngày làm việc tiếp theo nếu rơi vào
+ * Thứ Bảy, Chủ Nhật hoặc Ngày nghỉ lễ pháp định theo Điều 8 Nghị định 126/2020/NĐ-CP.
+ */
+export function adjustToNextWorkingDay(date: Date | string): Date {
+  const d = new Date(date);
+  while (true) {
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const holiday = getVietnamHoliday(d);
+    if (isWeekend || holiday) {
+      d.setDate(d.getDate() + 1);
+    } else {
+      break;
+    }
+  }
+  return d;
+}
