@@ -54,6 +54,7 @@ import {
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
 import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
+import { getCalculatedQuarterDeadline } from '../../utils/taxCalendar';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
 import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
 import { isGroupSurveyCompleted } from '../../data/questionSurvey';
@@ -802,15 +803,10 @@ export const ContextAuditPage: React.FC = () => {
   }, [currentYear, taxYear]);
 
   // Helper tính hạn nộp tờ khai và tiền thuế theo Luật Quản lý thuế số 38/2019/QH14 & NĐ 91/2022/NĐ-CP
+  // Helper tính hạn nộp tờ khai và tiền thuế tự động điều chỉnh ngày nghỉ (Thứ 7, Chủ Nhật)
   const getQuarterDeadline = (quarter: number | 'ALL', year: number) => {
-    switch (quarter) {
-      case 1: return `30/04/${year}`;
-      case 2: return `31/07/${year}`;
-      case 3: return `31/10/${year}`;
-      case 4: return `31/01/${year + 1}`;
-      case 'ALL': return `31/03/${year + 1}`;
-      default: return `30/01/${year + 1}`;
-    }
+    const info = getCalculatedQuarterDeadline(quarter, year);
+    return info.formattedDate;
   };
 
   const getQuarterReminderDate = (quarter: number | 'ALL', year: number) => {
@@ -2773,9 +2769,12 @@ export const ContextAuditPage: React.FC = () => {
         taxCode={orgTaxCode}
         companyName={orgName}
         prepaymentAmount={citSummary.statutoryPrepayment80 || citCalcResult?.statutoryPrepayment80 || 0}
+        totalAnnualEstimatedTax={citSummary.estimatedTaxAmount || citCalcResult?.estimatedTaxAmount || 0}
+        paidQuarter1To3={taxQuarter === 4 ? (citSummary.statutoryPrepayment80 > 0 ? Math.round(citSummary.statutoryPrepayment80 * 0.5) : undefined) : undefined}
         cqtName={orgCity}
         quarter={taxQuarter}
         year={taxYear}
+        onUploadEvidence={() => navigate('/evidence')}
       />
 
       {/* MODAL KHẢO SÁT TÌNH HUỐNG CHUYÊN BIỆT THEO PHÂN HỆ */}
