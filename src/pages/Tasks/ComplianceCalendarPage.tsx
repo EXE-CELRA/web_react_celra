@@ -217,7 +217,7 @@ export const ComplianceCalendarPage: React.FC = () => {
           else if (isCritical) badgeStatus = 'warning';
 
           return (
-            <Tooltip key={task.id} title={`${task.code}: ${task.title}`}>
+            <Tooltip key={task.id} title={`${task.code}: ${task.title}${isOverdue ? ' [Quá hạn theo lịch – Chưa xác nhận hoàn thành]' : ''}`}>
               <div
                 style={{
                   fontSize: 11,

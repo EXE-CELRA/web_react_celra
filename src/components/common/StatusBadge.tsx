@@ -11,6 +11,13 @@ export const TaskStatusTag: React.FC<{ status: TaskStatus | string }> = ({ statu
       </Tag>
     );
   }
+  if (s === 'overdue') {
+    return (
+      <Tag color="error" style={{ fontWeight: 500 }}>
+        Quá hạn theo lịch – Chưa xác nhận hoàn thành
+      </Tag>
+    );
+  }
   if (s === 'in_progress' || s === 'waiting_document' || s === 'waiting_verification' || s === 'need_expert') {
     return (
       <Tag color="blue" style={{ fontWeight: 500 }}>

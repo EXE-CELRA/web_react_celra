@@ -375,7 +375,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     NOT_APPLICABLE: 'Đã có căn cứ xác định không áp dụng',
     COMPLETED: 'Có đủ bằng chứng xác nhận hoàn thành',
     IN_PROGRESS: 'Đang thực hiện và có dữ liệu xác nhận',
-    OVERDUE: 'Đã xác định nghĩa vụ áp dụng, quá hạn và chưa hoàn thành theo dữ liệu đáng tin cậy',
+    OVERDUE: 'Quá hạn theo lịch – Chưa xác nhận hoàn thành',
   };
 
   // Parser định dạng thông minh: Xóa sạch toàn bộ ký tự thô (#, ##, ####, ****, *) và thay thế các mã trường kỹ thuật phía Backend

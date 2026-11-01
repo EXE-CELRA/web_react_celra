@@ -8,6 +8,7 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 
+import { getQuarterDeadline } from '../../utils/taxCalendar';
 interface EtaxPaymentGuideModalProps {
   visible: boolean;
   onClose: () => void;
@@ -34,16 +35,7 @@ export const EtaxPaymentGuideModal: React.FC<EtaxPaymentGuideModalProps> = ({
     message.success(`Đã sao chép ${label}: ${text}`);
   };
 
-  const quarterDeadline = (() => {
-    switch (quarter) {
-      case 1: return `30/04/${year}`;
-      case 2: return `31/07/${year}`;
-      case 3: return `31/10/${year}`;
-      case 4: return `31/01/${year + 1}`;
-      case 'ALL': return `31/03/${year + 1}`;
-      default: return `30/01/${year + 1}`;
-    }
-  })();
+  const quarterDeadline = getQuarterDeadline(quarter, year);
 
   const steps = [
     {

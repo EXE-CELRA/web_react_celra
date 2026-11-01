@@ -624,7 +624,7 @@ export const TasksPage: React.FC = () => {
                 if (m === 'BEFORE_3D') return <Tag color="orange">Trước 3 ngày</Tag>;
                 if (m === 'BEFORE_1D') return <Tag color="volcano">Ngày mai</Tag>;
                 if (m === 'DUE_TODAY') return <Tag color="red">Hôm nay</Tag>;
-                if (m === 'OVERDUE') return <Tag color="magenta">Quá hạn</Tag>;
+                if (m === 'OVERDUE') return <Tag color="magenta">Quá hạn theo lịch</Tag>;
                 return <Tag>{m}</Tag>;
               };
 

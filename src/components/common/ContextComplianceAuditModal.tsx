@@ -25,6 +25,7 @@ import { downloadCitExcelTemplate, parseCitExcelFile, detectPeriodFromCitData, t
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
 import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
+import { getQuarterDeadline, getQuarterReminderDate } from '../../utils/taxCalendar';
 import { EtaxPaymentGuideModal } from '../tax/EtaxPaymentGuideModal';
 import type { ContextFact, AuditFindingItem, ContextComplianceAuditModalProps } from '../../interfaces';
 import { 
@@ -283,28 +284,18 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
     return years.map((y) => ({ value: y, label: `Năm ${y}` }));
   }, [currentYear, taxYear]);
 
-  // Helper tính hạn nộp tờ khai và tiền thuế theo Luật Quản lý thuế số 38/2019/QH14 & NĐ 91/2022/NĐ-CP
-  const getQuarterDeadline = (quarter: number | 'ALL', year: number) => {
-    switch (quarter) {
-      case 1: return `30/04/${year}`;
-      case 2: return `31/07/${year}`;
-      case 3: return `31/10/${year}`;
-      case 4: return `31/01/${year + 1}`;
-      case 'ALL': return `31/03/${year + 1}`;
-      default: return `30/01/${year + 1}`;
-    }
-  };
+  const isExtensionEligible = useMemo(() => {
+    if (!activeOrg) return false;
+    const rev = String(activeOrg.revenueStatus || '').toLowerCase();
+    const isRevenueSME = rev.includes('under_10b') || rev.includes('10b_to_50b') || rev.includes('zero') || rev.includes('dưới 10 tỷ') || rev.includes('10 đến 50 tỷ') || rev.includes('chưa có');
+    const isEmployeeSME = (activeOrg.employeeCount ?? 1) <= 100;
+    const ind = String(activeOrg.industry || '').toLowerCase();
+    const isIndustryEligible = ind.includes('nông nghiệp') || ind.includes('xây dựng') || ind.includes('vận tải') || ind.includes('du lịch') || ind.includes('ăn uống') || ind.includes('lưu trú') || ind.includes('sản xuất') || ind.includes('f&b') || ind.includes('cntt') || ind.includes('công nghệ');
+    return isRevenueSME || isEmployeeSME || isIndustryEligible;
+  }, [activeOrg]);
 
-  const getQuarterReminderDate = (quarter: number | 'ALL', year: number) => {
-    switch (quarter) {
-      case 1: return `23/04/${year}`;
-      case 2: return `24/07/${year}`;
-      case 3: return `24/10/${year}`;
-      case 4: return `24/01/${year + 1}`;
-      case 'ALL': return `24/03/${year + 1}`;
-      default: return `24/01/${year + 1}`;
-    }
-  };
+  const currentQuarterDeadline = useMemo(() => getQuarterDeadline(taxQuarter, taxYear, isExtensionEligible), [taxQuarter, taxYear, isExtensionEligible]);
+  const currentQuarterReminderDate = useMemo(() => getQuarterReminderDate(taxQuarter, taxYear, isExtensionEligible), [taxQuarter, taxYear, isExtensionEligible]);
 
   const [isSyncingChecklist, setIsSyncingChecklist] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
@@ -857,7 +848,7 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                       <span>
                         Hạn nộp tờ khai & thuế:{' '}
                         <strong className="font-extrabold text-amber-950 font-mono">
-                          {getQuarterDeadline(taxQuarter, taxYear)}
+                          {currentQuarterDeadline}
                         </strong>
                       </span>
                     </div>
@@ -1128,13 +1119,13 @@ export const ContextComplianceAuditModal: React.FC<ContextComplianceAuditModalPr
                             </Tag>
                             <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
                               <ClockCircleOutlined className="text-emerald-600" />
-                              Hạn nộp đúng hạn: <strong className="text-slate-900 font-mono">{getQuarterDeadline(taxQuarter, taxYear)}</strong>
+                              Hạn nộp đúng hạn: <strong className="text-slate-900 font-mono">{currentQuarterDeadline}</strong>
                             </span>
                           </div>
                           <div className="text-xs text-slate-600 flex items-center gap-1.5">
                             <BellOutlined className="text-amber-500 text-sm" />
                             <span>
-                              Tự động kích hoạt thông báo nhắc hạn: <strong className="text-amber-700 font-mono">{getQuarterReminderDate(taxQuarter, taxYear)}</strong> (cách hạn đúng 7 ngày).
+                              Tự động kích hoạt thông báo nhắc hạn: <strong className="text-amber-700 font-mono">{currentQuarterReminderDate}</strong> (cách hạn đúng 7 ngày).
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-400 m-0">

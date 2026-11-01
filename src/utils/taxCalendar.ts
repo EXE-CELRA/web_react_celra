@@ -1,4 +1,5 @@
 import type { StatutoryCycleType, StatutoryPeriodMeta } from '../interfaces';
+import { adjustToNextWorkingDay } from './vietnamHolidays';
 
 
 
@@ -124,18 +125,18 @@ export function calculateLegalDueDate(cycle: StatutoryCycleType, refDate: Date =
 
   switch (cycle) {
     case 'MONTHLY': {
-      if (currentDate <= 20) {
-        return new Date(currentYear, currentMonth, 20, 23, 59, 59);
-      }
-      return new Date(currentYear, currentMonth + 1, 20, 23, 59, 59);
+      let deadline = currentDate <= 20
+        ? new Date(currentYear, currentMonth, 20, 23, 59, 59)
+        : new Date(currentYear, currentMonth + 1, 20, 23, 59, 59);
+      return adjustToNextWorkingDay(deadline);
     }
 
     case 'QUARTERLY': {
       const quarterDeadlines = [
-        new Date(currentYear, 3, 30, 23, 59, 59), // 30/04
-        new Date(currentYear, 6, 31, 23, 59, 59), // 31/07
-        new Date(currentYear, 9, 31, 23, 59, 59), // 31/10
-        new Date(currentYear + 1, 0, 31, 23, 59, 59), // 31/01 năm sau
+        adjustToNextWorkingDay(new Date(currentYear, 3, 30, 23, 59, 59)), // 30/04
+        adjustToNextWorkingDay(new Date(currentYear, 6, 31, 23, 59, 59)), // 31/07
+        adjustToNextWorkingDay(new Date(currentYear, 9, 31, 23, 59, 59)), // 31/10
+        adjustToNextWorkingDay(new Date(currentYear + 1, 0, 31, 23, 59, 59)), // 31/01 năm sau
       ];
 
       for (const deadline of quarterDeadlines) {
@@ -233,6 +234,12 @@ export function formatISODate(date: Date): string {
  */
 export function formatVNCalendarDate(date: Date | string): string {
   if (!date) return 'Định kỳ theo luật';
+  if (typeof date === 'string') {
+    const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+  }
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return String(date);
   const day = String(d.getDate()).padStart(2, '0');
@@ -241,6 +248,45 @@ export function formatVNCalendarDate(date: Date | string): string {
   return `${day}/${month}/${year}`;
 }
 
+
+/**
+ * Helper tính hạn nộp tờ khai và tiền thuế các Quý có điều chỉnh ngày nghỉ lễ (NĐ 126/2020)
+ * và chính sách gia hạn cho doanh nghiệp đủ điều kiện.
+ */
+export function getQuarterDeadline(quarter: number | 'ALL' | string, year: number, isExtensionEligible = false): string {
+  const qStr = String(quarter);
+  let baseDate: Date;
+  if (qStr === '1') {
+    baseDate = new Date(year, 3, 30);
+  } else if (qStr === '2') {
+    baseDate = isExtensionEligible ? new Date(year, 9, 31) : new Date(year, 6, 31);
+  } else if (qStr === '3') {
+    baseDate = isExtensionEligible ? new Date(year, 11, 30) : new Date(year, 9, 31);
+  } else if (qStr === '4') {
+    baseDate = new Date(year + 1, 0, 31);
+  } else if (qStr === 'ALL') {
+    baseDate = new Date(year + 1, 2, 31);
+  } else {
+    baseDate = new Date(year + 1, 0, 30);
+  }
+  const adjusted = adjustToNextWorkingDay(baseDate);
+  const day = String(adjusted.getDate()).padStart(2, '0');
+  const month = String(adjusted.getMonth() + 1).padStart(2, '0');
+  const y = adjusted.getFullYear();
+  return `${day}/${month}/${y}`;
+}
+
+export function getQuarterReminderDate(quarter: number | 'ALL' | string, year: number, isExtensionEligible = false): string {
+  const deadlineStr = getQuarterDeadline(quarter, year, isExtensionEligible);
+  const [d, m, y] = deadlineStr.split('/').map(Number);
+  const deadline = new Date(y, m - 1, d);
+  const reminder = new Date(deadline);
+  reminder.setDate(reminder.getDate() - 7);
+  const rDay = String(reminder.getDate()).padStart(2, '0');
+  const rMonth = String(reminder.getMonth() + 1).padStart(2, '0');
+  const rYear = reminder.getFullYear();
+  return `${rDay}/${rMonth}/${rYear}`;
+}
 /**
  * Tính số ngày còn lại đến hạn và đánh giá mức độ khẩn cấp
  */
@@ -250,16 +296,36 @@ export function getRemainingDaysInfo(dueDateStr: string | Date): {
   label: string;
   tagColor: string;
 } {
-  const target = typeof dueDateStr === 'string' ? new Date(dueDateStr) : dueDateStr;
+  let targetYear: number, targetMonth: number, targetDay: number;
+  if (typeof dueDateStr === 'string') {
+    const match = dueDateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      targetYear = parseInt(match[1], 10);
+      targetMonth = parseInt(match[2], 10) - 1;
+      targetDay = parseInt(match[3], 10);
+    } else {
+      const t = new Date(dueDateStr);
+      if (isNaN(t.getTime())) return { daysLeft: 0, status: 'NORMAL', label: 'Theo lịch', tagColor: 'blue' };
+      targetYear = t.getFullYear();
+      targetMonth = t.getMonth();
+      targetDay = t.getDate();
+    }
+  } else {
+    if (isNaN(dueDateStr.getTime())) return { daysLeft: 0, status: 'NORMAL', label: 'Theo lịch', tagColor: 'blue' };
+    targetYear = dueDateStr.getFullYear();
+    targetMonth = dueDateStr.getMonth();
+    targetDay = dueDateStr.getDate();
+  }
   const now = new Date();
-  const diffTime = target.getTime() - now.getTime();
-  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const targetMid = new Date(targetYear, targetMonth, targetDay).getTime();
+  const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const daysLeft = Math.round((targetMid - nowMid) / (1000 * 60 * 60 * 24));
 
   if (daysLeft < 0) {
     return {
       daysLeft,
       status: 'EXPIRED',
-      label: `Quá hạn ${Math.abs(daysLeft)} ngày!`,
+      label: 'Quá hạn theo lịch – Chưa xác nhận hoàn thành',
       tagColor: 'error',
     };
   }
