@@ -294,3 +294,72 @@ export function getRemainingDaysInfo(dueDateStr: string | Date): {
     tagColor: 'blue',
   };
 }
+
+/**
+ * Điều chỉnh ngày đến hạn nếu rơi vào Thứ 7, Chủ Nhật hoặc ngày nghỉ lễ theo Luật Quản lý Thuế.
+ * Chuyển tự động sang Ngày làm việc tiếp theo (Thứ 2).
+ */
+export function adjustDeadlineForWeekendAndHoliday(targetDate: Date): { adjustedDate: Date; wasAdjusted: boolean; originalFormatted: string; explanation?: string } {
+  const original = new Date(targetDate);
+  const originalFormatted = formatVNCalendarDate(original);
+  const current = new Date(targetDate);
+  let wasAdjusted = false;
+  let explanation = '';
+
+  // Nếu rơi vào Thứ 7 (6) -> Lùi 2 ngày sang Thứ 2
+  if (current.getDay() === 6) {
+    current.setDate(current.getDate() + 2);
+    wasAdjusted = true;
+    explanation = `Ngày gốc (${originalFormatted}) rơi vào Thứ Bảy, hạn luật định tự động dời sang ngày làm việc tiếp theo (Thứ Hai).`;
+  } else if (current.getDay() === 0) {
+    // Nếu rơi vào Chủ Nhật (0) -> Lùi 1 ngày sang Thứ 2
+    current.setDate(current.getDate() + 1);
+    wasAdjusted = true;
+    explanation = `Ngày gốc (${originalFormatted}) rơi vào Chủ Nhật, hạn luật định tự động dời sang ngày làm việc tiếp theo (Thứ Hai).`;
+  }
+
+  return {
+    adjustedDate: current,
+    wasAdjusted,
+    originalFormatted,
+    explanation,
+  };
+}
+
+/**
+ * Hàm tính hạn tạm nộp thuế Quý & Năm chuẩn xác, tự động dời ngày nếu rơi vào ngày nghỉ
+ */
+export function getCalculatedQuarterDeadline(quarter: number | 'ALL', year: number): {
+  formattedDate: string;
+  rawDate: Date;
+  wasAdjusted: boolean;
+  explanation?: string;
+} {
+  let target: Date;
+  switch (quarter) {
+    case 1:
+      target = new Date(year, 3, 30, 23, 59, 59); // 30/04
+      break;
+    case 2:
+      target = new Date(year, 6, 31, 23, 59, 59); // 31/07
+      break;
+    case 3:
+      target = new Date(year, 9, 31, 23, 59, 59); // 31/10
+      break;
+    case 4:
+      target = new Date(year + 1, 0, 31, 23, 59, 59); // 31/01 năm sau
+      break;
+    case 'ALL':
+    default:
+      target = new Date(year + 1, 2, 31, 23, 59, 59); // 31/03 năm sau (Quyết toán)
+      break;
+  }
+
+  const { adjustedDate, wasAdjusted, explanation } = adjustDeadlineForWeekendAndHoliday(target);
+  return {
+    formattedDate: formatVNCalendarDate(adjustedDate),
+    rawDate: adjustedDate,
+    wasAdjusted,
+    explanation: wasAdjusted ? `${explanation} (Căn cứ Luật Quản lý thuế số 38/2019/QH14 & Luật số 108/2025/QH15).` : undefined,
+  };
+}
