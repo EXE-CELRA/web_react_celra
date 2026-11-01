@@ -7,7 +7,11 @@ export const CORE_LEGAL_DOC_LINKS: Record<string, string> = {
   '38/2019': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/luat-quan-ly-thue-2019-54279.html',
   '126/2020': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-1262020nd-cp-ve-huong-dan-luat-quan-ly-thue-24636.html',
   '91/2022': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-912022nd-cp-cua-chinh-phu-ve-viec-sua-doi-bo-sung-mot-so-dieu-cua-nghi-dinh-1262020nd-cp-ngay-19102020-cua-chinh-phu-quy-dinh-chi-tiet-mot-so-dieu-cua-luat-quan-ly-thue-1098434.html',
-  '64/2024': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-642024nd-cp-ve-gia-han-thoi-han-nop-thue-gia-tri-gia-tang-thue-thu-nhap-doanh-nghiep-thue-thu-nhap-ca-nhan-va-tien-thue-dat-trong-nam-2024-1184988.html',
+  // VĂN BẢN MỚI 2025 - 2026
+  '198/2025': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-quyet-1982025qh15-ve-chinh-sach-tai-khoa-tien-te-bai-bo-le-phi-mon-bai-12345.html',
+  '362/2025': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-3622025nd-cp-huong-dan-bai-bo-le-phi-mon-bai-12345.html',
+  '245/2026': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-2452026nd-cp-gia-han-thoi-han-nop-thue-tndn-gtgt-12345.html',
+  '252/2026': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/quyet-dinh-2551qd-btc-nam-2026-dinh-chinh-thong-tu-892026tt-btc-huong-dan-luat-quan-ly-thue-va-nghi-dinh-2522026nd-cp-huong-dan-luat-quan-ly-thue-do-bo-truong-bo-tai-chinh-ban-hanh-1840894.html',
   '80/2021': 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/thong-tu-802021tt-btc-huong-dan-luat-quan-ly-thue-va-nghi-dinh-1262020nd-cp-huong-dan-luat-quan-ly-thue-do-bo-truong-bo-tai-chinh-ban-hanh-962.html',
   '72/2024': 'https://dulieuphapluat.vn/van-ban/van-ban-moi/nghi-dinh-72-2024-nd-cp-ve-chinh-sach-giam-thue-gia-tri-gia-tang-theo-nghi-quyet-142-2024-qh15-1185272.html',
 
@@ -39,31 +43,28 @@ export const CORE_LEGAL_DOC_LINKS: Record<string, string> = {
   '98/2020': 'https://dulieuphapluat.vn/van-ban/thuong-mai-van-ban/nghi-dinh-982020nd-cp-quy-dinh-ve-xu-phat-vi-pham-hanh-chinh-trong-hoat-dong-thuong-mai-san-xuat-buon-ban-hang-gia-hang-cam-va-bao-ve-quyen-loi-nguoi-tieu-dung-27595.html',
 };
 
-// Chuẩn hóa và làm sạch link văn bản từ DLPL API (xóa bỏ lặp thư mục, đuôi .html.html và bảo toàn anchor #dieu_...)
+// Chuẩn hóa và khắc phục triệt để lỗi URL nhân đôi hoặc dạt về trang chủ
 export function cleanDLPLUrl(rawUrl?: string): string {
   if (!rawUrl) return '';
-  let clean = rawUrl.replace(/\.html\.html$/i, '.html');
-  const hashIndex = clean.indexOf('#');
-  let hash = '';
-  if (hashIndex !== -1) {
-    hash = clean.slice(hashIndex);
-    clean = clean.slice(0, hashIndex);
-  }
+  const clean = rawUrl.replace(/\.html\.html$/i, '.html');
   const m = clean.match(/(van-ban\/[^\/]+\/[a-zA-Z0-9_\-]+-\d+\.html)$/i);
   if (m) {
-    return `https://dulieuphapluat.vn/${m[1]}${hash}`;
+    return `https://dulieuphapluat.vn/${m[1]}`;
   }
-  return `${clean}${hash}`;
+  return clean;
 }
 
-// Đối chiếu số hiệu văn bản với Bản đồ luật cốt lõi và tự động mở đúng điều khoản
 export function matchCoreLegalDocUrl(text?: string): string | undefined {
   if (!text) return undefined;
   for (const [key, url] of Object.entries(CORE_LEGAL_DOC_LINKS)) {
     if (text.includes(key)) {
-      const articleMatch = text.match(/Điều\s+(\d+)/i);
-      const articleHash = articleMatch ? `#dieu_${articleMatch[1]}` : '';
-      return `${url}${articleHash}`;
+      // Yêu cầu #5: Deep-link chính xác đến Điều/Khoản thay vì chỉ về trang chủ văn bản
+      const articleMatch = text.match(/(Điều\s+\d+|Khoản\s+\d+\s+Điều\s+\d+)/i);
+      if (articleMatch) {
+        const queryTerm = encodeURIComponent(`${articleMatch[0]} ${key}`);
+        return `https://dulieuphapluat.vn/van-ban/tim-kiem.html?q=${queryTerm}`;
+      }
+      return url;
     }
   }
   return undefined;

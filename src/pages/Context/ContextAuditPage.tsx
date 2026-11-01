@@ -54,7 +54,7 @@ import {
 import { detectTaxIncentiveZone } from '../../utils/taxIncentiveZones';
 import { calculateCitTax, type CitCalculationResult } from '../../utils/citTaxCalculator';
 import { determineCitTaxRate, type CitTaxTierResult } from '../../utils/taxRateChecker';
-import { getQuarterDeadline as getQuarterDeadlineHelper, getQuarterReminderDate as getQuarterReminderDateHelper } from '../../utils/taxCalendar';
+import { getCalculatedQuarterDeadline } from '../../utils/taxCalendar';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
 import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
 import { isGroupSurveyCompleted } from '../../data/questionSurvey';
@@ -802,24 +802,24 @@ export const ContextAuditPage: React.FC = () => {
     return years.map((y) => ({ value: y, label: `Năm ${y}` }));
   }, [currentYear, taxYear]);
 
-  const isExtensionEligible = useMemo(() => {
-    if (!activeOrg) return false;
-    const rev = String(activeOrg.revenueStatus || '').toLowerCase();
-    const isRevenueSME = rev.includes('under_10b') || rev.includes('10b_to_50b') || rev.includes('zero') || rev.includes('dưới 10 tỷ') || rev.includes('10 đến 50 tỷ') || rev.includes('chưa có');
-    const isEmployeeSME = (activeOrg.employeeCount ?? 1) <= 100;
-    const ind = String(activeOrg.industry || '').toLowerCase();
-    const isIndustryEligible = ind.includes('nông nghiệp') || ind.includes('xây dựng') || ind.includes('vận tải') || ind.includes('du lịch') || ind.includes('ăn uống') || ind.includes('lưu trú') || ind.includes('sản xuất') || ind.includes('f&b') || ind.includes('cntt') || ind.includes('công nghệ');
-    return isRevenueSME || isEmployeeSME || isIndustryEligible;
-  }, [activeOrg]);
-
-  // Helper tính hạn nộp tờ khai và tiền thuế theo Luật Quản lý thuế số 38/2019/QH14 & NĐ 91/2022/NĐ-CP (có bù ngày nghỉ lễ và gia hạn)
+  // Helper tính hạn nộp tờ khai và tiền thuế theo Luật Quản lý thuế số 38/2019/QH14 & NĐ 91/2022/NĐ-CP
+  // Helper tính hạn nộp tờ khai và tiền thuế tự động điều chỉnh ngày nghỉ (Thứ 7, Chủ Nhật)
   const getQuarterDeadline = (quarter: number | 'ALL', year: number) => {
-    return getQuarterDeadlineHelper(quarter, year, isExtensionEligible);
+    const info = getCalculatedQuarterDeadline(quarter, year);
+    return info.formattedDate;
   };
 
   const getQuarterReminderDate = (quarter: number | 'ALL', year: number) => {
-    return getQuarterReminderDateHelper(quarter, year, isExtensionEligible);
+    switch (quarter) {
+      case 1: return `23/04/${year}`;
+      case 2: return `24/07/${year}`;
+      case 3: return `24/10/${year}`;
+      case 4: return `24/01/${year + 1}`;
+      case 'ALL': return `24/03/${year + 1}`;
+      default: return `24/01/${year + 1}`;
+    }
   };
+
   // State Modal Tạo Checklist Hạn Nộp Thuế
   const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
   const [selectedChecklistQuarter, setSelectedChecklistQuarter] = useState<number | 'ALL'>(1);
@@ -2769,9 +2769,12 @@ export const ContextAuditPage: React.FC = () => {
         taxCode={orgTaxCode}
         companyName={orgName}
         prepaymentAmount={citSummary.statutoryPrepayment80 || citCalcResult?.statutoryPrepayment80 || 0}
+        totalAnnualEstimatedTax={citSummary.estimatedTaxAmount || citCalcResult?.estimatedTaxAmount || 0}
+        paidQuarter1To3={taxQuarter === 4 ? (citSummary.statutoryPrepayment80 > 0 ? Math.round(citSummary.statutoryPrepayment80 * 0.5) : undefined) : undefined}
         cqtName={orgCity}
         quarter={taxQuarter}
         year={taxYear}
+        onUploadEvidence={() => navigate('/evidence')}
       />
 
       {/* MODAL KHẢO SÁT TÌNH HUỐNG CHUYÊN BIỆT THEO PHÂN HỆ */}
@@ -2829,11 +2832,11 @@ export const ContextAuditPage: React.FC = () => {
                 className="w-full grid grid-cols-1 gap-2"
               >
                 {[
-                  { q: 1, label: 'Quý 1', deadline: getQuarterDeadline(1, selectedChecklistYear), reminder: getQuarterReminderDate(1, selectedChecklistYear) },
-                  { q: 2, label: 'Quý 2', deadline: getQuarterDeadline(2, selectedChecklistYear), reminder: getQuarterReminderDate(2, selectedChecklistYear) },
-                  { q: 3, label: 'Quý 3', deadline: getQuarterDeadline(3, selectedChecklistYear), reminder: getQuarterReminderDate(3, selectedChecklistYear) },
-                  { q: 4, label: 'Quý 4', deadline: getQuarterDeadline(4, selectedChecklistYear), reminder: getQuarterReminderDate(4, selectedChecklistYear) },
-                  { q: 'ALL', label: 'Quyết Toán Cả Năm', deadline: getQuarterDeadline('ALL', selectedChecklistYear), reminder: getQuarterReminderDate('ALL', selectedChecklistYear) },
+                  { q: 1, label: 'Quý 1', deadline: `30/04/${selectedChecklistYear}`, reminder: `23/04/${selectedChecklistYear}` },
+                  { q: 2, label: 'Quý 2', deadline: `31/07/${selectedChecklistYear}`, reminder: `24/07/${selectedChecklistYear}` },
+                  { q: 3, label: 'Quý 3', deadline: `31/10/${selectedChecklistYear}`, reminder: `24/10/${selectedChecklistYear}` },
+                  { q: 4, label: 'Quý 4', deadline: `31/01/${selectedChecklistYear + 1}`, reminder: `24/01/${selectedChecklistYear + 1}` },
+                  { q: 'ALL', label: 'Quyết Toán Cả Năm', deadline: `31/03/${selectedChecklistYear + 1}`, reminder: `24/03/${selectedChecklistYear + 1}` },
                 ].map((item) => (
                   <Radio
                     key={item.q}
