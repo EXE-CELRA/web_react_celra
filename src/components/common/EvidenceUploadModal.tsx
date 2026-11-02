@@ -34,6 +34,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
     formData.append('file', fileList[0].originFileObj || fileList[0]);
     formData.append('title', values.title);
     formData.append('documentType', values.documentType);
+    formData.append('category', values.documentType);
     
     if (values.tag) {
       formData.append('tag', values.tag);
