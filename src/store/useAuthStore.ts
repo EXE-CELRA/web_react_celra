@@ -1,10 +1,11 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import apiClient from '../api/client';
 import type { User, Membership } from '../types';
 import { useOrgStore } from './useOrgStore';
 import { useTaskStore } from './useTaskStore';
 import { useContextStore } from './useContextStore';
 import { useWalletStore } from './useWalletStore';
+import { useAIChatStore } from './useAIChatStore';
 
 interface AuthState {
   user: User | null;
@@ -70,6 +71,8 @@ export const resetAllAppStores = () => {
       isLoading: false,
       error: null,
     });
+
+    useAIChatStore.setState({ isOpen: false });
   } catch (e) {
     console.warn('Lỗi khi reset stores:', e);
   }

@@ -1,10 +1,15 @@
-import React, { Suspense } from "react";
+﻿import React, { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ConfigProvider, Spin } from "antd";
 import { MainLayout } from "./components/layout/MainLayout";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { AdminRoute } from "./components/layout/AdminRoute";
+import { AIChatDrawer } from "./components/common/AIChatDrawer";
+import { CelraMascot } from "./components/CelraMascot";
+import { useAIChatStore } from "./store/useAIChatStore";
+import { useOrgStore } from "./store/useOrgStore";
+import { useAuthStore } from "./store/useAuthStore";
 
 // 🚀 TỐI ƯU HÓA ROUTE CODE-SPLITTING BẰNG REACT.LAZY (DYNAMIC IMPORTS)
 const HomePage = React.lazy(() =>
@@ -108,6 +113,13 @@ const PageLoadingFallback: React.FC = () => (
   </div>
 );
 export const App: React.FC = () => {
+  // AIChatDrawer được giữ lại nguyên vẹn, chỉ chuyển lên App để mascot và
+  // nút "Trợ lý AI" cùng điều khiển một instance duy nhất trên mọi trang.
+  const activeOrgId = useOrgStore((state) => state.activeOrg?.id);
+  const user = useAuthStore((state) => state.user);
+  const isAIChatOpen = useAIChatStore((state) => state.isOpen);
+  const closeAIChat = useAIChatStore((state) => state.close);
+
   return (
     <ConfigProvider
       theme={{
@@ -191,6 +203,13 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
+
+        <AIChatDrawer
+          key={user?.id ? `${user.id}_${activeOrgId || 'empty'}` : 'unauthenticated'}
+          visible={isAIChatOpen}
+          onClose={closeAIChat}
+        />
+        <CelraMascot />
       </BrowserRouter>
     </ConfigProvider>
   );

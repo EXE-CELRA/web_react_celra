@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Drawer, message as antMessage } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import walkSprite from '../../assets/celra-mascot-walk.png';
+import '../CelraMascot/CelraMascot.css';
 import { StructuredAIMessage } from './StructuredAIMessage';
 import { 
   Bot, 
@@ -16,7 +19,16 @@ import {
   X, 
   RefreshCw, 
   Maximize2, 
-  Minimize2 
+  Minimize2,
+  Paperclip,
+  PanelRightClose,
+  PanelRightOpen,
+  History,
+  Building2,
+  AlertCircle,
+  ExternalLink,
+  ClipboardCheck,
+  BookmarkPlus,
 } from 'lucide-react';
 interface CitationItem {
   title: string;
@@ -76,9 +88,15 @@ interface AIChatDrawerProps {
 }
 const CHAT_STORAGE_KEY = 'celra_chat_history';
 
-function loadChatHistory(orgId?: string): MessageItem[] | null {
+function getChatStorageKey(userId?: string, orgId?: string): string {
+  if (!userId) return `${CHAT_STORAGE_KEY}_unauth`;
+  return `${CHAT_STORAGE_KEY}_u_${userId}_org_${orgId || 'default'}`;
+}
+
+function loadChatHistory(userId?: string, orgId?: string): MessageItem[] | null {
   try {
-    const key = orgId ? `${CHAT_STORAGE_KEY}_${orgId}` : CHAT_STORAGE_KEY;
+    if (!userId) return null;
+    const key = getChatStorageKey(userId, orgId);
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
@@ -89,18 +107,20 @@ function loadChatHistory(orgId?: string): MessageItem[] | null {
   }
 }
 
-function saveChatHistory(messages: MessageItem[], orgId?: string): void {
+function saveChatHistory(messages: MessageItem[], userId?: string, orgId?: string): void {
   try {
-    const key = orgId ? `${CHAT_STORAGE_KEY}_${orgId}` : CHAT_STORAGE_KEY;
+    if (!userId) return;
+    const key = getChatStorageKey(userId, orgId);
     localStorage.setItem(key, JSON.stringify(messages));
   } catch {
     // Storage full or unavailable — silently fail, chat still works
   }
 }
 
-function clearChatHistory(orgId?: string): void {
+function clearChatHistory(userId?: string, orgId?: string): void {
   try {
-    const key = orgId ? `${CHAT_STORAGE_KEY}_${orgId}` : CHAT_STORAGE_KEY;
+    if (!userId) return;
+    const key = getChatStorageKey(userId, orgId);
     localStorage.removeItem(key);
   } catch {
     // ignore
@@ -109,31 +129,11 @@ function clearChatHistory(orgId?: string): void {
 const getDefaultWelcomeMessage = (companyName?: string): MessageItem => ({
   id: 'welcome-msg',
   sender: 'AI',
-  text: `Xin chào! Tôi là **CELRA Legal & Tax Copilot** - Trợ lý Cố vấn Pháp lý và Thuế Doanh Nghiệp được hỗ trợ bởi OpenCode AI.\n\nTôi thấu hiểu bối cảnh dữ liệu của **${companyName || 'doanh nghiệp của bạn'}** và sẵn sàng giải đáp mọi thắc mắc về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương hợp lý hoặc các quy định pháp luật.`,
-  citations: [
-    {
-      title: 'Nghị định 91/2022/NĐ-CP',
-      docNumber: '91/2022/NĐ-CP',
-      articleNumber: 'Tạm nộp TNDN 80%',
-      sourceUrl: CORE_LEGAL_DOC_LINKS['91/2022'],
-    },
-    {
-      title: 'Nghị định 126/2020/NĐ-CP',
-      docNumber: '126/2020/NĐ-CP',
-      articleNumber: 'Kê khai thuế',
-      sourceUrl: CORE_LEGAL_DOC_LINKS['126/2020'],
-    },
-    {
-      title: 'Thông tư 96/2015/TT-BTC',
-      docNumber: '96/2015/TT-BTC',
-      articleNumber: 'Chi phí lương',
-      sourceUrl: CORE_LEGAL_DOC_LINKS['96/2015'],
-    },
-  ],
+  text: `Xin chào! Tôi là trợ lý pháp lý AI của CELRA.\n\nMô tả tình huống hoặc đặt câu hỏi về nghĩa vụ pháp lý của doanh nghiệp. Tôi sẽ giúp bạn hiểu quy định và xác định những việc cần thực hiện.\n\n${companyName ? `Bối cảnh hiện tại: **${companyName}**. Hãy cung cấp thêm thông tin nếu doanh nghiệp của bạn có đặc điểm chưa được cập nhật trong hồ sơ.` : 'Hãy cung cấp ngành nghề, quy mô hoặc loại hình doanh nghiệp để tôi có thêm bối cảnh.'}`,
   actionType: 'info',
 });
 
-import { cleanDLPLUrl, matchCoreLegalDocUrl, CORE_LEGAL_DOC_LINKS } from '../../api/legalApi';
+import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 
 // Chuẩn hóa và khắc phục triệt để lỗi URL DLPL hoặc liên kết văn bản pháp luật gốc
 function resolveCitationUrl(c: CitationItem): string {
@@ -159,27 +159,45 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   onOpenAuditModal,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+  const { user, isAuthenticated } = useAuthStore();
   const { activeOrg } = useOrgStore();
   const currentOrgId = activeOrg?.id || localStorage.getItem('celra_active_org_id') || undefined;
+
+  // 🛡️ NGUYÊN TẮC BẢO MẬT: Chỉ người dùng đã đăng nhập mới được phép mở và sử dụng khung chat.
+  // Ở màn hình đăng nhập (hoặc khi chưa đăng nhập), luôn đóng khung chat ngay lập tức.
+  useEffect(() => {
+    if (visible && (isAuthPage || !isAuthenticated)) {
+      onClose();
+      if (!isAuthPage) {
+        antMessage.warning('Vui lòng đăng nhập để sử dụng Trợ lý Pháp lý AI.');
+        navigate('/login');
+      }
+    }
+  }, [visible, isAuthPage, isAuthenticated, onClose, navigate]);
+
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     return localStorage.getItem('celra_chat_expanded') === 'true';
   });
+  const [contextPanelOpen, setContextPanelOpen] = useState(true);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>(() => {
-    return loadChatHistory(currentOrgId) ?? [getDefaultWelcomeMessage(activeOrg?.name)];
+    return loadChatHistory(user?.id, currentOrgId) ?? [getDefaultWelcomeMessage(activeOrg?.name)];
   });
 
-  // 🛡️ ĐẢM BẢO CÔ LẬP TUYỆT ĐỐI: Tải đúng lịch sử chat của Doanh nghiệp hiện hành khi đổi workspace
+  // 🛡️ ĐẢM BẢO CÔ LẬP TUYỆT ĐỐI: Tải đúng lịch sử chat theo userId và Doanh nghiệp hiện hành
   useEffect(() => {
-    if (!currentOrgId) return;
-    const history = loadChatHistory(currentOrgId);
+    if (!isAuthenticated || !user?.id) return;
+    const history = loadChatHistory(user.id, currentOrgId);
     setMessages(history && history.length > 0 ? history : [getDefaultWelcomeMessage(activeOrg?.name)]);
-  }, [currentOrgId, activeOrg?.name]);
+  }, [user?.id, currentOrgId, activeOrg?.name, isAuthenticated]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [acceptedProposals, setAcceptedProposals] = useState<Record<string, boolean>>({});
   const [isAccepting, setIsAccepting] = useState<Record<string, boolean>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
@@ -204,33 +222,32 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   }, [messages, loading]);
 
   useEffect(() => {
-    if (currentOrgId && messages.length > 0) {
-      saveChatHistory(messages, currentOrgId);
+    if (isAuthenticated && user?.id && messages.length > 0) {
+      saveChatHistory(messages, user.id, currentOrgId);
     }
-  }, [messages, currentOrgId]);
+  }, [messages, user?.id, currentOrgId, isAuthenticated]);
 
   // Danh mục câu hỏi gợi ý nhanh (Quick Prompts)
   const quickPrompts = [
     {
-      title: 'Tôi có còn thiếu tuân thủ nào không?',
-      desc: 'Kiểm tra tổng quan rủi ro pháp lý & thuế của DN',
-      highlight: true,
+      title: 'Doanh nghiệp tôi cần tuân thủ những nghĩa vụ pháp lý nào?',
+      desc: 'Tổng hợp nghĩa vụ theo bối cảnh doanh nghiệp',
     },
     {
-      title: 'Tạm nộp thuế TNDN 80% là thế nào?',
-      desc: 'Hạn chót và mức phạt chậm nộp 0.03%/ngày',
+      title: 'Quy định về thuế TNDN hiện nay như thế nào?',
+      desc: 'Phân tích quy định và nghĩa vụ liên quan',
     },
     {
-      title: 'Hạn nộp tờ khai thuế GTGT và TNCN quý này?',
-      desc: 'Quy định kỳ kê khai và thời hạn nộp tờ khai quý',
+      title: 'Doanh nghiệp cần chuẩn bị hồ sơ gì?',
+      desc: 'Liệt kê hồ sơ và bằng chứng cần nộp',
     },
     {
-      title: 'Thuế môn bài nộp khi nào và mức nộp bao nhiêu?',
-      desc: 'Nghị định 139/2016 và chính sách miễn năm đầu',
+      title: 'Tôi cần làm gì để hoàn thành nghĩa vụ tuân thủ?',
+      desc: 'Chuyển kết quả thành các bước thực hiện',
     },
     {
-      title: 'Chi phí lương F&B cần chứng từ gì để hợp lệ?',
-      desc: 'Quy chuẩn trừ thuế TNDN và hóa đơn từ 20 triệu',
+      title: 'Có quy định mới nào ảnh hưởng đến doanh nghiệp tôi?',
+      desc: 'Xác định thay đổi có liên quan',
     },
   ];
 
@@ -239,13 +256,15 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     if (!query || loading) return;
 
     setInputText('');
+    const fileName = attachedFile?.name;
+    setAttachedFile(null);
     const userMsgId = `usr-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
       {
         id: userMsgId,
         sender: 'USER',
-        text: query,
+        text: fileName ? `${query}\nTài liệu đính kèm: ${fileName}` : query,
         timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -352,6 +371,9 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       navigate('/context');
     }
   };
+
+  const latestAiMessage = [...messages].reverse().find((message) => message.sender === 'AI' && message.id !== 'welcome-msg');
+  const latestUserMessage = [...messages].reverse().find((message) => message.sender === 'USER');
 
   // Từ điển chuyển ngữ mã kỹ thuật Backend sang nhãn tiếng Việt trang nhã cho người dùng
   const BE_FIELD_LABELS: Record<string, string> = {
@@ -486,44 +508,65 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     <Drawer
       title={null}
       placement="right"
-      width={isExpanded ? '96vw' : (window.innerWidth < 1024 ? '100vw' : '68vw')}
+      width={isExpanded ? '96vw' : (window.innerWidth < 1024 ? '100vw' : '88vw')}
       onClose={onClose}
       open={visible}
       styles={{
         body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%', background: '#f8fafc' },
-        wrapper: { maxWidth: '100vw', transition: 'all 0.25s ease-in-out' }
+        wrapper: { maxWidth: '100vw', transition: 'width 0.25s ease-in-out' }
       }}
     >
       {/* DRAWER HEADER */}
-      <div className="p-4 bg-gradient-to-r from-teal-900 via-slate-900 to-teal-950 text-white flex items-center justify-between border-b border-teal-800/50 shrink-0 shadow-xs">
+      <div className="h-[72px] px-5 bg-[#142B50] text-white flex items-center justify-between border-b border-[#203a66] shrink-0">
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="p-2 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-400/40">
-              <Bot className="w-5 h-5 text-teal-400" />
+          {/* Biểu tượng Trợ lý Pháp lý AI: Mascot cú CELRA 15 frame đi bộ nhún nhẹ sống động */}
+          <div
+            className="celra-chat-header-mascot"
+            title="Mascot cú CELRA — Trợ lý Pháp lý AI"
+            aria-label="Mascot cú CELRA Trợ lý Pháp lý AI"
+          >
+            <div className="celra-chat-header-mascot__viewport">
+              <div className="celra-chat-header-mascot__strip">
+                <img
+                  src={walkSprite}
+                  alt="CELRA Mascot"
+                  className="celra-chat-header-mascot__img"
+                  draggable={false}
+                />
+              </div>
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full" />
+            <span className="celra-chat-header-mascot__status" title="CELRA AI đang trực tuyến" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-white tracking-wide">
-                Trợ Lý AI Pháp Lý &amp; Thuế
+              <h3 className="text-[15px] font-bold text-white tracking-wide">
+                Trợ lý pháp lý AI
               </h3>
-              <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30">
-                OpenCode AI
-              </span>
             </div>
-            <p className="text-[11px] text-teal-200/80 mt-0.5">
-              Cố vấn tuân thủ pháp luật &amp; thuế • Thấu hiểu bối cảnh DN
+            <p className="text-[11px] text-slate-300 mt-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              CELRA AI đang hoạt động
+              {activeOrg?.legalName || activeOrg?.name ? (
+                <span className="text-slate-400">• {activeOrg.legalName || activeOrg.name}</span>
+              ) : null}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
           <button
+            onClick={() => antMessage.info('Lịch sử cuộc trò chuyện được lưu theo doanh nghiệp hiện tại.')}
+            className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            title="Lịch sử trò chuyện"
+            aria-label="Lịch sử trò chuyện"
+          >
+            <History className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => {
-              clearChatHistory(currentOrgId);
+              clearChatHistory(user?.id, currentOrgId);
               setMessages([getDefaultWelcomeMessage(activeOrg?.name)]);
-              antMessage.success('Đã làm mới phiên hội thoại của doanh nghiệp hiện tại!');
+              antMessage.success('Đã làm mới phiên hội thoại!');
             }}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
             title="Làm mới lịch sử chat"
@@ -552,9 +595,40 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         </div>
       </div>
 
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 min-w-0 flex flex-col bg-[#F8FAFC]">
       {/* MESSAGES LIST AREA */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg) => {
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        {messages.length === 1 && messages[0].id === 'welcome-msg' ? (
+          <div className="min-h-full flex flex-col justify-center max-w-[760px] mx-auto py-8">
+            <div className="mb-7">
+              <div className="w-11 h-11 rounded-xl bg-[#142B50] text-white flex items-center justify-center mb-4">
+                <Bot className="w-5 h-5" />
+              </div>
+              <h1 className="text-[22px] leading-tight font-bold text-[#172B4D] mb-2">
+                Xin chào! Tôi là trợ lý pháp lý AI của CELRA.
+              </h1>
+              <p className="text-[14px] leading-6 text-slate-600 max-w-[680px]">
+                Mô tả tình huống hoặc đặt câu hỏi về nghĩa vụ pháp lý của doanh nghiệp.
+                Tôi sẽ giúp bạn hiểu quy định và xác định những việc cần thực hiện.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+              {quickPrompts.map((q) => (
+                <button
+                  key={q.title}
+                  type="button"
+                  onClick={() => handleSendMessage(q.title)}
+                  className="min-h-[64px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-left hover:border-[#2563EB]/50 hover:bg-blue-50/40 transition-colors cursor-pointer"
+                >
+                  <span className="block text-[13px] font-semibold text-[#172B4D]">{q.title}</span>
+                  <span className="block mt-1 text-[11px] text-slate-500">{q.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {messages.filter((msg) => !(msg.id === 'welcome-msg' && messages.length === 1)).map((msg) => {
           const isUser = msg.sender === 'USER';
           return (
             <div
@@ -563,10 +637,10 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
             >
               {/* Avatar */}
               <div
-                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold shadow-xs ${
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
                   isUser
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-teal-700 text-white'
+                    ? 'bg-[#2563EB] text-white'
+                    : 'bg-[#142B50] text-white'
                 }`}
               >
                 {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
@@ -576,14 +650,14 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
               {/* Message Bubble Content - Tự co giãn theo chiều rộng màn hình lớn */}
               <div className={`${isExpanded ? 'max-w-[92%]' : 'max-w-[88%]'} space-y-2.5`}>
                 <div
-                  className={`p-4 rounded-2xl text-xs sm:text-sm shadow-xs space-y-2.5 leading-relaxed ${
+                  className={`p-4 rounded-2xl text-[13px] shadow-xs space-y-2.5 leading-relaxed ${
                     isUser
-                      ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-tr-none'
-                      : 'bg-white text-slate-900 border border-slate-200/90 rounded-tl-none'
+                      ? 'bg-[#EAF2FF] text-[#172B4D] rounded-tr-md'
+                      : 'bg-white text-slate-900 border border-slate-200 rounded-tl-md'
                   }`}
                 >
                   {isUser ? (
-                    <div className="text-white text-xs leading-relaxed">
+                    <div className="text-[#172B4D] text-[13px] leading-relaxed">
                       {renderFormattedText(msg.text)}
                     </div>
                   ) : (
@@ -700,12 +774,12 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
         {loading && (
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-xl bg-teal-700 text-white flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#142B50] text-white flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4" />
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-none shadow-xs text-xs text-slate-600 flex items-center gap-2">
-              <RefreshCw className="w-3.5 h-3.5 text-teal-600 animate-spin" />
-              <span>CELRA Copilot đang đối chiếu dữ liệu bối cảnh &amp; quy chuẩn luật...</span>
+            <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-md shadow-xs text-xs text-slate-600 flex items-center gap-2">
+              <RefreshCw className="w-3.5 h-3.5 text-[#2563EB] animate-spin" />
+              <span>CELRA AI đang đối chiếu bối cảnh và căn cứ pháp lý...</span>
             </div>
           </div>
         )}
@@ -713,64 +787,191 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         <div ref={bottomRef} />
       </div>
 
-      {/* QUICK PROMPT CHIPS */}
-      <div className="p-2.5 bg-slate-100/90 border-t border-slate-200 shrink-0">
-        <div className="text-[11px] font-bold text-slate-600 px-1 mb-1.5 flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-amber-500" />
-          <span>Gợi ý câu hỏi nhanh:</span>
+      {messages.length > 1 ? (
+        <div className="px-5 pb-2 bg-[#F8FAFC] shrink-0">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {quickPrompts.slice(0, 3).map((q) => (
+              <button
+                key={q.title}
+                type="button"
+                onClick={() => handleSendMessage(q.title)}
+                className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:border-[#2563EB]/40 hover:text-[#2563EB] transition-colors cursor-pointer"
+              >
+                {q.title}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {quickPrompts.map((q, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSendMessage(q.title)}
-              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium shrink-0 transition-all cursor-pointer text-left border flex items-center gap-1.5 shadow-2xs hover:shadow-xs ${
-                q.highlight
-                  ? 'bg-teal-50 border-teal-300 text-teal-900 font-bold hover:bg-teal-100'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-              }`}
-            >
-              <span>{q.title}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
 
       {/* INPUT BAR */}
-      <div className="p-3.5 bg-white border-t border-slate-200 shrink-0">
+      <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+        {attachedFile ? (
+          <div className="mb-2 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-[#172B4D]">
+            <span className="flex items-center gap-2 min-w-0">
+              <Paperclip className="w-4 h-4 shrink-0 text-[#2563EB]" />
+              <span className="truncate">{attachedFile.name}</span>
+            </span>
+            <button type="button" onClick={() => setAttachedFile(null)} className="ml-2 text-slate-500 hover:text-slate-800 cursor-pointer" aria-label="Gỡ tài liệu">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : null}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage();
           }}
-          className="flex items-center gap-2"
+          className="flex items-end gap-2"
         >
-          <input
+          <label className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-[#2563EB]/40 hover:text-[#2563EB] cursor-pointer" title="Đính kèm PDF hoặc DOCX">
+            <Paperclip className="w-4 h-4" />
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              className="hidden"
+              onChange={(event) => setAttachedFile(event.target.files?.[0] || null)}
+            />
+          </label>
+          <textarea
             ref={inputRef}
-            type="text"
-            placeholder="Hỏi về thuế môn bài, thuế GTGT, tạm nộp TNDN, chi phí lương..."
+            rows={1}
+            placeholder="Nhập câu hỏi hoặc mô tả tình huống pháp lý của doanh nghiệp..."
             value={inputText}
-            onFocus={() => {
-              // Khi người dùng click/focus vào ô nhập chat, tự động cuộn xuống tin nhắn mới nhất
-              setTimeout(() => scrollToBottom('smooth'), 120);
+            onFocus={() => setTimeout(() => scrollToBottom('smooth'), 120)}
+            onChange={(event) => setInputText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                handleSendMessage();
+              }
             }}
-            onChange={(e) => setInputText(e.target.value)}
             disabled={loading}
-            className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
+            className="flex-1 max-h-32 min-h-10 resize-none px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[16px] md:text-[14px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
           />
           <button
             type="submit"
             disabled={!inputText.trim() || loading}
-            className={`p-2.5 rounded-xl text-white transition-all cursor-pointer shadow-xs ${
+            className={`w-10 h-10 shrink-0 rounded-lg text-white flex items-center justify-center transition-colors cursor-pointer ${
               inputText.trim() && !loading
-                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700'
+                ? 'bg-[#2563EB] hover:bg-[#1D4ED8]'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
             title="Gửi câu hỏi"
+            aria-label="Gửi câu hỏi"
           >
-            <Send className="w-4 h-4" />
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </form>
+        <p className="mt-2 text-[10px] text-slate-400 text-center">
+          Nội dung AI hỗ trợ tham khảo và không thay thế ý kiến tư vấn pháp lý chuyên môn.
+        </p>
+      </div>
+        </div>
+
+        {contextPanelOpen ? (
+          <aside className="hidden lg:flex w-[300px] shrink-0 flex-col border-l border-slate-200 bg-white overflow-y-auto">
+            <div className="h-[52px] px-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <span className="text-[12px] font-bold text-[#172B4D]">Ngữ cảnh câu hỏi</span>
+              <button
+                type="button"
+                onClick={() => setContextPanelOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                title="Thu gọn panel ngữ cảnh"
+                aria-label="Thu gọn panel ngữ cảnh"
+              >
+                <PanelRightClose className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-5">
+              <section>
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  <Building2 className="w-4 h-4" />
+                  Doanh nghiệp
+                </div>
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-[13px] font-bold text-[#172B4D]">
+                    {activeOrg?.legalName || activeOrg?.name || 'Chưa cập nhật tên doanh nghiệp'}
+                  </p>
+                  {activeOrg?.legalType || activeOrg?.loaiHinhPhapLy ? (
+                    <p className="mt-1 text-[11px] text-slate-500">{activeOrg.legalType || activeOrg.loaiHinhPhapLy}</p>
+                  ) : null}
+                  {activeOrg?.industry || activeOrg?.nganhNghe ? (
+                    <p className="mt-2 text-[11px] text-slate-600">Ngành: {activeOrg.industry || activeOrg.nganhNghe}</p>
+                  ) : null}
+                  {activeOrg?.scale ? (
+                    <p className="mt-1 text-[11px] text-slate-600">Quy mô: {activeOrg.scale}</p>
+                  ) : null}
+                </div>
+              </section>
+
+              <section>
+                <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">Chủ đề hiện tại</h4>
+                {latestUserMessage ? (
+                  <p className="text-[12px] leading-5 text-slate-700">{latestUserMessage.text}</p>
+                ) : (
+                  <p className="text-[12px] leading-5 text-slate-500">Chưa có câu hỏi trong phiên này.</p>
+                )}
+                {latestAiMessage?.verificationChecklist?.length ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 flex gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Cần xác minh thêm thông tin từ doanh nghiệp.</span>
+                  </div>
+                ) : null}
+              </section>
+
+              <section>
+                <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">Tài liệu tham khảo</h4>
+                {latestAiMessage?.citations?.length ? (
+                  <div className="space-y-2">
+                    {latestAiMessage.citations.slice(0, 4).map((citation, index) => (
+                      <a
+                        key={`${citation.docNumber}-${index}`}
+                        href={resolveCitationUrl(citation)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-lg border border-slate-200 p-3 hover:border-[#2563EB]/40"
+                      >
+                        <p className="text-[12px] font-semibold text-[#172B4D]">{citation.title}</p>
+                        {citation.docNumber ? <p className="mt-1 text-[10px] text-slate-500">{citation.docNumber}</p> : null}
+                        <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-[#2563EB]">
+                          Xem chi tiết <ExternalLink className="w-3 h-3" />
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[12px] leading-5 text-slate-500">Chưa xác minh được văn bản pháp luật cho câu hỏi hiện tại.</p>
+                )}
+              </section>
+
+              <section>
+                <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">Hành động nhanh</h4>
+                <div className="space-y-2">
+                  <button type="button" onClick={handleOpenAudit} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-[#172B4D] hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                    <ClipboardCheck className="w-4 h-4 text-[#2563EB]" />
+                    Đánh giá tuân thủ
+                  </button>
+                  <button type="button" onClick={() => navigate('/tasks')} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-[#172B4D] hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                    <BookmarkPlus className="w-4 h-4 text-[#2563EB]" />
+                    Tạo nhiệm vụ liên quan
+                  </button>
+                </div>
+              </section>
+            </div>
+          </aside>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setContextPanelOpen(true)}
+            className="hidden lg:flex w-10 h-10 mt-3 mr-3 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#2563EB] cursor-pointer"
+            title="Mở panel ngữ cảnh"
+            aria-label="Mở panel ngữ cảnh"
+          >
+            <PanelRightOpen className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </Drawer>
   );

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown, Tag } from 'antd';
+﻿import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown, Tag, message } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -22,7 +22,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useSubscriptionStore } from '../../store/useSubscriptionStore';
-import { AIChatDrawer } from '../common/AIChatDrawer';
+import { useAIChatStore } from '../../store/useAIChatStore';
+import { useMascotStore } from '../../store/useMascotStore';
 import { VietQRModal } from '../common/VietQRModal';
 import { ProfileModal } from '../common/ProfileModal';
 import celraLogo from '../../assets/logo_celra_tachnen.png';
@@ -47,7 +48,7 @@ export const MainLayout: React.FC = () => {
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const openAIDrawer = useAIChatStore((state) => state.open);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
@@ -60,7 +61,25 @@ export const MainLayout: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const { user, logout } = useAuthStore();
+  // Cung cấp vùng an toàn cho Mascot: tránh che Sidebar và Header.
+  useLayoutEffect(() => {
+    useMascotStore.getState().setSafeArea(
+      isMobile
+        ? { top: 68, right: 12, bottom: 16, left: 12 }
+        : { top: 84, right: 16, bottom: 16, left: collapsed ? 96 : 276 },
+    );
+  }, [isMobile, collapsed]);
+
+  const { user, logout, isAuthenticated } = useAuthStore();
+
+  const handleOpenAIDrawer = () => {
+    if (isAuthenticated) {
+      openAIDrawer();
+    } else {
+      message.warning('Vui lòng đăng nhập để sử dụng Trợ lý Pháp lý AI.');
+      navigate('/login');
+    }
+  };
   const { activeOrg, organizations, setActiveOrg, fetchMyOrganizations } = useOrgStore();
   const { fetchWallet } = useWalletStore();
   const { subscription, fetchSubscription } = useSubscriptionStore();
@@ -544,7 +563,7 @@ export const MainLayout: React.FC = () => {
             <Button
               type="primary"
               icon={<RobotOutlined />}
-              onClick={() => setAiDrawerOpen(true)}
+              onClick={handleOpenAIDrawer}
               title="Trợ lý AI Pháp lý & Thuế"
               style={{
                 background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)',
@@ -629,7 +648,6 @@ export const MainLayout: React.FC = () => {
         </footer>
       </Layout>
 
-      <AIChatDrawer key={activeOrg?.id || 'empty-org'} visible={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />
       <VietQRModal visible={qrModalOpen} onClose={() => setQrModalOpen(false)} />
       <ProfileModal open={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
     </Layout>
