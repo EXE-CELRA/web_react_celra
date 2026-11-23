@@ -45,8 +45,8 @@ const writeStoredFlag = (key: string, value: boolean) => {
 /**
  * CELRA Mascot — Mascot tĩnh cố định tại góc dưới bên phải màn hình.
  * - Kích thước nhỏ gọn (Desktop: 82px, Mobile: 58px / 50px).
- * - Không tự động di chuyển, không đi theo chuột, không scroll dịch chuyển.
- * - Giữ nguyên nhận diện thương hiệu hình ảnh cú CELRA tốt nghiệp.
+ * - Không tự động di chuyển, không walking animation, không đi theo chuột.
+ * - Tự động ẩn đi khi khung chatbox (AIChatDrawer) đang mở.
  * - Hỗ trợ click mở Trợ lý Pháp lý AI (AIChatDrawer) và bong bóng tương tác.
  */
 export const CelraMascot: React.FC = () => {
@@ -173,6 +173,11 @@ export const CelraMascot: React.FC = () => {
     writeStoredFlag(NOTIFY_STORAGE_KEY, false);
     setBubble(null);
   }, []);
+
+  // 🛡️ Khi khung chatbox đang mở: Ẩn hoàn toàn mascot để không che khuất hoặc vướng giao diện chat
+  if (chatOpen) {
+    return null;
+  }
 
   const rootClassName = [
     'celra-mascot',
