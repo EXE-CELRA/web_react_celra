@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import walkSprite from '../../assets/celra-mascot-walk.png';
+import mascotImg from '../../assets/celra-mascot.png';
 import '../CelraMascot/CelraMascot.css';
 import { StructuredAIMessage } from './StructuredAIMessage';
 import { 
@@ -519,22 +519,18 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       {/* DRAWER HEADER */}
       <div className="h-[72px] px-5 bg-[#142B50] text-white flex items-center justify-between border-b border-[#203a66] shrink-0">
         <div className="flex items-center gap-3">
-          {/* Biểu tượng Trợ lý Pháp lý AI: Mascot cú CELRA 15 frame đi bộ nhún nhẹ sống động */}
+          {/* Biểu tượng Trợ lý Pháp lý AI: Mascot cú CELRA tĩnh */}
           <div
             className="celra-chat-header-mascot"
             title="Mascot cú CELRA — Trợ lý Pháp lý AI"
             aria-label="Mascot cú CELRA Trợ lý Pháp lý AI"
           >
-            <div className="celra-chat-header-mascot__viewport">
-              <div className="celra-chat-header-mascot__strip">
-                <img
-                  src={walkSprite}
-                  alt="CELRA Mascot"
-                  className="celra-chat-header-mascot__img"
-                  draggable={false}
-                />
-              </div>
-            </div>
+            <img
+              src={mascotImg}
+              alt="CELRA Mascot"
+              className="celra-chat-header-mascot__img"
+              draggable={false}
+            />
             <span className="celra-chat-header-mascot__status" title="CELRA AI đang trực tuyến" />
           </div>
           <div>

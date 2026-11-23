@@ -1,27 +1,41 @@
-﻿/* CELRA Mascot — Đi bộ qua lại chậm rãi ở nửa dưới màn hình (5% -> 48% viewport width) */
+﻿/* ================================================================
+   CELRA Mascot — Mascot tĩnh cố định góc dưới bên phải màn hình
+   Desktop: 82px, right: 20px, bottom: 20px
+   Tablet/Mobile: 58px, right: 12px, bottom: 12px
+   Small Mobile:  50px, right: 10px, bottom: 10px
+   Không tự động di chuyển, không walking animation, không đi theo chuột
+   ================================================================ */
 
 .celra-mascot {
   position: fixed;
-  left: 0;
-  bottom: 16px;
-  width: 125px;
-  height: 156px;
-  z-index: 850;
-  pointer-events: none;
+  right: 20px;
+  bottom: 20px;
+  width: 82px;
+  height: auto;
+  z-index: 9999;
   user-select: none;
-  will-change: transform;
-  animation: celra-mascot-patrol 30s linear infinite;
 }
 
-/* Khi người dùng rê chuột vào mascot, tạm dừng di chuyển ngang để click dễ dàng */
-.celra-mascot:hover {
-  animation-play-state: paused;
+@media (max-width: 768px) {
+  .celra-mascot {
+    width: 58px;
+    right: 12px;
+    bottom: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .celra-mascot {
+    width: 50px;
+    right: 10px;
+    bottom: 10px;
+  }
 }
 
 .celra-mascot__button {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
   padding: 0;
   border: 0;
   background: transparent;
@@ -29,6 +43,15 @@
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   display: block;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+}
+
+.celra-mascot__button:hover {
+  transform: translateY(-3px) scale(1.04);
+}
+
+.celra-mascot__button:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .celra-mascot__button:focus-visible {
@@ -37,129 +60,60 @@
   border-radius: 16px;
 }
 
-/* Lớp Flipper: Xử lý quay đầu 180 độ (scaleX) theo chu kỳ di chuyển */
-.celra-mascot__flipper {
-  position: relative;
+.celra-mascot__button.is-disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.celra-mascot__img {
   width: 100%;
-  height: 100%;
-  transform-origin: center center;
-  animation: celra-mascot-flip 30s ease-in-out infinite;
-  will-change: transform;
-}
-
-.celra-mascot:hover .celra-mascot__flipper {
-  animation-play-state: paused;
-}
-
-/* Viewport hiển thị đúng 1 frame tại một thời điểm */
-.celra-mascot__viewport {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 12px;
-  transform-origin: center bottom;
-  animation: celra-mascot-bob 0.7s ease-in-out infinite;
-  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.22));
-  transition: filter 0.25s ease;
-}
-
-.celra-mascot__button:hover .celra-mascot__viewport {
-  filter: drop-shadow(0 10px 22px rgba(22, 119, 255, 0.4));
-}
-
-/* Dải 15 frame sprite sheet: 15 * 100% = 1500% */
-.celra-mascot__strip {
-  display: flex;
-  width: 1500%;
-  height: 100%;
-  will-change: transform;
-  /* 1.4s cho 15 frame = ~10.7 FPS (trong dải 8-12 FPS mong muốn) */
-  animation: celra-mascot-walk 1.4s steps(15) infinite;
-}
-
-.celra-mascot__strip-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(15, 23, 42, 0.22));
+  transition: filter 0.25s ease;
   pointer-events: none;
 }
 
-/* 1. Animation bước chân 15 frame liên tục */
-@keyframes celra-mascot-walk {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(-100%, 0, 0);
+.celra-mascot__button:hover .celra-mascot__img {
+  filter: drop-shadow(0 8px 20px rgba(22, 119, 255, 0.38));
+}
+
+/* Đèn tín hiệu trạng thái online */
+.celra-mascot__status {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 1.5px rgba(13, 43, 89, 0.25), 0 0 8px #10b981;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .celra-mascot__status {
+    width: 8px;
+    height: 8px;
+    right: 3px;
+    bottom: 2px;
   }
 }
 
-/* 2. Nhún nhẹ thân người sống động theo bước chân */
-@keyframes celra-mascot-bob {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-/* 3. Di chuyển tuần hoàn qua lại: 5% -> 48% (12-18s mỗi chiều, dừng nghỉ 0.6s trước khi đổi chiều) */
-@keyframes celra-mascot-patrol {
-  /* Bắt đầu đi từ 5vw sang phải */
-  0% {
-    transform: translate3d(5vw, 0, 0);
-  }
-  /* Đến 48% chiều rộng sau ~13.8s (tốc độ chậm, đều) */
-  46% {
-    transform: translate3d(calc(48vw - 125px), 0, 0);
-  }
-  /* Dừng nhẹ tại điểm cuối bên phải khoảng 0.6s */
-  48% {
-    transform: translate3d(calc(48vw - 125px), 0, 0);
-  }
-  /* Đi ngược từ phải sang trái về 5vw sau ~14s */
-  96% {
-    transform: translate3d(5vw, 0, 0);
-  }
-  /* Dừng nhẹ tại điểm cuối bên trái khoảng 0.6s */
-  98% {
-    transform: translate3d(5vw, 0, 0);
-  }
-  /* Chuẩn bị cho chu kỳ tiếp theo */
-  100% {
-    transform: translate3d(5vw, 0, 0);
-  }
-}
-
-/* 4. Quay đầu 180 độ tự nhiên: sang phải (scaleX 1) <-> sang trái (scaleX -1) */
-@keyframes celra-mascot-flip {
-  /* Hướng mặt sang phải khi đi từ trái sang phải */
-  0%, 46% {
-    transform: scaleX(1);
-  }
-  /* Quay đầu từ từ ở điểm dừng 48% */
-  47.5% {
-    transform: scaleX(0.05);
-  }
-  /* Đã quay sang trái và đi về bên trái */
-  49%, 96% {
-    transform: scaleX(-1);
-  }
-  /* Quay đầu từ từ ở điểm dừng 5% */
-  97.5% {
-    transform: scaleX(-0.05);
-  }
-  /* Đã quay sang phải, sẵn sàng chu kỳ mới */
-  99%, 100% {
-    transform: scaleX(1);
+@media (max-width: 480px) {
+  .celra-mascot__status {
+    width: 7px;
+    height: 7px;
+    right: 2px;
+    bottom: 1px;
+    border-width: 1.5px;
   }
 }
 
 /* Hiệu ứng xung nhịp khi click mở trợ lý AI */
-.celra-mascot.is-pulsing .celra-mascot__viewport {
+.celra-mascot.is-pulsing .celra-mascot__img {
   animation: celra-mascot-pulse 0.6s ease-in-out;
 }
 
@@ -168,43 +122,17 @@
     transform: scale(1);
   }
   40% {
-    transform: scale(1.12) translateY(-6px);
+    transform: scale(1.1) translateY(-4px);
   }
 }
 
-/* Tạm dừng toàn bộ khi mở chatbox hoặc khi tab trình duyệt bị ẩn */
-.celra-mascot.is-paused,
-.celra-mascot.is-tab-hidden,
-.celra-mascot.is-paused .celra-mascot__flipper,
-.celra-mascot.is-tab-hidden .celra-mascot__flipper,
-.celra-mascot.is-paused .celra-mascot__strip,
-.celra-mascot.is-tab-hidden .celra-mascot__strip,
-.celra-mascot.is-paused .celra-mascot__viewport,
-.celra-mascot.is-tab-hidden .celra-mascot__viewport {
-  animation-play-state: paused !important;
-}
-
-/* Đèn tín hiệu trạng thái online */
-.celra-mascot__status {
-  position: absolute;
-  right: 14%;
-  bottom: 12%;
-  width: 11px;
-  height: 11px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 2px rgba(13, 43, 89, 0.3), 0 0 8px #10b981;
-  pointer-events: none;
-}
-
-/* Bong bóng hội thoại / thông báo nhắc nhở (Nằm ngoài Flipper nên KHÔNG bao giờ bị đảo ngược chữ) */
+/* Bong bóng hội thoại / thông báo nhắc nhở */
 .celra-mascot__bubble {
   position: absolute;
   bottom: calc(100% + 12px);
-  left: 0;
+  right: 0;
   width: max-content;
-  min-width: 260px;
+  min-width: 250px;
   max-width: 320px;
   padding: 12px 14px 10px;
   border: 1px solid #e2e8f0;
@@ -214,14 +142,14 @@
   color: #0f172a;
   pointer-events: auto;
   animation: celra-mascot-bubble-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 860;
+  z-index: 10000;
 }
 
 .celra-mascot__bubble::after {
   content: '';
   position: absolute;
   top: 100%;
-  left: 30px;
+  right: 32px;
   border-width: 7px 7px 0 7px;
   border-style: solid;
   border-color: #ffffff transparent transparent transparent;
@@ -317,61 +245,37 @@
   }
 }
 
-/* Tablet & Mobile Responsive */
 @media (max-width: 768px) {
-  .celra-mascot {
-    bottom: 12px;
-    width: 92px;
-    height: 115px;
-    animation-name: celra-mascot-patrol-mobile;
-  }
-
-  @keyframes celra-mascot-patrol-mobile {
-    0% {
-      transform: translate3d(4vw, 0, 0);
-    }
-    46% {
-      transform: translate3d(calc(48vw - 92px), 0, 0);
-    }
-    48% {
-      transform: translate3d(calc(48vw - 92px), 0, 0);
-    }
-    96% {
-      transform: translate3d(4vw, 0, 0);
-    }
-    98% {
-      transform: translate3d(4vw, 0, 0);
-    }
-    100% {
-      transform: translate3d(4vw, 0, 0);
-    }
-  }
-
   .celra-mascot__bubble {
     width: calc(100vw - 28px);
-    max-width: 290px;
-    left: 0;
-    bottom: calc(100% + 10px);
+    max-width: 270px;
+    right: 0;
+    bottom: calc(100% + 8px);
+  }
+
+  .celra-mascot__bubble::after {
+    right: 20px;
   }
 
   .celra-mascot__bubble-text {
     font-size: 12px;
   }
+}
 
-  .celra-mascot__status {
-    width: 9px;
-    height: 9px;
-    right: 12%;
-    bottom: 10%;
+@media (max-width: 480px) {
+  .celra-mascot__bubble {
+    max-width: 250px;
+    padding: 10px 12px 8px;
+  }
+
+  .celra-mascot__bubble::after {
+    right: 18px;
   }
 }
 
-/* Tôn trọng cài đặt giảm chuyển động của hệ điều hành */
 @media (prefers-reduced-motion: reduce) {
-  .celra-mascot,
-  .celra-mascot__flipper,
-  .celra-mascot__strip,
-  .celra-mascot__viewport,
+  .celra-mascot__button,
+  .celra-mascot__img,
   .celra-mascot__bubble {
     animation: none !important;
     transition: none !important;
@@ -380,81 +284,36 @@
 
 /* ================================================================
    CELRA Mascot — Tích hợp trong Header Khung Chat Trợ lý Pháp lý AI
-   Kích thước: 58px x 72px (chuẩn 55-75px theo yêu cầu)
-   Sprite sheet 15 frame hoạt cảnh đi bộ nhún nhẹ sống động
+   Mascot tĩnh đứng im, kích thước chuẩn đẹp, sắc nét
    ================================================================ */
 
 .celra-chat-header-mascot {
   position: relative;
-  width: 58px;
-  height: 72px;
+  width: 48px;
+  height: 54px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.celra-chat-header-mascot__viewport {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 8px;
-  transform-origin: center bottom;
-  animation: celra-drawer-mascot-bob 0.7s ease-in-out infinite;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
-}
-
-.celra-chat-header-mascot__strip {
-  display: flex;
-  width: 1500%;
-  height: 100%;
-  will-change: transform;
-  animation: celra-drawer-mascot-walk 1.4s steps(15) infinite;
-}
-
 .celra-chat-header-mascot__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   pointer-events: none;
-}
-
-@keyframes celra-drawer-mascot-walk {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(-100%, 0, 0);
-  }
-}
-
-@keyframes celra-drawer-mascot-bob {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
 }
 
 .celra-chat-header-mascot__status {
   position: absolute;
-  right: 2px;
-  bottom: 4px;
-  width: 11px;
-  height: 11px;
+  right: 0;
+  bottom: 2px;
+  width: 10px;
+  height: 10px;
   border: 2px solid #142B50;
   border-radius: 50%;
   background: #10b981;
   box-shadow: 0 0 6px #10b981;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .celra-chat-header-mascot__strip,
-  .celra-chat-header-mascot__viewport {
-    animation: none !important;
-    transition: none !important;
-  }
 }

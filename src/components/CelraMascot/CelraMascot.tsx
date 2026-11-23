@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { message as antMessage } from 'antd';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAIChatStore } from '../../store/useAIChatStore';
-import walkSprite from '../../assets/celra-mascot-walk.png';
+import mascotImg from '../../assets/celra-mascot.png';
 import './CelraMascot.css';
 
 interface BubbleMessage {
@@ -43,11 +43,11 @@ const writeStoredFlag = (key: string, value: boolean) => {
 };
 
 /**
- * CELRA Mascot — cú mèo tốt nghiệp CELRA thong thả đi dạo qua lại ở nửa dưới màn hình.
- * - Phạm vi di chuyển: 5% đến 48% chiều rộng màn hình.
- * - Tốc độ chậm rãi, tự nhiên: 14s mỗi chiều, dừng nhẹ 0.6s trước khi từ từ quay đầu 180 độ.
- * - Sprite sheet 15 frame đi bộ tuần hoàn (~10.7 FPS).
- * - Tương tác mở AIChatDrawer khi click hoặc chọn câu hỏi trong bong bóng.
+ * CELRA Mascot — Mascot tĩnh cố định tại góc dưới bên phải màn hình.
+ * - Kích thước nhỏ gọn (Desktop: 82px, Mobile: 58px / 50px).
+ * - Không tự động di chuyển, không đi theo chuột, không scroll dịch chuyển.
+ * - Giữ nguyên nhận diện thương hiệu hình ảnh cú CELRA tốt nghiệp.
+ * - Hỗ trợ click mở Trợ lý Pháp lý AI (AIChatDrawer) và bong bóng tương tác.
  */
 export const CelraMascot: React.FC = () => {
   const navigate = useNavigate();
@@ -70,24 +70,12 @@ export const CelraMascot: React.FC = () => {
     readStoredFlag(NOTIFY_STORAGE_KEY, true),
   );
   const [pulsing, setPulsing] = useState(false);
-  const [isTabHidden, setIsTabHidden] = useState(false);
 
   const lastActivityRef = useRef(0);
   const reminderIndexRef = useRef(0);
   const pulseTimerRef = useRef<number | null>(null);
 
-  // Tạm dừng animation khi tab trình duyệt không hoạt động (tiết kiệm tài nguyên)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      setIsTabHidden(document.hidden);
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-  // Ghi nhận thao tác của người dùng để tạm hoãn lời nhắc khi đang dùng website
+  // Ghi nhận thao tác của người dùng để tạm hoãn lời nhắc khi đang thao tác trên website
   useEffect(() => {
     lastActivityRef.current = Date.now();
     const markActivity = () => {
@@ -127,7 +115,7 @@ export const CelraMascot: React.FC = () => {
       setBubble({ kind: 'greeting', text: GREETING_TEXT });
     }, 1800);
     return () => window.clearTimeout(timer);
-  }, [notificationsEnabled]);
+  }, [isAuthPage, notificationsEnabled]);
 
   // Tự động ẩn bong bóng sau khoảng thời gian hiển thị
   useEffect(() => {
@@ -147,7 +135,7 @@ export const CelraMascot: React.FC = () => {
       setBubble({ kind: 'reminder', text });
     }, REMINDER_GAP_MS);
     return () => window.clearInterval(timer);
-  }, [notificationsEnabled, chatOpen, bubble]);
+  }, [notificationsEnabled, isAuthPage, chatOpen, bubble]);
 
   // Dọn timer hiệu ứng khi unmount
   useEffect(() => {
@@ -189,15 +177,13 @@ export const CelraMascot: React.FC = () => {
   const rootClassName = [
     'celra-mascot',
     pulsing ? 'is-pulsing' : '',
-    chatOpen ? 'is-paused' : '',
-    isTabHidden ? 'is-tab-hidden' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
     <div className={rootClassName}>
-      {/* Bong bóng hội thoại đặt bên ngoài flipper để chữ không bao giờ bị lật ngược */}
+      {/* Bong bóng hội thoại / nhắc nhở nổi phía trên mascot */}
       {bubble && (
         <div
           className="celra-mascot__bubble"
@@ -232,6 +218,7 @@ export const CelraMascot: React.FC = () => {
         </div>
       )}
 
+      {/* Nút mascot cố định góc dưới bên phải */}
       <button
         type="button"
         className={`celra-mascot__button ${isAuthPage ? 'is-disabled' : ''}`}
@@ -241,20 +228,13 @@ export const CelraMascot: React.FC = () => {
         title={isAuthPage ? 'Vui lòng đăng nhập để sử dụng Trợ lý AI' : 'Trợ lý AI CELRA — Nhấn để trò chuyện'}
         style={isAuthPage ? { cursor: 'not-allowed' } : undefined}
       >
-        {/* Flipper thực hiện quay mặt 180 độ (sang phải / sang trái) */}
-        <div className="celra-mascot__flipper">
-          <div className="celra-mascot__viewport">
-            <div className="celra-mascot__strip">
-              <img
-                className="celra-mascot__strip-img"
-                src={walkSprite}
-                alt="CELRA Owl Mascot Walking"
-                draggable={false}
-              />
-            </div>
-          </div>
-          <span className="celra-mascot__status" aria-hidden="true" />
-        </div>
+        <img
+          className="celra-mascot__img"
+          src={mascotImg}
+          alt="Trợ lý Mascot CELRA"
+          draggable={false}
+        />
+        <span className="celra-mascot__status" aria-hidden="true" title="Trực tuyến" />
       </button>
     </div>
   );
