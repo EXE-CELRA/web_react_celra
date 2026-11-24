@@ -7,6 +7,44 @@ import { useContextStore } from './useContextStore';
 import { useWalletStore } from './useWalletStore';
 import { useAIChatStore } from './useAIChatStore';
 
+interface LoginCredentials {
+  email: string;
+  password?: string;
+  matKhau?: string;
+  passwordHash?: string;
+}
+
+interface RegisterPayload {
+  email: string;
+  password?: string;
+  matKhau?: string;
+  passwordHash?: string;
+  name?: string;
+  fullName?: string;
+  hoVaTen?: string;
+  phone?: string;
+  phoneNumber?: string;
+  soDienThoai?: string;
+  otp?: string;
+}
+
+interface UpdateProfilePayload {
+  name?: string;
+  fullName?: string;
+  hoVaTen?: string;
+  phone?: string;
+  phoneNumber?: string;
+  soDienThoai?: string;
+  email?: string;
+  avatar?: string;
+}
+
+interface LoginResponse {
+  accessToken: string;
+  user: User & { systemRole?: string };
+  memberships?: Membership[];
+}
+
 interface AuthState {
   user: User | null;
   memberships: Membership[];
@@ -15,18 +53,24 @@ interface AuthState {
   error: string | null;
   activeRole: string | null;
 
-  login: (credentials: { email: string; password?: string }) => Promise<any>;
-  register: (data: { email: string; password?: string; name?: string; phone?: string; otp?: string }) => Promise<any>;
+  login: (credentials: LoginCredentials) => Promise<LoginResponse>;
+  register: (data: RegisterPayload) => Promise<unknown>;
   logout: () => void;
   loadUserProfile: () => Promise<void>;
-  updateProfile: (data: { name?: string; phone?: string; email?: string; avatar?: string }) => Promise<any>;
+  updateProfile: (data: UpdateProfilePayload) => Promise<{ success: boolean; user: User }>;
   setActiveRole: (role: string) => void;
 }
 
+function extractApiError(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { message?: string } }; message?: string };
+    return e.response?.data?.message || e.message || fallback;
+  }
+  return fallback;
+}
 
 // 🛡️ HÀM RESET TOÀN BỘ 5 ZUSTAND STORES VÀ DỌN SẠCH STORAGE
 export const resetAllAppStores = () => {
-  // 1. Dọn sạch toàn bộ localStorage rác (tất cả các key tiền tố celra_)
   try {
     const allKeys = Object.keys(localStorage);
     for (const key of allKeys) {
@@ -37,7 +81,7 @@ export const resetAllAppStores = () => {
   } catch (err) {
     console.warn('Lỗi khi dọn dẹp localStorage:', err);
   }
-  // 2. Reset In-Memory Zustand Stores về trạng thái rỗng ban đầu
+
   try {
     useOrgStore.setState({
       organizations: [],
@@ -79,12 +123,11 @@ export const resetAllAppStores = () => {
 };
 
 export const useAuthStore = create<AuthState>((set) => {
-  const initialUser = JSON.parse(localStorage.getItem('celra_user') || 'null');
+  const initialUser = JSON.parse(localStorage.getItem('celra_user') || 'null') as User | null;
   const initialAuth = !!localStorage.getItem('celra_access_token');
   const initialRole = localStorage.getItem('celra_active_role') || null;
 
-  const loginFn = async (credentials: any) => {
-    // 🛡️ Xóa sạch bộ nhớ store của phiên trước đó
+  const loginFn = async (credentials: LoginCredentials) => {
     resetAllAppStores();
     set({ isLoading: true, error: null });
     try {
@@ -93,13 +136,16 @@ export const useAuthStore = create<AuthState>((set) => {
         password: credentials.password || credentials.matKhau || credentials.passwordHash,
       };
 
-      const res: any = await apiClient.post('/auth/login', payload);
+      const res = await apiClient.post<unknown, LoginResponse>('/auth/login', payload);
 
       const { accessToken, user, memberships } = res;
       localStorage.setItem('celra_access_token', accessToken);
       localStorage.setItem('celra_user', JSON.stringify(user));
 
-      const defaultRole = memberships && memberships.length > 0 ? memberships[0].role : user.systemRole || user.role;
+      const defaultRole =
+        memberships && memberships.length > 0
+          ? memberships[0].role
+          : user.systemRole || user.role || 'owner';
       localStorage.setItem('celra_active_role', defaultRole);
 
       if (memberships && memberships.length > 0) {
@@ -107,7 +153,7 @@ export const useAuthStore = create<AuthState>((set) => {
       } else {
         localStorage.removeItem('celra_active_org_id');
       }
-      // Dọn sạch cache khảo sát của phiên đăng nhập trước đó
+
       localStorage.removeItem('celra_survey_completed_profile');
       localStorage.removeItem('celra_survey_draft_profile');
       localStorage.removeItem('celra_survey_completed');
@@ -121,15 +167,14 @@ export const useAuthStore = create<AuthState>((set) => {
       });
 
       return res;
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Đăng nhập thất bại';
+    } catch (err: unknown) {
+      const msg = extractApiError(err, 'Đăng nhập thất bại');
       set({ error: msg, isLoading: false });
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     }
   };
 
-  const registerFn = async (data: any) => {
-    // 🛡️ Xóa sạch toàn bộ store trước khi đăng ký tài khoản mới
+  const registerFn = async (data: RegisterPayload) => {
     resetAllAppStores();
     set({ isLoading: true, error: null });
     try {
@@ -147,18 +192,18 @@ export const useAuthStore = create<AuthState>((set) => {
       localStorage.removeItem('celra_survey_draft_answers');
       localStorage.removeItem('celra_survey_draft_profile');
       localStorage.removeItem('celra_survey_completed_profile');
-      const res: any = await apiClient.post('/auth/register', payload);
+
+      const res = await apiClient.post('/auth/register', payload);
       set({ isLoading: false });
       return res;
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Đăng ký thất bại';
+    } catch (err: unknown) {
+      const msg = extractApiError(err, 'Đăng ký thất bại');
       set({ error: msg, isLoading: false });
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     }
   };
 
   const logoutFn = () => {
-    // 🛡️ Reset toàn bộ 5 Zustand stores và localStorage khi đăng xuất
     resetAllAppStores();
     set({
       user: null,
@@ -172,7 +217,9 @@ export const useAuthStore = create<AuthState>((set) => {
     if (!localStorage.getItem('celra_access_token')) return;
     set({ isLoading: true });
     try {
-      const userRes: any = await apiClient.get('/auth/profile');
+      const userRes = await apiClient.get<unknown, User & { isSuperAdmin?: boolean }>(
+        '/auth/profile',
+      );
       localStorage.setItem('celra_user', JSON.stringify(userRes));
 
       if (userRes.role === 'admin' || userRes.isSuperAdmin) {
@@ -187,13 +234,18 @@ export const useAuthStore = create<AuthState>((set) => {
         return;
       }
 
-      const membershipsRes: any = await apiClient.get('/organizations/my-workspaces');
+      const membershipsRes = await apiClient.get<
+        unknown,
+        Array<Membership & { organization?: { id?: string } }>
+      >('/organizations/my-workspaces');
 
       const mems = Array.isArray(membershipsRes) ? membershipsRes : [];
       let activeOrgId = localStorage.getItem('celra_active_org_id');
-      const orgIsValid = activeOrgId !== null && mems.some((m: any) => (m.organizationId || m.organization?.id || m.id) === activeOrgId);
+      const orgIsValid =
+        activeOrgId !== null &&
+        mems.some((m) => (m.organizationId || m.organization?.id || m.id) === activeOrgId);
       if (!orgIsValid) {
-        activeOrgId = mems.length > 0 ? (mems[0].organizationId || mems[0].organization?.id) : null;
+        activeOrgId = mems.length > 0 ? mems[0].organizationId || mems[0].organization?.id || null : null;
         if (activeOrgId) localStorage.setItem('celra_active_org_id', activeOrgId);
         else localStorage.removeItem('celra_active_org_id');
       }
@@ -204,20 +256,22 @@ export const useAuthStore = create<AuthState>((set) => {
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (err: unknown) {
+    } catch {
       set({ isLoading: false });
-      // Nếu tải profile thất bại (token hết hạn hoặc tài khoản bị xóa trong DB) -> đá ra login ngay lập tức
       logoutFn();
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+      if (
+        !window.location.pathname.includes('/login') &&
+        !window.location.pathname.includes('/register')
+      ) {
         window.location.replace('/login');
       }
     }
   };
 
-  const updateProfileFn = async (data: any) => {
+  const updateProfileFn = async (data: UpdateProfilePayload) => {
     set({ isLoading: true, error: null });
     try {
-      const payload: any = {
+      const payload: Record<string, string | undefined> = {
         name: data.hoVaTen || data.fullName || data.name,
         phone: data.soDienThoai || data.phoneNumber || data.phone,
         email: data.email,
@@ -226,31 +280,41 @@ export const useAuthStore = create<AuthState>((set) => {
         payload.avatar = data.avatar;
       }
 
-      let updatedUser: any = null;
+      let updatedUser: Partial<User> | null = null;
       try {
-        const res: any = await apiClient.patch('/auth/profile', payload);
+        const res = await apiClient.patch<unknown, { user?: Partial<User> } & Partial<User>>(
+          '/auth/profile',
+          payload,
+        );
         updatedUser = res?.user || res;
       } catch (apiErr) {
         console.warn('API /auth/profile update fallback to local state:', apiErr);
       }
 
-      const currentUser = JSON.parse(localStorage.getItem('celra_user') || '{}');
+      const currentUser = JSON.parse(localStorage.getItem('celra_user') || '{}') as User & {
+        fullName?: string;
+        phoneNumber?: string;
+      };
       const mergedUser = {
         ...currentUser,
         ...(updatedUser || {}),
-        name: payload.name || currentUser.name || currentUser.fullName,
+        name: payload.name || currentUser.name || currentUser.fullName || '',
         fullName: payload.name || currentUser.fullName || currentUser.name,
-        phone: payload.phone !== undefined ? payload.phone : (currentUser.phone || currentUser.phoneNumber),
-        phoneNumber: payload.phone !== undefined ? payload.phone : (currentUser.phoneNumber || currentUser.phone),
+        phone:
+          payload.phone !== undefined ? payload.phone : currentUser.phone || currentUser.phoneNumber,
+        phoneNumber:
+          payload.phone !== undefined ? payload.phone : currentUser.phoneNumber || currentUser.phone,
         email: payload.email || currentUser.email,
-        avatar: (updatedUser && updatedUser.avatar) || (payload.avatar !== undefined ? payload.avatar : currentUser.avatar),
-      };
+        avatar:
+          (updatedUser && updatedUser.avatar) ||
+          (payload.avatar !== undefined ? payload.avatar : currentUser.avatar),
+      } as User;
 
       localStorage.setItem('celra_user', JSON.stringify(mergedUser));
       set({ user: mergedUser, isLoading: false });
       return { success: true, user: mergedUser };
-    } catch (err: any) {
-      set({ isLoading: false, error: err.message || 'Cập nhật thông tin thất bại' });
+    } catch (err: unknown) {
+      set({ isLoading: false, error: extractApiError(err, 'Cập nhật thông tin thất bại') });
       throw err;
     }
   };

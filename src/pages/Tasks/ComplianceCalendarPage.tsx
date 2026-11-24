@@ -5,66 +5,35 @@ import {
   Badge,
   Tag,
   Button,
-  Drawer,
-  Tabs,
-  Typography,
   Space,
-  Row,
-  Col,
-  Input,
   Select,
   Form,
-  Modal,
-  Popconfirm,
-  Checkbox,
   Tooltip,
   Segmented,
-  Empty,
   Radio,
   message,
 } from 'antd';
 import {
   CalendarOutlined,
   PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
   UnorderedListOutlined,
   BookOutlined,
   LeftOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import dayjs, { Dayjs } from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/vi';
 import { getVietnamHoliday } from '../../utils/vietnamHolidays';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useOrgStore } from '../../store/useOrgStore';
-import type { TaskItem, CalendarNote, TaskStatus } from '../../types';
-import { TaskStatusTag } from '../../components/common/StatusBadge';
+import type { TaskItem, CalendarNote } from '../../types';
 import { TaskDetailDrawer } from '../../components/common/TaskDetailDrawer';
-import {
-  formatVNCalendarDate,
-  getRemainingDaysInfo,
-  STATUTORY_PERIOD_METAS,
-} from '../../utils/taxCalendar';
+import { isTaskCompleted } from './calendar/calendar.constants';
+import { CalendarTimelineView } from './calendar/CalendarTimelineView';
+import { CalendarNotesBoard } from './calendar/CalendarNotesBoard';
+import { CalendarDayDrawer, CalendarNoteModal } from './calendar/CalendarDayDrawer';
 
 dayjs.locale('vi');
-
-const { Text, Paragraph } = Typography;
-const { TextArea } = Input;
-
-const NOTE_CATEGORIES = [
-  { value: 'tax', label: 'Thuế & Hóa đơn', color: 'blue' },
-  { value: 'labor', label: 'Lao động & BHXH', color: 'green' },
-  { value: 'legal', label: 'Pháp lý doanh nghiệp', color: 'purple' },
-  { value: 'reminder', label: 'Nhắc nhở nội bộ', color: 'orange' },
-  { value: 'general', label: 'Ghi chú chung', color: 'default' },
-];
-
-function isTaskCompleted(status?: TaskStatus | string): boolean {
-  if (!status) return false;
-  const s = String(status).toLowerCase();
-  return s === 'completed' || s === 'done' || s === 'verified';
-}
 
 export const ComplianceCalendarPage: React.FC = () => {
   const { activeOrg } = useOrgStore();
@@ -85,22 +54,20 @@ export const ComplianceCalendarPage: React.FC = () => {
   const [taskForDetail, setTaskForDetail] = useState<TaskItem | null>(null);
   const [noteCategoryFilter, setNoteCategoryFilter] = useState<string>('ALL');
 
-  useEffect(() => {
-    fetchTasks();
-  }, [activeOrg?.id]);
-
-  useEffect(() => {
-    const monthStr = currentMonth.format('YYYY-MM');
-    fetchCalendarNotes(monthStr);
-  }, [activeOrg?.id, currentMonth]);
-
-  // Modal thêm/sửa ghi chú
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<CalendarNote | null>(null);
   const [noteForm] = Form.useForm();
   const [quickNoteForm] = Form.useForm();
 
-  // Map tasks theo ngày YYYY-MM-DD
+  useEffect(() => {
+    fetchTasks();
+  }, [activeOrg?.id, fetchTasks]);
+
+  useEffect(() => {
+    const monthStr = currentMonth.format('YYYY-MM');
+    fetchCalendarNotes(monthStr);
+  }, [activeOrg?.id, currentMonth, fetchCalendarNotes]);
+
   const tasksByDate = useMemo(() => {
     const map = new Map<string, TaskItem[]>();
     tasks.forEach((task) => {
@@ -113,7 +80,6 @@ export const ComplianceCalendarPage: React.FC = () => {
     return map;
   }, [tasks]);
 
-  // Map notes theo ngày YYYY-MM-DD
   const notesByDate = useMemo(() => {
     const map = new Map<string, CalendarNote[]>();
     calendarNotes.forEach((note) => {
@@ -125,15 +91,25 @@ export const ComplianceCalendarPage: React.FC = () => {
     return map;
   }, [calendarNotes]);
 
-  // Danh sách tác vụ và ghi chú của ngày đang chọn trong Drawer
   const selectedDateStr = selectedDate.format('YYYY-MM-DD');
-  const selectedDateTasks = useMemo(() => {
-    return tasksByDate.get(selectedDateStr) || [];
-  }, [tasksByDate, selectedDateStr]);
+  const selectedDateTasks = useMemo(
+    () => tasksByDate.get(selectedDateStr) || [],
+    [tasksByDate, selectedDateStr],
+  );
+  const selectedDateNotes = useMemo(
+    () => notesByDate.get(selectedDateStr) || [],
+    [notesByDate, selectedDateStr],
+  );
 
-  const selectedDateNotes = useMemo(() => {
-    return notesByDate.get(selectedDateStr) || [];
-  }, [notesByDate, selectedDateStr]);
+  const timelineDates = useMemo(() => {
+    const dates = Array.from(tasksByDate.keys()).sort();
+    return dates.map((dateStr) => ({
+      dateStr,
+      date: dayjs(dateStr),
+      tasks: tasksByDate.get(dateStr) || [],
+      notes: notesByDate.get(dateStr) || [],
+    }));
+  }, [tasksByDate, notesByDate]);
 
   // Render nội dung từng ô ngày trong Calendar
   const dateCellRender = (value: Dayjs) => {
@@ -145,7 +121,6 @@ export const ComplianceCalendarPage: React.FC = () => {
     const totalItems = dayTasks.length + dayNotes.length;
     if (totalItems === 0 && !holiday) return null;
 
-    // Phân bổ số lượng hiển thị động thông minh trong ô lịch:
     // Nếu có ngày lễ thì ưu tiên 2 slot, ngày thường 3 slot
     const maxVisible = holiday ? 2 : 3;
 
@@ -155,19 +130,14 @@ export const ComplianceCalendarPage: React.FC = () => {
     if (totalItems <= maxVisible) {
       taskCount = dayTasks.length;
       noteCount = dayNotes.length;
+    } else if (dayTasks.length === 0) {
+      noteCount = Math.min(dayNotes.length, maxVisible);
+    } else if (dayNotes.length === 0) {
+      taskCount = Math.min(dayTasks.length, maxVisible);
     } else {
-      if (dayTasks.length === 0) {
-        // Chỉ có ghi chú: hiển thị tối đa maxVisible ghi chú
-        noteCount = Math.min(dayNotes.length, maxVisible);
-      } else if (dayNotes.length === 0) {
-        // Chỉ có tác vụ: hiển thị tối đa maxVisible tác vụ
-        taskCount = Math.min(dayTasks.length, maxVisible);
-      } else {
-        // Có cả tác vụ và ghi chú: cân bằng hiển thị
-        const maxTasks = Math.min(dayTasks.length, 2);
-        noteCount = Math.min(dayNotes.length, Math.max(1, maxVisible - maxTasks));
-        taskCount = Math.min(dayTasks.length, maxVisible - noteCount);
-      }
+      const maxTasks = Math.min(dayTasks.length, 2);
+      noteCount = Math.min(dayNotes.length, Math.max(1, maxVisible - maxTasks));
+      taskCount = Math.min(dayTasks.length, maxVisible - noteCount);
     }
 
     const visibleTasks = dayTasks.slice(0, taskCount);
@@ -176,9 +146,10 @@ export const ComplianceCalendarPage: React.FC = () => {
 
     return (
       <div style={{ marginTop: 2 }}>
-        {/* Badge Ngày Lễ Pháp Định Việt Nam */}
         {holiday && (
-          <Tooltip title={`${holiday.name} (${holiday.legalBasis}) - Nếu hạn nộp trùng ngày nghỉ thì được chuyển sang ngày làm việc tiếp theo.`}>
+          <Tooltip
+            title={`${holiday.name} (${holiday.legalBasis}) - Nếu hạn nộp trùng ngày nghỉ thì được chuyển sang ngày làm việc tiếp theo.`}
+          >
             <div style={{ marginBottom: 3 }}>
               <Tag
                 color="red"
@@ -204,7 +175,7 @@ export const ComplianceCalendarPage: React.FC = () => {
             </div>
           </Tooltip>
         )}
-        {/* Badges tác vụ */}
+
         {visibleTasks.map((task) => {
           const isDone = isTaskCompleted(task.status);
           const diff = dayjs(task.dueDate).diff(dayjs(), 'day');
@@ -217,7 +188,10 @@ export const ComplianceCalendarPage: React.FC = () => {
           else if (isCritical) badgeStatus = 'warning';
 
           return (
-            <Tooltip key={task.id} title={`${task.code}: ${task.title}${isOverdue ? ' [Quá hạn theo lịch – Chưa xác nhận hoàn thành]' : ''}`}>
+            <Tooltip
+              key={task.id}
+              title={`${task.code}: ${task.title}${isOverdue ? ' [Quá hạn theo lịch – Chưa xác nhận hoàn thành]' : ''}`}
+            >
               <div
                 style={{
                   fontSize: 11,
@@ -247,7 +221,6 @@ export const ComplianceCalendarPage: React.FC = () => {
           );
         })}
 
-        {/* Badge ghi chú */}
         {visibleNotes.map((note) => (
           <Tooltip key={note.id} title={`Ghi chú: ${note.title}`}>
             <div
@@ -272,7 +245,6 @@ export const ComplianceCalendarPage: React.FC = () => {
           </Tooltip>
         ))}
 
-        {/* Nếu còn mục chưa hiển thị */}
         {hiddenCount > 0 && (
           <div
             style={{
@@ -295,7 +267,6 @@ export const ComplianceCalendarPage: React.FC = () => {
     );
   };
 
-  // Mở modal tạo/sửa note
   const handleOpenNoteModal = (note?: CalendarNote) => {
     if (note) {
       setEditingNote(note);
@@ -317,7 +288,6 @@ export const ComplianceCalendarPage: React.FC = () => {
     setNoteModalOpen(true);
   };
 
-  // Lưu note từ modal
   const handleSaveNoteModal = async () => {
     try {
       const values = await noteForm.validateFields();
@@ -337,13 +307,13 @@ export const ComplianceCalendarPage: React.FC = () => {
       }
       setNoteModalOpen(false);
       noteForm.resetFields();
-    } catch (err: any) {
-      if (err?.errorFields) return;
-      message.error(err.message || 'Lỗi khi lưu ghi chú');
+    } catch (err: unknown) {
+      const e = err as { errorFields?: unknown; message?: string };
+      if (e?.errorFields) return;
+      message.error(e?.message || 'Lỗi khi lưu ghi chú');
     }
   };
 
-  // Thêm nhanh note từ trong Drawer của ngày
   const handleQuickAddNote = async () => {
     try {
       const values = await quickNoteForm.validateFields();
@@ -355,52 +325,40 @@ export const ComplianceCalendarPage: React.FC = () => {
       });
       message.success('Đã thêm ghi chú cho ngày này!');
       quickNoteForm.resetFields();
-    } catch (err: any) {
-      if (err?.errorFields) return;
-      message.error(err.message || 'Lỗi khi thêm ghi chú');
+    } catch (err: unknown) {
+      const e = err as { errorFields?: unknown; message?: string };
+      if (e?.errorFields) return;
+      message.error(e?.message || 'Lỗi khi thêm ghi chú');
     }
   };
 
-  // Toggle hoàn thành note
   const handleToggleNoteComplete = async (note: CalendarNote) => {
     try {
       await updateCalendarNote(note.id, { isCompleted: !note.isCompleted });
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi cập nhật trạng thái');
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      message.error(e?.message || 'Lỗi cập nhật trạng thái');
     }
   };
 
-  // Xóa note
   const handleDeleteNote = async (id: string) => {
     try {
       await deleteCalendarNote(id);
       message.success('Đã xóa ghi chú');
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi khi xóa ghi chú');
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      message.error(e?.message || 'Lỗi khi xóa ghi chú');
     }
   };
 
-
-  // Danh sách dòng thời gian tất cả các ngày có deadline sắp xếp
-  const timelineDates = useMemo(() => {
-    const dates = Array.from(tasksByDate.keys()).sort();
-    return dates.map((dateStr) => ({
-      dateStr,
-      date: dayjs(dateStr),
-      tasks: tasksByDate.get(dateStr) || [],
-      notes: notesByDate.get(dateStr) || [],
-    }));
-  }, [tasksByDate, notesByDate]);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* HEADER CARD CHUẨN ĐỒNG BỘ VỚI DANH SÁCH TÁC VỤ */}
       <Card
         title={
           <Space size={10} style={{ minWidth: 0, marginRight: 12 }}>
             <CalendarOutlined style={{ color: '#1677ff', fontSize: 18, flexShrink: 0 }} />
             <span style={{ fontWeight: 700, fontSize: 16 }}>
-              Lịch Tuân Thủ Pháp Luật & Ghi Chú
+              Lịch Tuân Thủ Pháp Luật &amp; Ghi Chú
             </span>
           </Space>
         }
@@ -408,7 +366,7 @@ export const ComplianceCalendarPage: React.FC = () => {
           <Space size={10} wrap style={{ marginLeft: 'auto' }}>
             <Segmented
               value={activeTab}
-              onChange={(val) => setActiveTab(val as any)}
+              onChange={(val) => setActiveTab(val as 'calendar' | 'timeline' | 'notes')}
               options={[
                 { label: 'Lịch Tháng', value: 'calendar', icon: <CalendarOutlined /> },
                 { label: 'Dòng Thời Gian', value: 'timeline', icon: <UnorderedListOutlined /> },
@@ -427,735 +385,193 @@ export const ComplianceCalendarPage: React.FC = () => {
         }
         style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
       >
-        <>
-          {/* CHẾ ĐỘ 1: LỊCH THÁNG (CALENDAR VIEW) */}
-      {activeTab === 'calendar' && (
-        <Card
-          style={{
-            borderRadius: 12,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-            border: '1px solid #e2e8f0',
-          }}
-          title={
-            <Space>
-              <CalendarOutlined style={{ color: '#1677ff' }} />
-              <span style={{ fontWeight: 600 }}>Lịch Pháp Lý Tháng {currentMonth.format('MM/YYYY')}</span>
-            </Space>
-          }
-        >
-          <Calendar
-            value={currentMonth}
-            onPanelChange={(newDate) => setCurrentMonth(newDate)}
-            headerRender={({ value, type, onChange, onTypeChange }) => {
-              const current = value || currentMonth;
-              const year = current.year();
-              const month = current.month();
-
-              return (
-                <div
-                  style={{
-                    padding: '8px 4px 16px 4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 12,
-                    borderBottom: '1px solid #f1f5f9',
-                    marginBottom: 12,
-                  }}
-                >
-                  {/* Nút Tháng Trước / Hôm Nay / Tháng Sau */}
-                  <Space size={8}>
-                    <Button
-                      size="middle"
-                      icon={<LeftOutlined />}
-                      onClick={() => {
-                        const prev = current.subtract(1, 'month');
-                        setCurrentMonth(prev);
-                        onChange(prev);
-                      }}
-                      className="font-medium rounded-lg"
-                    >
-                      Tháng trước
-                    </Button>
-                    <Button
-                      size="middle"
-                      onClick={() => {
-                        const today = dayjs();
-                        setCurrentMonth(today);
-                        onChange(today);
-                      }}
-                      style={{ fontWeight: 600, color: '#1677ff', borderColor: '#91caff', backgroundColor: '#e6f4ff' }}
-                    >
-                      Hôm nay
-                    </Button>
-                    <Button
-                      size="middle"
-                      onClick={() => {
-                        const next = current.add(1, 'month');
-                        setCurrentMonth(next);
-                        onChange(next);
-                      }}
-                      className="font-medium rounded-lg"
-                    >
-                      Tháng sau <RightOutlined />
-                    </Button>
-                  </Space>
-
-                  {/* Bộ chọn Năm, Tháng & Chế độ Xem */}
-                  <Space size={8}>
-                    <Select
-                      size="middle"
-                      value={year}
-                      onChange={(newYear) => {
-                        const updated = current.year(newYear);
-                        setCurrentMonth(updated);
-                        onChange(updated);
-                      }}
-                      options={Array.from({ length: 15 }, (_, i) => {
-                        const y = new Date().getFullYear() - 5 + i;
-                        return { label: `Năm ${y}`, value: y };
-                      })}
-                      style={{ width: 115 }}
-                    />
-                    <Select
-                      size="middle"
-                      value={month}
-                      onChange={(newMonth) => {
-                        const updated = current.month(newMonth);
-                        setCurrentMonth(updated);
-                        onChange(updated);
-                      }}
-                      options={Array.from({ length: 12 }, (_, i) => ({
-                        label: `Tháng ${i + 1}`,
-                        value: i,
-                      }))}
-                      style={{ width: 105 }}
-                    />
-                    <Radio.Group
-                      size="middle"
-                      value={type}
-                      onChange={(e) => onTypeChange(e.target.value)}
-                    >
-                      <Radio.Button value="month">Tháng</Radio.Button>
-                      <Radio.Button value="year">Năm</Radio.Button>
-                    </Radio.Group>
-                  </Space>
-                </div>
-              );
+        {/* CHẾ ĐỘ 1: LỊCH THÁNG */}
+        {activeTab === 'calendar' && (
+          <Card
+            style={{
+              borderRadius: 12,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+              border: '1px solid #e2e8f0',
             }}
-            onSelect={(date, selectInfo) => {
-              setSelectedDate(date);
-              if (selectInfo.source === 'date') {
-                setDrawerOpen(true);
-              }
-            }}
-            cellRender={(date, info) => {
-              if (info.type === 'date') return dateCellRender(date);
-              return info.originNode;
-            }}
-          />
-        </Card>
-      )}
+            title={
+              <Space>
+                <CalendarOutlined style={{ color: '#1677ff' }} />
+                <span style={{ fontWeight: 600 }}>
+                  Lịch Pháp Lý Tháng {currentMonth.format('MM/YYYY')}
+                </span>
+              </Space>
+            }
+          >
+            <Calendar
+              value={currentMonth}
+              onPanelChange={(newDate) => setCurrentMonth(newDate)}
+              headerRender={({ value, type, onChange, onTypeChange }) => {
+                const current = value || currentMonth;
+                const year = current.year();
+                const month = current.month();
 
-      {/* CHẾ ĐỘ 2: DÒNG THỜI GIAN (TIMELINE VIEW) */}
-      {activeTab === 'timeline' && (
-        <Card style={{ borderRadius: 12 }}>
-          {timelineDates.length === 0 ? (
-            <Empty description="Chưa có dữ liệu hạn chót tuân thủ nào" />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {timelineDates.map(({ dateStr, date, tasks: dayTasks, notes: dayNotes }) => {
-                const isToday = date.isSame(dayjs(), 'day');
-                const isPast = date.isBefore(dayjs(), 'day');
                 return (
-                  <Card
-                    key={dateStr}
-                    size="small"
+                  <div
                     style={{
-                      borderRadius: 8,
-                      border: isToday ? '2px solid #1677ff' : '1px solid #e2e8f0',
-                      backgroundColor: isToday ? '#f0f7ff' : '#fff',
+                      padding: '8px 4px 16px 4px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      borderBottom: '1px solid #f1f5f9',
+                      marginBottom: 12,
                     }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: 10,
-                        borderBottom: '1px solid #f1f5f9',
-                        paddingBottom: 6,
-                      }}
-                    >
-                      <Space>
-                        <Tag color={isToday ? 'blue' : isPast ? 'default' : 'cyan'} style={{ fontWeight: 600 }}>
-                          {formatVNCalendarDate(dateStr)} ({date.format('dddd')})
-                        </Tag>
-                        {isToday && <Tag color="gold">Hôm nay</Tag>}
-                        <span style={{ fontSize: 12, color: '#64748b' }}>
-                          {dayTasks.length} nghĩa vụ | {dayNotes.length} ghi chú
-                        </span>
-                      </Space>
+                    <Space size={8}>
                       <Button
-                        size="small"
-                        type="link"
+                        size="middle"
+                        icon={<LeftOutlined />}
                         onClick={() => {
-                          setSelectedDate(date);
-                          setDrawerOpen(true);
+                          const prev = current.subtract(1, 'month');
+                          setCurrentMonth(prev);
+                          onChange(prev);
                         }}
+                        className="font-medium rounded-lg"
                       >
-                        Xem chi tiết & Thêm ghi chú
+                        Tháng trước
                       </Button>
-                    </div>
-
-                    <Row gutter={[12, 12]}>
-                      {dayTasks.map((t) => {
-                        const meta = t.periodCycle ? STATUTORY_PERIOD_METAS[t.periodCycle as keyof typeof STATUTORY_PERIOD_METAS] : null;
-                        const remaining = getRemainingDaysInfo(t.dueDate || new Date());
-                        const isDone = isTaskCompleted(t.status);
-                        return (
-                          <Col xs={24} md={12} key={t.id}>
-                            <div
-                              onClick={() => setTaskForDetail(t)}
-                              style={{
-                                padding: '10px 14px',
-                                borderRadius: 8,
-                                background: isDone ? '#f6ffed' : '#ffffff',
-                                border: isDone ? '1px solid #b7eb8f' : '1px solid #e2e8f0',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                              }}
-                            >
-                              <div style={{ overflow: 'hidden', paddingRight: 8 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                  <Tag color={remaining.tagColor}>{remaining.label}</Tag>
-                                  <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                                    {t.code}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 600, marginBottom: 2 }}>
-                                  {t.title}
-                                </div>
-                                {meta && (
-                                  <div style={{ fontSize: 11, color: '#64748b' }}>
-                                    {meta.badge} - {meta.legalBasis}
-                                  </div>
-                                )}
-                              </div>
-                              <Space direction="vertical" align="end" size={6} onClick={(e) => e.stopPropagation()}>
-                                <TaskStatusTag status={t.status} />
-                                <Button
-                                  size="small"
-                                  type="link"
-                                  onClick={() => setTaskForDetail(t)}
-                                  style={{ padding: 0, fontWeight: 500 }}
-                                >
-                                  Chi tiết &gt;
-                                </Button>
-                              </Space>
-                            </div>
-                          </Col>
-                        );
-                      })}
-
-                      {dayNotes.map((n) => (
-                        <Col xs={24} md={12} key={n.id}>
-                          <div
-                            style={{
-                              padding: '8px 12px',
-                              borderRadius: 6,
-                              background: '#faf5ff',
-                              border: '1px solid #f3e8ff',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <div>
-                              <Space size={4}>
-                                <Checkbox
-                                  checked={n.isCompleted}
-                                  onChange={() => handleToggleNoteComplete(n)}
-                                />
-                                <Tag color="purple">Ghi chú</Tag>
-                                <span
-                                  style={{
-                                    fontWeight: 500,
-                                    fontSize: 13,
-                                    textDecoration: n.isCompleted ? 'line-through' : 'none',
-                                    color: n.isCompleted ? '#94a3b8' : '#1e293b',
-                                  }}
-                                >
-                                  {n.title}
-                                </span>
-                              </Space>
-                              {n.content && (
-                                <div style={{ fontSize: 12, color: '#64748b', marginLeft: 20 }}>
-                                  {n.content}
-                                </div>
-                              )}
-                            </div>
-                            <Button
-                              type="text"
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={() => handleDeleteNote(n.id)}
-                            />
-                          </div>
-                        </Col>
-                      ))}
-                    </Row>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* CHẾ ĐỘ 3: SỔ GHI CHÚ (NOTES BOARD VIEW) */}
-      {activeTab === 'notes' && (
-        <Card
-          style={{ borderRadius: 12 }}
-          title={
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <Space>
-                <BookOutlined style={{ color: '#722ed1' }} />
-                <span style={{ fontWeight: 600 }}>Tất Cả Ghi Chú Pháp Lý & Nhắc Nhở ({calendarNotes.length})</span>
-              </Space>
-              <Space>
-                <Select
-                  value={noteCategoryFilter}
-                  onChange={setNoteCategoryFilter}
-                  style={{ width: 170 }}
-                  size="small"
-                  options={[
-                    { value: 'ALL', label: 'Tất cả phân loại' },
-                    ...NOTE_CATEGORIES.map((c) => ({ value: c.value, label: c.label })),
-                  ]}
-                />
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={() => handleOpenNoteModal()}
-                >
-                  Thêm Ghi Chú
-                </Button>
-              </Space>
-            </div>
-          }
-        >
-          {calendarNotes.length === 0 ? (
-            <Empty description="Chưa có ghi chú nào. Bấm '+ Ghi Chú Mới' để tạo ghi chú đầu tiên." />
-          ) : (
-            <Row gutter={[16, 16]}>
-              {calendarNotes
-                .filter((n) => (noteCategoryFilter === 'ALL' ? true : n.category === noteCategoryFilter))
-                .map((note) => {
-                  const cat = NOTE_CATEGORIES.find((c) => c.value === note.category) || NOTE_CATEGORIES[4];
-                  return (
-                    <Col xs={24} sm={12} md={8} key={note.id}>
-                      <Card
-                        size="small"
+                      <Button
+                        size="middle"
+                        onClick={() => {
+                          const today = dayjs();
+                          setCurrentMonth(today);
+                          onChange(today);
+                        }}
                         style={{
-                          borderRadius: 8,
-                          border: '1px solid #e2e8f0',
-                          backgroundColor: note.isCompleted ? '#f8fafc' : '#ffffff',
-                          height: '100%',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
+                          fontWeight: 600,
+                          color: '#1677ff',
+                          borderColor: '#91caff',
+                          backgroundColor: '#e6f4ff',
                         }}
                       >
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                            <Tag color={cat.color}>{cat.label}</Tag>
-                            <Tag icon={<CalendarOutlined />} color="cyan">
-                              {formatVNCalendarDate(note.date)}
-                            </Tag>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                            <Checkbox
-                              checked={note.isCompleted}
-                              onChange={() => handleToggleNoteComplete(note)}
-                              style={{ marginTop: 2 }}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <Text
-                                strong
-                                style={{
-                                  fontSize: 14,
-                                  color: note.isCompleted ? '#94a3b8' : '#0f172a',
-                                  textDecoration: note.isCompleted ? 'line-through' : 'none',
-                                }}
-                              >
-                                {note.title}
-                              </Text>
-                              {note.content && (
-                                <Paragraph
-                                  style={{
-                                    fontSize: 12,
-                                    color: '#64748b',
-                                    marginTop: 4,
-                                    marginBottom: 0,
-                                    whiteSpace: 'pre-wrap',
-                                  }}
-                                >
-                                  {note.content}
-                                </Paragraph>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        Hôm nay
+                      </Button>
+                      <Button
+                        size="middle"
+                        onClick={() => {
+                          const next = current.add(1, 'month');
+                          setCurrentMonth(next);
+                          onChange(next);
+                        }}
+                        className="font-medium rounded-lg"
+                      >
+                        Tháng sau <RightOutlined />
+                      </Button>
+                    </Space>
 
-                        <div
-                          style={{
-                            marginTop: 12,
-                            paddingTop: 8,
-                            borderTop: '1px solid #f1f5f9',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                            {note.authorName || 'Nội bộ'}
-                          </span>
-                          <Space size="small">
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<EditOutlined />}
-                              onClick={() => handleOpenNoteModal(note)}
-                            />
-                            <Popconfirm
-                              title="Xóa ghi chú này?"
-                              onConfirm={() => handleDeleteNote(note.id)}
-                              okText="Xóa"
-                              cancelText="Hủy"
-                              okButtonProps={{ danger: true }}
-                            >
-                              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                            </Popconfirm>
-                          </Space>
-                        </div>
-                      </Card>
-                    </Col>
-                  );
-                })}
-            </Row>
-          )}
-        </Card>
-      )}
+                    <Space size={8}>
+                      <Select
+                        size="middle"
+                        value={year}
+                        onChange={(newYear) => {
+                          const updated = current.year(newYear);
+                          setCurrentMonth(updated);
+                          onChange(updated);
+                        }}
+                        options={Array.from({ length: 15 }, (_, i) => {
+                          const y = new Date().getFullYear() - 5 + i;
+                          return { label: `Năm ${y}`, value: y };
+                        })}
+                        style={{ width: 115 }}
+                      />
+                      <Select
+                        size="middle"
+                        value={month}
+                        onChange={(newMonth) => {
+                          const updated = current.month(newMonth);
+                          setCurrentMonth(updated);
+                          onChange(updated);
+                        }}
+                        options={Array.from({ length: 12 }, (_, i) => ({
+                          label: `Tháng ${i + 1}`,
+                          value: i,
+                        }))}
+                        style={{ width: 105 }}
+                      />
+                      <Radio.Group
+                        size="middle"
+                        value={type}
+                        onChange={(e) => onTypeChange(e.target.value)}
+                      >
+                        <Radio.Button value="month">Tháng</Radio.Button>
+                        <Radio.Button value="year">Năm</Radio.Button>
+                      </Radio.Group>
+                    </Space>
+                  </div>
+                );
+              }}
+              onSelect={(date, selectInfo) => {
+                setSelectedDate(date);
+                if (selectInfo.source === 'date') {
+                  setDrawerOpen(true);
+                }
+              }}
+              cellRender={(date, info) => {
+                if (info.type === 'date') return dateCellRender(date);
+                return info.originNode;
+              }}
+            />
+          </Card>
+        )}
 
-        </>
+        {/* CHẾ ĐỘ 2: DÒNG THỜI GIAN */}
+        {activeTab === 'timeline' && (
+          <CalendarTimelineView
+            timelineDates={timelineDates}
+            onSelectDay={(date) => {
+              setSelectedDate(date);
+              setDrawerOpen(true);
+            }}
+            onSelectTask={setTaskForDetail}
+            onToggleNoteComplete={handleToggleNoteComplete}
+            onDeleteNote={handleDeleteNote}
+          />
+        )}
+
+        {/* CHẾ ĐỘ 3: SỔ GHI CHÚ */}
+        {activeTab === 'notes' && (
+          <CalendarNotesBoard
+            calendarNotes={calendarNotes}
+            noteCategoryFilter={noteCategoryFilter}
+            onChangeFilter={setNoteCategoryFilter}
+            onOpenNoteModal={handleOpenNoteModal}
+            onToggleNoteComplete={handleToggleNoteComplete}
+            onDeleteNote={handleDeleteNote}
+          />
+        )}
       </Card>
 
-      {/* DRAWER CHI TIẾT KHI CLICK CHỌN 1 NGÀY TRÊN LỊCH */}
-      <Drawer
+      {/* DRAWER CHI TIẾT NGÀY */}
+      <CalendarDayDrawer
         open={drawerOpen}
+        selectedDate={selectedDate}
+        selectedDateTasks={selectedDateTasks}
+        selectedDateNotes={selectedDateNotes}
+        quickNoteForm={quickNoteForm}
         onClose={() => setDrawerOpen(false)}
-        width={typeof window !== 'undefined' && window.innerWidth < 600 ? '100%' : 560}
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: 24 }}>
-            <div>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>
-                📅 {selectedDate.format('dddd, [ngày] DD/MM/YYYY')}
-              </span>
-              <div style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>
-                {selectedDateTasks.length} tác vụ đến hạn • {selectedDateNotes.length} ghi chú
-              </div>
-            </div>
-            <Button
-              type="primary"
-              size="small"
-              icon={<PlusOutlined />}
-              onClick={() => handleOpenNoteModal()}
-            >
-              + Ghi Chú
-            </Button>
-          </div>
-        }
-      >
-        <Tabs
-          defaultActiveKey="tasks"
-          items={[
-            {
-              key: 'tasks',
-              label: `Nghĩa Vụ Đến Hạn (${selectedDateTasks.length})`,
-              children: (
-                <div>
-                  {selectedDateTasks.length === 0 ? (
-                    <Empty
-                      description="Không có nghĩa vụ pháp lý nào đến hạn vào ngày này."
-                      style={{ marginTop: 40 }}
-                    />
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {selectedDateTasks.map((task) => {
-                        const meta = task.periodCycle ? STATUTORY_PERIOD_METAS[task.periodCycle as keyof typeof STATUTORY_PERIOD_METAS] : null;
-                        const remaining = getRemainingDaysInfo(task.dueDate || new Date());
-                        const isDone = isTaskCompleted(task.status);
+        onOpenNoteModal={handleOpenNoteModal}
+        onQuickAddNote={handleQuickAddNote}
+        onSelectTask={setTaskForDetail}
+        onToggleNoteComplete={handleToggleNoteComplete}
+        onDeleteNote={handleDeleteNote}
+      />
 
-                        return (
-                          <Card
-                            key={task.id}
-                            size="small"
-                            hoverable
-                            onClick={() => setTaskForDetail(task)}
-                            style={{
-                              borderRadius: 8,
-                              border: isDone ? '1px solid #b7eb8f' : '1px solid #e2e8f0',
-                              backgroundColor: isDone ? '#f6ffed' : '#ffffff',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <Space>
-                                <Tag color={remaining.tagColor}>{remaining.label}</Tag>
-                                <span style={{ fontWeight: 700, color: '#0f172a' }}>{task.code}</span>
-                              </Space>
-                              <TaskStatusTag status={task.status} />
-                            </div>
-
-                            <div style={{ fontWeight: 600, fontSize: 14, color: '#1e293b', marginBottom: 4 }}>
-                              {task.title}
-                            </div>
-
-                            {task.description && (
-                              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>
-                                {task.description}
-                              </div>
-                            )}
-
-                            {meta && (
-                              <div
-                                style={{
-                                  background: '#f8fafc',
-                                  padding: '4px 8px',
-                                  borderRadius: 4,
-                                  fontSize: 11,
-                                  color: '#475569',
-                                  marginBottom: 8,
-                                }}
-                              >
-                                <strong>Căn cứ:</strong> {meta.legalBasis}
-                              </div>
-                            )}
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                paddingTop: 6,
-                                borderTop: '1px solid #f1f5f9',
-                              }}
-                            >
-                              <span style={{ fontSize: 12, color: '#64748b' }}>
-                                Phụ trách: <strong>{task.assigneeName}</strong> ({task.assigneeRole})
-                              </span>
-                              <Button
-                                size="small"
-                                type="primary"
-                                onClick={() => setTaskForDetail(task)}
-                              >
-                                Chi tiết tác vụ &gt;
-                              </Button>
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'notes',
-              label: `Ghi Chú Trong Ngày (${selectedDateNotes.length})`,
-              children: (
-                <div>
-                  {/* Form thêm nhanh ghi chú */}
-                  <Card
-                    size="small"
-                    style={{
-                      borderRadius: 8,
-                      marginBottom: 16,
-                      background: '#f8fafc',
-                      border: '1px dashed #cbd5e1',
-                    }}
-                    title={<span style={{ fontSize: 13, fontWeight: 600 }}>📝 Thêm nhanh ghi chú cho ngày này</span>}
-                  >
-                    <Form form={quickNoteForm} layout="vertical" onFinish={handleQuickAddNote}>
-                      <Form.Item
-                        name="title"
-                        rules={[{ required: true, message: 'Vui lòng nhập tiêu đề ghi chú' }]}
-                        style={{ marginBottom: 8 }}
-                      >
-                        <Input placeholder="Ví dụ: Gặp kế toán trưởng chốt số liệu..." />
-                      </Form.Item>
-                      <Row gutter={8}>
-                        <Col span={14}>
-                          <Form.Item name="category" initialValue="tax" style={{ marginBottom: 8 }}>
-                            <Select
-                              options={NOTE_CATEGORIES.map((c) => ({
-                                value: c.value,
-                                label: c.label,
-                              }))}
-                            />
-                          </Form.Item>
-                        </Col>
-                        <Col span={10}>
-                          <Button type="primary" htmlType="submit" block icon={<PlusOutlined />}>
-                            Lưu Ghi Chú
-                          </Button>
-                        </Col>
-                      </Row>
-                      <Form.Item name="content" style={{ marginBottom: 0 }}>
-                        <TextArea rows={2} placeholder="Nội dung chi tiết (không bắt buộc)..." />
-                      </Form.Item>
-                    </Form>
-                  </Card>
-
-                  {/* Danh sách ghi chú của ngày */}
-                  {selectedDateNotes.length === 0 ? (
-                    <Empty description="Chưa có ghi chú nào cho ngày này." />
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {selectedDateNotes.map((note) => {
-                        const cat = NOTE_CATEGORIES.find((c) => c.value === note.category) || NOTE_CATEGORIES[4];
-                        return (
-                          <div
-                            key={note.id}
-                            style={{
-                              padding: '10px 12px',
-                              borderRadius: 8,
-                              border: '1px solid #e2e8f0',
-                              backgroundColor: note.isCompleted ? '#f8fafc' : '#ffffff',
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <Space size={8} align="start">
-                                <Checkbox
-                                  checked={note.isCompleted}
-                                  onChange={() => handleToggleNoteComplete(note)}
-                                  style={{ marginTop: 2 }}
-                                />
-                                <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                    <Tag color={cat.color}>{cat.label}</Tag>
-                                    <span
-                                      style={{
-                                        fontWeight: 600,
-                                        fontSize: 13,
-                                        color: note.isCompleted ? '#94a3b8' : '#0f172a',
-                                        textDecoration: note.isCompleted ? 'line-through' : 'none',
-                                      }}
-                                    >
-                                      {note.title}
-                                    </span>
-                                  </div>
-                                  {note.content && (
-                                    <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'pre-wrap' }}>
-                                      {note.content}
-                                    </div>
-                                  )}
-                                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
-                                    Tạo bởi {note.authorName || 'Nội bộ'}
-                                  </div>
-                                </div>
-                              </Space>
-                              <Space size="small">
-                                <Button
-                                  type="text"
-                                  size="small"
-                                  icon={<EditOutlined />}
-                                  onClick={() => handleOpenNoteModal(note)}
-                                />
-                                <Popconfirm
-                                  title="Xóa ghi chú này?"
-                                  onConfirm={() => handleDeleteNote(note.id)}
-                                  okText="Xóa"
-                                  cancelText="Hủy"
-                                  okButtonProps={{ danger: true }}
-                                >
-                                  <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                                </Popconfirm>
-                              </Space>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-          ]}
-        />
-      </Drawer>
-
-      {/* MODAL THÊM / SỬA GHI CHÚ CHÍNH THỨC */}
-      <Modal
+      {/* MODAL THÊM / SỬA GHI CHÚ */}
+      <CalendarNoteModal
         open={noteModalOpen}
+        editingNote={editingNote}
+        noteForm={noteForm}
         onCancel={() => setNoteModalOpen(false)}
-        onOk={handleSaveNoteModal}
-        title={editingNote ? '✏️ Chỉnh Sửa Ghi Chú' : '📝 Thêm Ghi Chú Mới'}
-        okText={editingNote ? 'Cập Nhật' : 'Tạo Ghi Chú'}
-        cancelText="Hủy"
-      >
-        <Form form={noteForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item
-                name="date"
-                label="Ngày ghi chú"
-                rules={[{ required: true, message: 'Vui lòng chọn ngày' }]}
-              >
-                <Input
-                  type="date"
-                  value={noteForm.getFieldValue('date')?.format('YYYY-MM-DD')}
-                  onChange={(e) => {
-                    noteForm.setFieldsValue({ date: dayjs(e.target.value) });
-                  }}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="category" label="Phân loại">
-                <Select
-                  options={NOTE_CATEGORIES.map((c) => ({
-                    value: c.value,
-                    label: c.label,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+        onSave={handleSaveNoteModal}
+      />
 
-          <Form.Item
-            name="title"
-            label="Tiêu đề ghi chú"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề ghi chú' }]}
-          >
-            <Input placeholder="Ví dụ: Rà soát phụ lục hợp đồng, kiểm tra hóa đơn tháng..." />
-          </Form.Item>
-
-          <Form.Item name="content" label="Nội dung chi tiết">
-            <TextArea rows={4} placeholder="Nhập chi tiết công việc cần lưu ý, người liên hệ, tài liệu cần chuẩn bị..." />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* DRAWER CHI TIẾT NGHĨA VỤ TUÂN THỦ (CHỦ DOANH NGHIỆP TRỰC TIẾP VẬN HÀNH) */}
+      {/* DRAWER CHI TIẾT NGHĨA VỤ TUÂN THỦ */}
       <TaskDetailDrawer
         task={taskForDetail}
         open={!!taskForDetail}
