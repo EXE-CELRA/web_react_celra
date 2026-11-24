@@ -40,6 +40,7 @@ interface CitLedgerSectionProps {
   citCalcResult: CitCalculationResult | null;
   financialTab: 'revenue' | 'expense';
   isExcelUploading: boolean;
+  showNextActionSteps?: boolean;
 
   revenuesData: CitRevenueRecord[];
   revenuesTotal: number;
@@ -90,6 +91,7 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
   citCalcResult,
   financialTab,
   isExcelUploading,
+  showNextActionSteps = false,
   revenuesData,
   revenuesTotal,
   revenuePage,
@@ -178,7 +180,8 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
         </div>
       </div>
 
-      {/* 🎯 KHỐI: HÀNH ĐỘNG TIẾP THEO DÀNH CHO DOANH NGHIỆP */}
+      {/* 🎯 KHỐI: HÀNH ĐỘNG TIẾP THEO DÀNH CHO DOANH NGHIỆP (mặc định đã chuyển sang ComplianceAuditReportView) */}
+      {showNextActionSteps && (
       <div className="bg-gradient-to-br from-slate-900 to-teal-950 text-white rounded-2xl p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -273,6 +276,7 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* 📅 BỘ CHỌN KỲ TÍNH THUẾ */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 border border-slate-200/80 rounded-xl px-4 py-2.5">

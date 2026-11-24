@@ -52,6 +52,23 @@ export interface MessageItem {
   timestamp?: string;
 }
 
+// 3 câu hỏi gợi ý cốt lõi chuẩn Enterprise LegalTech (từ nhánh dev)
+export const CURATED_SUGGESTIONS = [
+  {
+    title: 'Doanh nghiệp của tôi có những nghĩa vụ thuế TNDN và GTGT nào sắp đến hạn quý này?',
+    category: 'Thuế TNDN & GTGT',
+  },
+  {
+    title: 'Quy định về thời hạn lập và lưu trữ hồ sơ lao động theo Bộ luật Lao động 2019?',
+    category: 'Lao động & Tiền lương',
+  },
+  {
+    title: 'Kiểm tra danh mục tuân thủ pháp lý bắt buộc đối với ngành bán lẻ vàng bạc đá quý?',
+    category: 'Điều kiện kinh doanh',
+  },
+] as const;
+
+// Danh mục câu hỏi gợi ý nhanh cũ (giữ lại làm dữ liệu dự phòng)
 export const QUICK_PROMPTS = [
   {
     title: 'Doanh nghiệp tôi cần tuân thủ những nghĩa vụ pháp lý nào?',
@@ -120,16 +137,14 @@ export function getDefaultWelcomeMessage(companyName?: string): MessageItem {
   return {
     id: 'welcome-msg',
     sender: 'AI',
-    text: `Xin chào! Tôi là trợ lý pháp lý AI của CELRA.\n\nMô tả tình huống hoặc đặt câu hỏi về nghĩa vụ pháp lý của doanh nghiệp. Tôi sẽ giúp bạn hiểu quy định và xác định những việc cần thực hiện.\n\n${
-      companyName
-        ? `Bối cảnh hiện tại: **${companyName}**. Hãy cung cấp thêm thông tin nếu doanh nghiệp của bạn có đặc điểm chưa được cập nhật trong hồ sơ.`
-        : 'Hãy cung cấp ngành nghề, quy mô hoặc loại hình doanh nghiệp để tôi có thêm bối cảnh.'
+    text: `Xin chào! Tôi là Trợ lý Pháp lý AI của CELRA.\n\nTôi hỗ trợ doanh nghiệp tìm hiểu quy định pháp luật, xác định nghĩa vụ tuân thủ và quản lý các công việc cần thực hiện.\n\n${
+      companyName ? `Bối cảnh áp dụng: **${companyName}**.` : 'Hãy nhập câu hỏi pháp lý để bắt đầu.'
     }`,
     actionType: 'info',
   };
 }
 
-// Chuẩn hóa URL DLPL hoặc liên kết văn bản pháp luật gốc
+// Chuẩn hóa và khắc phục liên kết văn bản pháp luật gốc
 export function resolveCitationUrl(c: CitationItem): string {
   const rawUrl = c.sourceUrl || c.url;
   const clean = cleanDLPLUrl(rawUrl);

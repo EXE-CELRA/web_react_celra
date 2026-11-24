@@ -3,17 +3,16 @@ import { Drawer, message as antMessage } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Send,
+  PlusCircle,
   X,
-  RefreshCw,
   Maximize2,
   Minimize2,
   Paperclip,
-  History,
+  Building2,
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import mascotImg from '../../assets/celra-mascot.png';
 import '../CelraMascot/CelraMascot.css';
 import {
   type CitationItem,
@@ -21,16 +20,20 @@ import {
   type VerificationOption,
   type VerificationChecklistItem,
   type MessageItem,
-  QUICK_PROMPTS,
   loadChatHistory,
   saveChatHistory,
   clearChatHistory,
   getDefaultWelcomeMessage,
 } from './ai-chat/ai-chat.utils';
 import { ChatMessageList } from './ai-chat/ChatMessageList';
-import { ChatContextSidebar } from './ai-chat/ChatContextSidebar';
 
-export type { VerificationOption, VerificationChecklistItem };
+export type {
+  CitationItem,
+  ProposedChecklistItem,
+  VerificationOption,
+  VerificationChecklistItem,
+  MessageItem,
+};
 
 interface AIChatDrawerProps {
   visible: boolean;
@@ -38,6 +41,10 @@ interface AIChatDrawerProps {
   onOpenAuditModal?: () => void;
 }
 
+/**
+ * AIChatDrawer — Không gian làm việc Trợ lý Pháp lý AI CELRA
+ * Thiết kế chuẩn Enterprise SaaS: Minimalist, LegalTech Hierarchy
+ */
 export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   visible,
   onClose,
@@ -50,7 +57,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   const { activeOrg } = useOrgStore();
   const currentOrgId = activeOrg?.id || localStorage.getItem('celra_active_org_id') || undefined;
 
-  // 🛡️ Chỉ người dùng đã đăng nhập mới được phép mở và sử dụng khung chat
+  // Bảo vệ màn hình đăng nhập: Chỉ người dùng đã đăng nhập mới được sử dụng
   useEffect(() => {
     if (visible && (isAuthPage || !isAuthenticated)) {
       onClose();
@@ -64,21 +71,25 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   const [isExpanded, setIsExpanded] = useState<boolean>(
     () => localStorage.getItem('celra_chat_expanded') === 'true',
   );
-  const [contextPanelOpen, setContextPanelOpen] = useState(true);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>(
-    () => loadChatHistory(user?.id, currentOrgId) ?? [getDefaultWelcomeMessage(activeOrg?.name)],
+    () =>
+      loadChatHistory(user?.id, currentOrgId) ?? [
+        getDefaultWelcomeMessage(activeOrg?.legalName || activeOrg?.name),
+      ],
   );
 
-  // Cô lập lịch sử chat theo userId và Doanh nghiệp hiện hành
+  // Tải đúng lịch sử theo người dùng và doanh nghiệp đang chọn
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
     const history = loadChatHistory(user.id, currentOrgId);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages(
-      history && history.length > 0 ? history : [getDefaultWelcomeMessage(activeOrg?.name)],
+      history && history.length > 0
+        ? history
+        : [getDefaultWelcomeMessage(activeOrg?.legalName || activeOrg?.name)],
     );
-  }, [user?.id, currentOrgId, activeOrg?.name, isAuthenticated]);
+  }, [user?.id, currentOrgId, activeOrg?.legalName, activeOrg?.name, isAuthenticated]);
 
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -120,13 +131,18 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     const fileName = attachedFile?.name;
     setAttachedFile(null);
     const userMsgId = `usr-${Date.now()}`;
+    const userTimestamp = new Date().toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
     setMessages((prev) => [
       ...prev,
       {
         id: userMsgId,
         sender: 'USER',
-        text: fileName ? `${query}\nTài liệu đính kèm: ${fileName}` : query,
-        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        text: fileName ? `${query}\n[Tài liệu đính kèm: ${fileName}]` : query,
+        timestamp: userTimestamp,
       },
     ]);
     setLoading(true);
@@ -153,7 +169,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
       const aiMsgId = res.messageId || `ai-${Date.now()}`;
       const replyContent =
-        res.content || res.answer || 'Đã ghi nhận câu hỏi và xử lý dữ liệu tuân thủ.';
+        res.content || res.answer || 'Đã ghi nhận yêu cầu và đối chiếu dữ liệu tuân thủ.';
       const validActionType:
         | 'info'
         | 'open_compliance_audit'
@@ -183,8 +199,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         },
       ]);
     } catch (err: unknown) {
-      let backendMsg =
-        'Rất tiếc, đã có sự cố kết nối tới Engine Trợ lý AI. Vui lòng kiểm tra lại kết nối và thử lại.';
+      let backendMsg = 'Đã có sự cố kết nối tới Engine AI. Vui lòng thử lại sau giây lát.';
       if (typeof err === 'string') {
         backendMsg = err;
       } else if (err && typeof err === 'object') {
@@ -202,6 +217,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           sender: 'AI',
           text: backendMsg,
           actionType: 'info',
+          timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
     } finally {
@@ -223,7 +239,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       });
 
       setAcceptedProposals((prev) => ({ ...prev, [proposal.id]: true }));
-      antMessage.success(`🎉 Đã tạo thành công Checklist "${proposal.title}" vào hệ thống!`);
+      antMessage.success(`Đã thêm nhiệm vụ tuân thủ: "${proposal.title}"`);
     } catch (err: unknown) {
       const e = err as { message?: string } | null;
       antMessage.error(e?.message || 'Lỗi khi tạo Checklist từ đề xuất AI');
@@ -241,82 +257,74 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     }
   };
 
-  const latestAiMessage = [...messages]
-    .reverse()
-    .find((m) => m.sender === 'AI' && m.id !== 'welcome-msg');
-  const latestUserMessage = [...messages].reverse().find((m) => m.sender === 'USER');
-
   return (
     <Drawer
       title={null}
+      closable={false}
       placement="right"
-      width={isExpanded ? '96vw' : window.innerWidth < 1024 ? '100vw' : '88vw'}
+      width={
+        isExpanded
+          ? '96vw'
+          : typeof window !== 'undefined' && window.innerWidth < 1024
+            ? '100vw'
+            : 'calc(100vw - 260px)'
+      }
       onClose={onClose}
       open={visible}
       styles={{
+        header: { display: 'none' },
         body: {
           padding: 0,
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          background: '#f8fafc',
+          background: '#F5F8FC',
         },
         wrapper: { maxWidth: '100vw', transition: 'width 0.25s ease-in-out' },
       }}
     >
-      {/* DRAWER HEADER */}
-      <div className="h-[72px] px-5 bg-[#142B50] text-white flex items-center justify-between border-b border-[#203a66] shrink-0">
-        <div className="flex items-center gap-3">
-          <div
-            className="celra-chat-header-mascot"
-            title="Mascot cú CELRA — Trợ lý Pháp lý AI"
-            aria-label="Mascot cú CELRA Trợ lý Pháp lý AI"
-          >
-            <img
-              src={mascotImg}
-              alt="CELRA Mascot"
-              className="celra-chat-header-mascot__img"
-              draggable={false}
-            />
-            <span className="celra-chat-header-mascot__status" title="CELRA AI đang trực tuyến" />
+      {/* MAIN HEADER (Clean, Enterprise, Height: 68px, Background: White) */}
+      <header className="h-[68px] px-6 bg-white border-b border-[#E2E8F0] flex items-center justify-between shrink-0 z-10 shadow-xs">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <h2 className="text-[15px] font-bold text-[#172B4D] tracking-tight">
+              Trợ lý Pháp lý AI
+            </h2>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Sẵn sàng
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-[15px] font-bold text-white tracking-wide">Trợ lý pháp lý AI</h3>
+
+          <div className="h-4 w-[1px] bg-slate-200 hidden md:block shrink-0" />
+
+          {activeOrg?.legalName || activeOrg?.name ? (
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#64748B] min-w-0">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="font-medium text-[#172B4D] truncate max-w-[320px]">
+                {activeOrg.legalName || activeOrg.name}
+              </span>
             </div>
-            <p className="text-[11px] text-slate-300 mt-1 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              CELRA AI đang hoạt động
-              {activeOrg?.legalName || activeOrg?.name ? (
-                <span className="text-slate-400">• {activeOrg.legalName || activeOrg.name}</span>
-              ) : null}
-            </p>
-          </div>
+          ) : null}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() =>
-              antMessage.info('Lịch sử cuộc trò chuyện được lưu theo doanh nghiệp hiện tại.')
-            }
-            className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-            title="Lịch sử trò chuyện"
-            aria-label="Lịch sử trò chuyện"
-          >
-            <History className="w-4 h-4" />
-          </button>
-          <button
+            type="button"
             onClick={() => {
               clearChatHistory(user?.id, currentOrgId);
-              setMessages([getDefaultWelcomeMessage(activeOrg?.name)]);
-              antMessage.success('Đã làm mới phiên hội thoại!');
+              setMessages([getDefaultWelcomeMessage(activeOrg?.legalName || activeOrg?.name)]);
+              antMessage.success('Đã bắt đầu phiên tư vấn mới!');
             }}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-            title="Làm mới lịch sử chat"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#172B4D] bg-white border border-[#E2E8F0] hover:bg-slate-50 rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Bắt đầu phiên tư vấn mới"
           >
-            <RefreshCw className="w-4 h-4" />
+            <PlusCircle className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Phiên mới</span>
           </button>
+
           <button
+            type="button"
             onClick={() => {
               setIsExpanded((prev) => {
                 const next = !prev;
@@ -324,31 +332,30 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                 return next;
               });
             }}
-            title={
-              isExpanded
-                ? 'Thu nhỏ giao diện chat (Mặc định 68vw)'
-                : 'Phóng to tối đa màn hình (96vw)'
-            }
+            className="p-2 text-slate-500 hover:text-[#172B4D] hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+            title={isExpanded ? 'Thu nhỏ giao diện' : 'Phóng to tối đa'}
           >
             {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
+
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-            title="Đóng"
+            className="p-2 text-slate-400 hover:text-[#172B4D] hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+            title="Đóng khung chat"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 flex flex-col bg-[#F8FAFC]">
-          {/* MESSAGES LIST */}
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col bg-[#F5F8FC]">
+          {/* Scrollable Message List / Welcome Screen */}
           <ChatMessageList
             messages={messages}
             loading={loading}
-            isExpanded={isExpanded}
             activeOrg={activeOrg}
             acceptedProposals={acceptedProposals}
             isAccepting={isAccepting}
@@ -358,111 +365,86 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
             onOpenAudit={handleOpenAudit}
           />
 
-          {/* QUICK PROMPT CHIPS */}
-          {messages.length > 1 ? (
-            <div className="px-5 pb-2 bg-[#F8FAFC] shrink-0">
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                {QUICK_PROMPTS.slice(0, 3).map((q) => (
+          {/* INPUT CHATBOX (Fixed bottom, Minimalist, Modern, Floating Card) */}
+          <div className="p-5 bg-gradient-to-t from-[#F5F8FC] via-[#F5F8FC] to-transparent shrink-0">
+            <div className="max-w-4xl mx-auto">
+              {attachedFile ? (
+                <div className="mb-2 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-[#172B4D]">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Paperclip className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
+                    <span className="truncate font-medium">{attachedFile.name}</span>
+                  </span>
                   <button
-                    key={q.title}
                     type="button"
-                    onClick={() => handleSendMessage(q.title)}
-                    className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:border-[#2563EB]/40 hover:text-[#2563EB] transition-colors cursor-pointer"
+                    onClick={() => setAttachedFile(null)}
+                    className="ml-2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                    title="Gỡ tài liệu"
                   >
-                    {q.title}
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
+                </div>
+              ) : null}
 
-          {/* INPUT BAR */}
-          <div className="p-4 bg-white border-t border-slate-200 shrink-0">
-            {attachedFile ? (
-              <div className="mb-2 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-[#172B4D]">
-                <span className="flex items-center gap-2 min-w-0">
-                  <Paperclip className="w-4 h-4 shrink-0 text-[#2563EB]" />
-                  <span className="truncate">{attachedFile.name}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setAttachedFile(null)}
-                  className="ml-2 text-slate-500 hover:text-slate-800 cursor-pointer"
-                  aria-label="Gỡ tài liệu"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : null}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className="flex items-end gap-2"
-            >
-              <label
-                className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-[#2563EB]/40 hover:text-[#2563EB] cursor-pointer"
-                title="Đính kèm PDF hoặc DOCX"
-              >
-                <Paperclip className="w-4 h-4" />
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={(event) => setAttachedFile(event.target.files?.[0] || null)}
-                />
-              </label>
-              <textarea
-                ref={inputRef}
-                rows={1}
-                placeholder="Nhập câu hỏi hoặc mô tả tình huống pháp lý của doanh nghiệp..."
-                value={inputText}
-                onFocus={() => setTimeout(() => scrollToBottom('smooth'), 120)}
-                onChange={(event) => setInputText(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    handleSendMessage();
-                  }
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage();
                 }}
-                disabled={loading}
-                className="flex-1 max-h-32 min-h-10 resize-none px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[16px] md:text-[14px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim() || loading}
-                className={`w-10 h-10 shrink-0 rounded-lg text-white flex items-center justify-center transition-colors cursor-pointer ${
-                  inputText.trim() && !loading
-                    ? 'bg-[#2563EB] hover:bg-[#1D4ED8]'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                }`}
-                title="Gửi câu hỏi"
-                aria-label="Gửi câu hỏi"
+                className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-blue-100 transition-all p-2.5 flex items-end gap-2"
               >
-                {loading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
+                <label
+                  className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl text-slate-400 hover:text-[#172B4D] hover:bg-slate-50 transition-colors cursor-pointer"
+                  title="Đính kèm tài liệu (PDF, Word)"
+                >
+                  <Paperclip className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => setAttachedFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+
+                <div className="flex-1 min-h-[36px] flex items-center">
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    placeholder="Nhập câu hỏi pháp lý, quy định thuế, lao động hoặc nghĩa vụ tuân thủ..."
+                    value={inputText}
+                    onFocus={() => setTimeout(() => scrollToBottom('smooth'), 120)}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={loading}
+                    className="w-full text-xs text-[#172B4D] placeholder-slate-400 bg-transparent border-0 resize-none focus:outline-none focus:ring-0 leading-relaxed py-1"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!inputText.trim() || loading}
+                  className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center transition-all ${
+                    inputText.trim() && !loading
+                      ? 'bg-[#2563EB] hover:bg-blue-700 text-white cursor-pointer shadow-xs'
+                      : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                  }`}
+                  title="Gửi câu hỏi (Enter)"
+                >
                   <Send className="w-4 h-4" />
-                )}
-              </button>
-            </form>
-            <p className="mt-2 text-[10px] text-slate-400 text-center">
-              Nội dung AI hỗ trợ tham khảo và không thay thế ý kiến tư vấn pháp lý chuyên môn.
-            </p>
+                </button>
+              </form>
+
+              <p className="mt-2 text-[11px] text-slate-400 text-center">
+                CELRA AI hỗ trợ tra cứu và điều phối tuân thủ cho SME. Đối chiếu với văn bản quy
+                phạm pháp luật chính thức.
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* RIGHT CONTEXT SIDEBAR */}
-        <ChatContextSidebar
-          open={contextPanelOpen}
-          activeOrg={activeOrg}
-          latestUserMessage={latestUserMessage}
-          latestAiMessage={latestAiMessage}
-          onToggleOpen={setContextPanelOpen}
-          onOpenAudit={handleOpenAudit}
-          onOpenTasks={() => navigate('/tasks')}
-        />
       </div>
     </Drawer>
   );

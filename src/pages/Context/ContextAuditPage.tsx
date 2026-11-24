@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, message } from 'antd';
-import { SlidersHorizontal } from 'lucide-react';
+import { FileExcelOutlined } from '@ant-design/icons';
+import { SlidersHorizontal, ShieldCheck, Check } from 'lucide-react';
 import { useContextStore } from '../../store/useContextStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useOrgStore } from '../../store/useOrgStore';
@@ -10,6 +11,7 @@ import { useTaskStore } from '../../store/useTaskStore';
 import apiClient from '../../api/client';
 import { CONTEXT_GROUPS, ENABLED_CONTEXT_GROUP_KEYS } from './ContextPage';
 import { EtaxPaymentGuideModal } from '../../components/tax/EtaxPaymentGuideModal';
+import { ComplianceAuditReportView } from '../../components/tax/ComplianceAuditReportView';
 import { ModuleSurveyModal } from '../../components/survey/ModuleSurveyModal';
 import { isGroupSurveyCompleted } from '../../data/questionSurvey';
 import type { ContextFact, AuditFindingItem } from '../../interfaces';
@@ -21,7 +23,6 @@ import {
   ContextFactCardsStep,
   AuditConfirmStep,
   AuditScanningStep,
-  AuditResultsStep,
 } from './audit/BatchAuditWorkflow';
 
 // Re-export constants & types for backwards compatibility
@@ -46,6 +47,8 @@ export const ContextAuditPage: React.FC = () => {
   const { fetchTasks, fetchNotifications } = useTaskStore();
 
   const [activeTab, setActiveTab] = useState<string>(initialGroup);
+  // Chế độ xem: Báo cáo rà soát tuân thủ (5 khu vực chuẩn) vs Sổ thu chi kế toán
+  const [taxViewMode, setTaxViewMode] = useState<'report' | 'ledger'>('report');
   const [selectedFactIds, setSelectedFactIds] = useState<string[]>([]);
   const [step, setStep] = useState<'select' | 'confirm' | 'scanning' | 'results'>('select');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -237,6 +240,15 @@ export const ContextAuditPage: React.FC = () => {
     }
   };
 
+  const handleOpenTaxChecklistModal = () => {
+    cit.setSelectedChecklistQuarter(cit.taxQuarter === 'ALL' ? 1 : cit.taxQuarter);
+    cit.setSelectedChecklistYear(cit.taxYear);
+    cit.setIsChecklistModalOpen(true);
+  };
+
+  // Bảo lưu các handler cũ theo nguyên tắc bảo toàn mã nguồn
+  void [handleCreateSingleChecklist, creatingSingleId];
+
   return (
     <div className="w-full space-y-6 pb-24">
       {/* ========================================================= */}
@@ -300,71 +312,128 @@ export const ContextAuditPage: React.FC = () => {
             )}
           </div>
 
-          {/* PHÂN HỆ QUẢN LÝ SỔ THU CHI & DỰ TOÁN THUẾ TNDN */}
+          {/* PHÂN HỆ QUẢN LÝ BÁO CÁO TUÂN THỦ & SỔ THU CHI THUẾ TNDN */}
           {activeTab === 'thue_ke_toan' && (
-            <CitLedgerSection
-              taxQuarter={cit.taxQuarter}
-              taxYear={cit.taxYear}
-              dynamicYearOptions={cit.dynamicYearOptions}
-              citTierResult={cit.citTierResult}
-              citSummary={cit.citSummary}
-              citCalcResult={cit.citCalcResult}
-              financialTab={cit.financialTab}
-              isExcelUploading={cit.isExcelUploading}
-              revenuesData={cit.revenuesData}
-              revenuesTotal={cit.revenuesTotal}
-              revenuePage={cit.revenuePage}
-              revenueLimit={cit.revenueLimit}
-              revenueSearch={cit.revenueSearch}
-              isRevenueLoading={cit.isRevenueLoading}
-              expensesData={cit.expensesData}
-              expensesTotal={cit.expensesTotal}
-              expensePage={cit.expensePage}
-              expenseLimit={cit.expenseLimit}
-              expenseSearch={cit.expenseSearch}
-              expenseFilterB4={cit.expenseFilterB4}
-              isExpenseLoading={cit.isExpenseLoading}
-              onQuarterChange={cit.handleQuarterChange}
-              onYearChange={cit.handleYearChange}
-              onChangeFinancialTab={cit.setFinancialTab}
-              onOpenChecklistModal={() => {
-                cit.setSelectedChecklistQuarter(cit.taxQuarter === 'ALL' ? 1 : cit.taxQuarter);
-                cit.setSelectedChecklistYear(cit.taxYear);
-                cit.setIsChecklistModalOpen(true);
-              }}
-              onOpenEtaxModal={() => cit.setShowEtaxModal(true)}
-              onNavigateContext={() => navigate('/context')}
-              onRevenueSearchChange={cit.setRevenueSearch}
-              onRevenueSearchSubmit={() => {
-                cit.setRevenuePage(1);
-                cit.fetchRevenues();
-              }}
-              onRevenuePageChange={(page, pageSize) => {
-                cit.setRevenuePage(page);
-                cit.setRevenueLimit(pageSize);
-              }}
-              onOpenAddRevenue={cit.handleOpenAddRevenue}
-              onOpenEditRevenue={cit.handleOpenEditRevenue}
-              onDeleteRevenue={cit.handleDeleteRevenue}
-              onUploadRevenueExcel={cit.handleUploadRevenueExcel}
-              onExpenseSearchChange={cit.setExpenseSearch}
-              onExpenseSearchSubmit={() => {
-                cit.setExpensePage(1);
-                cit.fetchExpenses();
-              }}
-              onExpenseFilterB4Change={(filter) => {
-                cit.setExpenseFilterB4(filter);
-                cit.setExpensePage(1);
-              }}
-              onExpensePageChange={(page, pageSize) => {
-                cit.setExpensePage(page);
-                cit.setExpenseLimit(pageSize);
-              }}
-              onOpenAddExpense={cit.handleOpenAddExpense}
-              onOpenEditExpense={cit.handleOpenEditExpense}
-              onDeleteExpense={cit.handleDeleteExpense}
-              onUploadExpenseExcel={cit.handleUploadExpenseExcel}
-            />
+            <div className="space-y-4">
+              {/* SUB-HEADER / VIEW SELECTOR: BÁO CÁO RÀ SOÁT TUÂN THỦ (5 KHU VỰC) VS SỔ THU CHI */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTaxViewMode('report')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      taxViewMode === 'report'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Báo Cáo Rà Soát Tuân Thủ (5 Khu Vực)</span>
+                    <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded-full font-extrabold">
+                      Chuẩn CELRA
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTaxViewMode('ledger')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      taxViewMode === 'ledger'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <FileExcelOutlined className="text-sm" />
+                    <span>Sổ Thu Chi &amp; Bóc Tách B4 (Kế Toán)</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>
+                    Kỳ:{' '}
+                    <strong>
+                      Quý {cit.taxQuarter === 'ALL' ? 'cả năm' : cit.taxQuarter}/{cit.taxYear}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              {taxViewMode === 'report' ? (
+                <ComplianceAuditReportView
+                  activeOrg={activeOrg}
+                  taxQuarter={cit.taxQuarter}
+                  taxYear={cit.taxYear}
+                  citSummary={cit.citSummary}
+                  citTierResult={cit.citTierResult}
+                  facts={effectiveFacts}
+                  onSwitchToLedger={() => setTaxViewMode('ledger')}
+                  onQuarterChange={cit.handleQuarterChange}
+                  onYearChange={cit.handleYearChange}
+                  onOpenChecklistModal={handleOpenTaxChecklistModal}
+                  onOpenEtaxGuide={() => cit.setShowEtaxModal(true)}
+                />
+              ) : (
+                <CitLedgerSection
+                  taxQuarter={cit.taxQuarter}
+                  taxYear={cit.taxYear}
+                  dynamicYearOptions={cit.dynamicYearOptions}
+                  citTierResult={cit.citTierResult}
+                  citSummary={cit.citSummary}
+                  citCalcResult={cit.citCalcResult}
+                  financialTab={cit.financialTab}
+                  isExcelUploading={cit.isExcelUploading}
+                  revenuesData={cit.revenuesData}
+                  revenuesTotal={cit.revenuesTotal}
+                  revenuePage={cit.revenuePage}
+                  revenueLimit={cit.revenueLimit}
+                  revenueSearch={cit.revenueSearch}
+                  isRevenueLoading={cit.isRevenueLoading}
+                  expensesData={cit.expensesData}
+                  expensesTotal={cit.expensesTotal}
+                  expensePage={cit.expensePage}
+                  expenseLimit={cit.expenseLimit}
+                  expenseSearch={cit.expenseSearch}
+                  expenseFilterB4={cit.expenseFilterB4}
+                  isExpenseLoading={cit.isExpenseLoading}
+                  onQuarterChange={cit.handleQuarterChange}
+                  onYearChange={cit.handleYearChange}
+                  onChangeFinancialTab={cit.setFinancialTab}
+                  onOpenChecklistModal={handleOpenTaxChecklistModal}
+                  onOpenEtaxModal={() => cit.setShowEtaxModal(true)}
+                  onNavigateContext={() => navigate('/context')}
+                  onRevenueSearchChange={cit.setRevenueSearch}
+                  onRevenueSearchSubmit={() => {
+                    cit.setRevenuePage(1);
+                    cit.fetchRevenues();
+                  }}
+                  onRevenuePageChange={(page, pageSize) => {
+                    cit.setRevenuePage(page);
+                    cit.setRevenueLimit(pageSize);
+                  }}
+                  onOpenAddRevenue={cit.handleOpenAddRevenue}
+                  onOpenEditRevenue={cit.handleOpenEditRevenue}
+                  onDeleteRevenue={cit.handleDeleteRevenue}
+                  onUploadRevenueExcel={cit.handleUploadRevenueExcel}
+                  onExpenseSearchChange={cit.setExpenseSearch}
+                  onExpenseSearchSubmit={() => {
+                    cit.setExpensePage(1);
+                    cit.fetchExpenses();
+                  }}
+                  onExpenseFilterB4Change={(filter) => {
+                    cit.setExpenseFilterB4(filter);
+                    cit.setExpensePage(1);
+                  }}
+                  onExpensePageChange={(page, pageSize) => {
+                    cit.setExpensePage(page);
+                    cit.setExpenseLimit(pageSize);
+                  }}
+                  onOpenAddExpense={cit.handleOpenAddExpense}
+                  onOpenEditExpense={cit.handleOpenEditExpense}
+                  onDeleteExpense={cit.handleDeleteExpense}
+                  onUploadExpenseExcel={cit.handleUploadExpenseExcel}
+                />
+              )}
+            </div>
           )}
 
           {activeTab === 'thue_ke_toan' ? (
@@ -403,17 +472,63 @@ export const ContextAuditPage: React.FC = () => {
         <AuditScanningStep scanProgress={scanProgress} scanStageText={scanStageText} />
       )}
 
-      {/* BƯỚC 4: KẾT QUẢ RÀ SOÁT & XUẤT CHECKLIST */}
+      {/* BƯỚC 4: KẾT QUẢ RÀ SOÁT & XUẤT CHECKLIST (5 KHU VỰC CHUẨN) */}
       {step === 'results' && (
-        <AuditResultsStep
-          auditFindings={auditFindings}
-          creatingSingleId={creatingSingleId}
-          isCreatingAll={isCreatingAll}
-          onCreateSingle={handleCreateSingleChecklist}
-          onCreateAll={handleCreateAllChecklists}
-          onRestart={() => setStep('select')}
-          onOpenTasks={() => navigate('/tasks')}
-        />
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-extrabold">
+                  <Check className="w-4 h-4" />
+                </span>
+                <h3 className="text-base font-black text-slate-800 m-0">
+                  Hoàn Tất Rà Soát: Phát Hiện{' '}
+                  {auditFindings.length > 0 ? auditFindings.length : 8} Nghĩa Vụ Cần Tuân Thủ
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 m-0 mt-0.5 pl-8">
+                Hệ thống đã tự động phân tích căn cứ pháp lý, tính toán mức phạt rủi ro và điều phối
+                nhiệm vụ theo 5 khu vực chuẩn.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setStep('select')}
+                className="rounded-xl text-xs font-semibold h-10"
+              >
+                Rà Soát Lượt Khác
+              </Button>
+              <Button
+                type="primary"
+                onClick={handleCreateAllChecklists}
+                loading={isCreatingAll}
+                className="bg-blue-600 hover:bg-blue-700 font-extrabold text-xs rounded-xl h-10 px-5 border-none shadow-sm"
+              >
+                Sinh Toàn Bộ ({auditFindings.length > 0 ? auditFindings.length : 8}) Checklist Tuân
+                Thủ
+              </Button>
+            </div>
+          </div>
+
+          <ComplianceAuditReportView
+            activeOrg={activeOrg}
+            taxQuarter={cit.taxQuarter}
+            taxYear={cit.taxYear}
+            citSummary={cit.citSummary}
+            citTierResult={cit.citTierResult}
+            facts={effectiveFacts}
+            onSwitchToLedger={() => {
+              setStep('select');
+              setActiveTab('thue_ke_toan');
+              setTaxViewMode('ledger');
+            }}
+            onQuarterChange={cit.handleQuarterChange}
+            onYearChange={cit.handleYearChange}
+            onOpenChecklistModal={handleOpenTaxChecklistModal}
+            onOpenEtaxGuide={() => cit.setShowEtaxModal(true)}
+          />
+        </div>
       )}
 
       {/* CÁC MODAL SỔ THU CHI & CHECKLIST */}

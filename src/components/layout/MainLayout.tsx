@@ -1,12 +1,11 @@
 ﻿import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown, Tag, message } from 'antd';
+import { Layout, Menu, Button, Avatar, Tooltip, Space, Typography, ConfigProvider, Dropdown, Tag } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
   DatabaseOutlined,
   CheckSquareOutlined,
   FolderOpenOutlined,
-  RobotOutlined,
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -22,7 +21,6 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useSubscriptionStore } from '../../store/useSubscriptionStore';
-import { useAIChatStore } from '../../store/useAIChatStore';
 import { useMascotStore } from '../../store/useMascotStore';
 import { VietQRModal } from '../common/VietQRModal';
 import { ProfileModal } from '../common/ProfileModal';
@@ -48,7 +46,6 @@ export const MainLayout: React.FC = () => {
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  const openAIDrawer = useAIChatStore((state) => state.open);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
@@ -70,16 +67,7 @@ export const MainLayout: React.FC = () => {
     );
   }, [isMobile, collapsed]);
 
-  const { user, logout, isAuthenticated } = useAuthStore();
-
-  const handleOpenAIDrawer = () => {
-    if (isAuthenticated) {
-      openAIDrawer();
-    } else {
-      message.warning('Vui lòng đăng nhập để sử dụng Trợ lý Pháp lý AI.');
-      navigate('/login');
-    }
-  };
+  const { user, logout } = useAuthStore();
   const { activeOrg, organizations, setActiveOrg, fetchMyOrganizations } = useOrgStore();
   const { fetchWallet } = useWalletStore();
   const { subscription, fetchSubscription } = useSubscriptionStore();
@@ -559,20 +547,6 @@ export const MainLayout: React.FC = () => {
                 {subscription?.usage?.daysRemaining ? `Còn ${subscription.usage.daysRemaining} ngày` : '30 ngày'}
               </Tag>
             </div>
-
-            <Button
-              type="primary"
-              icon={<RobotOutlined />}
-              onClick={handleOpenAIDrawer}
-              title="Trợ lý AI Pháp lý & Thuế"
-              style={{
-                background: 'linear-gradient(135deg, #1677ff 0%, #722ed1 100%)',
-                border: 'none',
-                padding: isMobile ? '4px 10px' : '4px 15px',
-              }}
-            >
-              {!isMobile && 'Trợ lý AI'}
-            </Button>
 
             {/* Thẻ Hồ Sơ Doanh Nghiệp (User Profile Card) */}
             <Tooltip title="Xem & chỉnh sửa hồ sơ cá nhân">
