@@ -7,7 +7,6 @@ import { useWalletStore } from './useWalletStore';
 
 // 🛡️ Dọn dẹp sạch toàn bộ state và cache của doanh nghiệp cũ khi đổi workspace
 export const resetTenantStores = () => {
-  // 1. Xóa toàn diện các cache khảo sát, thuế và cảnh báo cũ tránh rò rỉ chéo sang doanh nghiệp khác
   const keysToRemove = [
     'celra_survey_completed',
     'celra_survey_completed_profile',
@@ -22,7 +21,6 @@ export const resetTenantStores = () => {
   ];
   keysToRemove.forEach((k) => localStorage.removeItem(k));
 
-  // 2. Reset các Zustand Store chứa dữ liệu của Tenant về mảng rỗng ban đầu
   try {
     useContextStore.setState({
       facts: [],
@@ -62,19 +60,26 @@ interface OrgState {
 
   fetchMyOrganizations: () => Promise<void>;
   setActiveOrg: (org: Organization) => void;
-  submitOnboarding: (data: any) => Promise<Organization>;
+  submitOnboarding: (data: Record<string, unknown>) => Promise<Organization>;
   fetchOrgDetails: (id: string) => Promise<void>;
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+    return err.message;
+  }
+  return fallback;
 }
 
 export const useOrgStore = create<OrgState>((set) => {
   const fetchMyOrgsFn = async () => {
     set({ isLoading: true });
     try {
-      const res: any = await apiClient.get('/organizations/my-workspaces');
+      const res = await apiClient.get<unknown, Organization[]>('/organizations/my-workspaces');
       const list = Array.isArray(res) ? res : [];
-      
+
       const storedOrgId = localStorage.getItem('celra_active_org_id');
-      let currentActive = list.find((o) => o.id === storedOrgId) || list[0] || null;
+      const currentActive = list.find((o) => o.id === storedOrgId) || list[0] || null;
 
       if (currentActive) {
         localStorage.setItem('celra_active_org_id', currentActive.id);
@@ -88,8 +93,8 @@ export const useOrgStore = create<OrgState>((set) => {
         activeOrg: currentActive,
         isLoading: false,
       });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err: unknown) {
+      set({ error: getErrorMessage(err, 'Không thể tải danh sách doanh nghiệp'), isLoading: false });
     }
   };
 
@@ -98,7 +103,6 @@ export const useOrgStore = create<OrgState>((set) => {
     resetTenantStores();
     set({ activeOrg: org });
 
-    // Kích hoạt nạp mới ngay lập tức các phân hệ cho doanh nghiệp mới
     try {
       useContextStore.getState().fetchFacts();
       useTaskStore.getState().fetchTasks();
@@ -108,30 +112,27 @@ export const useOrgStore = create<OrgState>((set) => {
     }
   };
 
-  const submitOnboardingFn = async (data: any) => {
+  const submitOnboardingFn = async (data: Record<string, unknown>) => {
     set({ isLoading: true, error: null });
     try {
-      const res: any = await apiClient.post('/organizations/onboarding', data);
+      const res = await apiClient.post<unknown, Organization>('/organizations/onboarding', data);
       localStorage.setItem('celra_active_org_id', res.id);
       resetTenantStores();
-      set((state) => {
-        const updatedList = [res, ...state.organizations.filter((o) => o.id !== res.id)];
-        return {
-          organizations: updatedList,
-          activeOrg: res,
-          isLoading: false,
-        };
-      });
+      set((state) => ({
+        organizations: [res, ...state.organizations.filter((o) => o.id !== res.id)],
+        activeOrg: res,
+        isLoading: false,
+      }));
       return res;
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+    } catch (err: unknown) {
+      set({ error: getErrorMessage(err, 'Không thể tạo tổ chức'), isLoading: false });
       throw err;
     }
   };
 
   const fetchOrgDetailsFn = async (id: string) => {
     try {
-      const res: any = await apiClient.get(`/organizations/${id}`);
+      const res = await apiClient.get<unknown, Organization>(`/organizations/${id}`);
       set({ activeOrg: res });
     } catch (err) {
       console.error(err);

@@ -37,32 +37,31 @@ export interface AIChatDrawerProps {
   onOpenAuditModal?: () => void;
 }
 
-export interface CelraTableProps<T = any> extends TableProps<T> {
+export interface CelraTableProps<T extends object = Record<string, unknown>> extends TableProps<T> {
   headerBg?: string;
   headerTextColor?: string;
 }
 
-export interface ContextComplianceAuditModalProps {
-  isOpen?: boolean;
-  visible?: boolean;
-  onClose: () => void;
-  initialSelectedFactId?: string | null;
-  initialSelectedGroup?: string | null;
-  onSuccess?: () => void;
+export interface ElectronicReceiptTransaction {
+  id?: string;
+  code?: string;
+  amount?: number;
+  status?: string;
+  type?: string;
+  timestamp?: string;
+  createdAt?: string;
+  taskName?: string;
+  requestedBy?: string;
+  note?: string;
 }
 
 export interface ElectronicReceiptModalProps {
   visible: boolean;
   onClose: () => void;
-  transaction: any | null;
+  transaction: ElectronicReceiptTransaction | null;
 }
 
 export type { EvidenceUploadModalProps } from './evidence.interface';
-
-export interface MandatoryOnboardingModalProps {
-  open: boolean;
-  onSuccess: () => void;
-}
 
 export interface ProfileModalProps {
   open: boolean;
@@ -82,51 +81,6 @@ export interface SandboxBankingModalProps {
   customAmount?: number;
 }
 
-export interface StickyBottomActionBarProps {
-  /** Bước hiện tại (nếu là dạng wizard) */
-  currentStep?: number;
-  /** Tổng số bước */
-  totalSteps?: number;
-  /** Tiêu đề ngắn gọn về bước hoặc trạng thái */
-  title?: string;
-  /** Mô tả chi tiết hoặc thông báo phụ */
-  subtitle?: string;
-  /** Tỉ lệ hoàn thành % (0 - 100) */
-  progressPercent?: number;
-  /** Nhãn mô tả tiến độ (VD: 'Đã hoàn thành 10/10 câu') */
-  progressLabel?: string;
-
-  /** Cấu hình nút hành động chính (Next / Submit / Activate) */
-  primaryAction: {
-    label: string;
-    onClick: () => void | Promise<void>;
-    disabled?: boolean;
-    loading?: boolean;
-    icon?: React.ReactNode;
-    variant?: 'teal' | 'blue' | 'emerald';
-  };
-
-  /** Cấu hình nút hành động phụ (Back / Cancel) */
-  secondaryAction?: {
-    label: string;
-    onClick: () => void;
-    disabled?: boolean;
-    icon?: React.ReactNode;
-  };
-
-  /** Nút hành động nhanh đặc biệt (VD: Nút Kích hoạt nhanh ngay ở bước giữa) */
-  quickAction?: {
-    label: string;
-    onClick: () => void | Promise<void>;
-    disabled?: boolean;
-    loading?: boolean;
-    icon?: React.ReactNode;
-  };
-
-  /** Class CSS tùy biến thêm */
-  className?: string;
-}
-
 export interface StructuredMessageProps {
   text: string;
   citations?: CitationItem[];
@@ -142,34 +96,6 @@ export interface TaskDetailDrawerProps {
   open: boolean;
   onClose: () => void;
   onRefresh?: () => void;
-}
-
-export interface UnsavedChangesModalProps {
-  /** Kiểm soát trạng thái hiển thị Modal */
-  open: boolean;
-  /** Tiêu đề Modal */
-  title?: string;
-  /** Nội dung thông điệp cảnh báo */
-  description?: string;
-  /** Chi tiết dữ liệu hoặc cảnh báo bổ sung */
-  warningDetail?: string;
-
-  /** Nhãn nút bấm Lưu & Tiếp tục (Primary Action) */
-  saveText?: string;
-  /** Nhãn nút bấm Rời đi không lưu (Destructive / Discard) */
-  discardText?: string;
-  /** Nhãn nút Ở lại màn hình hiện tại (Cancel / Stay) */
-  cancelText?: string;
-
-  /** Hàm thực thi khi người dùng bấm 'Lưu & Tiếp tục' */
-  onSaveAndProceed?: () => Promise<void> | void;
-  /** Hàm thực thi khi người dùng bấm 'Rời đi không lưu' */
-  onDiscard?: () => void;
-  /** Hàm thực thi khi người dùng bấm 'Ở lại' hoặc tắt modal */
-  onCancel?: () => void;
-
-  /** Trạng thái đang lưu dữ liệu */
-  isSaving?: boolean;
 }
 
 export interface VietQRModalProps {
