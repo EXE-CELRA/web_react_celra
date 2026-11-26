@@ -92,7 +92,6 @@ export const HomePage: React.FC = () => {
                 letterSpacing: 1.5,
                 color: '#072448',
                 lineHeight: 1.1,
-                fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               }}
             >
               CELRA

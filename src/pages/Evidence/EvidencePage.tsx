@@ -13,13 +13,10 @@ import {
   Select,
   Row,
   Col,
-  Statistic,
 } from 'antd';
 import {
   FolderOpenOutlined,
   UploadOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   FilePdfOutlined,
   FileExcelOutlined,
   FileWordOutlined,
@@ -252,7 +249,7 @@ export const EvidencePage: React.FC = () => {
             <div>
               <Text strong>{text || record.fileName}</Text>
               <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
-                Tệp gốc: <span style={{ fontFamily: 'monospace' }}>{record.fileName}</span>
+                Tệp gốc: <span>{record.fileName}</span>
               </div>
             </div>
           </Space>
@@ -362,44 +359,89 @@ export const EvidencePage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Thống kê nhanh */}
-      <Row gutter={16}>
-        <Col span={6}>
-          <Card size="small" style={{ borderRadius: 8 }}>
-            <Statistic title="Tổng số tài liệu / hồ sơ" value={stats.total} prefix={<FolderOpenOutlined />} />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ borderRadius: 8 }}>
-            <Statistic
-              title="Bảng kê & Hồ sơ thuế"
-              value={stats.taxCount}
-              valueStyle={{ color: '#1677ff' }}
-              prefix={<FileExcelOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ borderRadius: 8 }}>
-            <Statistic
-              title="Đã thẩm định hợp lệ"
-              value={stats.verifiedCount}
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ borderRadius: 8 }}>
-            <Statistic
-              title="Chờ thẩm định"
-              value={stats.pendingCount}
-              valueStyle={{ color: '#fa8c16' }}
-              prefix={<CloseCircleOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* Thống kê nhanh - Phong cách tối giản (Minimalist, border trái) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}
+        className="max-xl:!grid-cols-2 max-md:!grid-cols-1"
+      >
+        {/* Card 1: Tổng số tài liệu / hồ sơ */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: '1px solid #e2e8f0', borderLeft: '5px solid #64748b',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 96,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Tổng số tài liệu / hồ sơ
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', lineHeight: 1.2, marginTop: 4 }}>
+              {stats.total}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Kho lưu trữ tập trung</div>
+        </div>
+
+        {/* Card 2: Bảng kê & Hồ sơ thuế */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: '1px solid #bfdbfe', borderLeft: '5px solid #2563eb',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 96,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Bảng kê & Hồ sơ thuế
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb', lineHeight: 1.2, marginTop: 4 }}>
+              {stats.taxCount}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: '#2563eb', marginTop: 4 }}>Kê khai & quyết toán</div>
+        </div>
+
+        {/* Card 3: Đã thẩm định hợp lệ */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: '1px solid #bbf7d0', borderLeft: '5px solid #16a34a',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 96,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Đã thẩm định hợp lệ
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a', lineHeight: 1.2, marginTop: 4 }}>
+              {stats.verifiedCount}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>Đạt chuẩn tuân thủ</div>
+        </div>
+
+        {/* Card 4: Chờ thẩm định */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: stats.pendingCount > 0 ? '1px solid #fde68a' : '1px solid #e2e8f0',
+          borderLeft: stats.pendingCount > 0 ? '5px solid #d97706' : '5px solid #94a3b8',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 96,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Chờ thẩm định
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: stats.pendingCount > 0 ? '#d97706' : '#64748b', lineHeight: 1.2, marginTop: 4 }}>
+              {stats.pendingCount}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: stats.pendingCount > 0 ? '#d97706' : '#94a3b8', marginTop: 4 }}>
+            {stats.pendingCount > 0 ? 'Cần đối soát chứng từ' : 'Đã duyệt tất cả'}
+          </div>
+        </div>
+      </div>
 
       <Card
         title={

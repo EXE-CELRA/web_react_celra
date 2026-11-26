@@ -2,8 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Progress, Typography, Button, Table, Space, Empty, Tag, message, Alert, Modal, Radio } from 'antd';
 import {
-  SafetyCertificateOutlined,
-  WarningOutlined,
   CheckCircleOutlined,
   ArrowRightOutlined,
   ThunderboltOutlined,
@@ -319,37 +317,15 @@ export const DashboardPage: React.FC = () => {
               padding: '16px 20px',
               height: '100%',
               display: 'flex',
-              alignItems: 'center',
-              gap: 16,
+              flexDirection: 'column',
+              justifyContent: 'space-between',
               transition: 'all 0.2s ease',
             }}
           >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: stats.complianceScore > 70
-                  ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-                  : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: stats.complianceScore > 70
-                  ? '0 4px 12px rgba(22, 163, 74, 0.28)'
-                  : '0 4px 12px rgba(217, 119, 6, 0.28)',
-                outline: stats.complianceScore > 70
-                  ? '3px solid rgba(22, 163, 74, 0.15)'
-                  : '3px solid rgba(217, 119, 6, 0.15)',
-                flexShrink: 0,
-              }}
-            >
-              <SafetyCertificateOutlined style={{ fontSize: 22, color: '#ffffff' }} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
+            <div>
               <div
                 style={{
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: 700,
                   color: '#64748b',
                   textTransform: 'uppercase',
@@ -360,23 +336,23 @@ export const DashboardPage: React.FC = () => {
               </div>
               <div
                 style={{
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: 800,
                   color: stats.complianceScore > 70 ? '#16a34a' : '#d97706',
                   lineHeight: 1.2,
-                  marginTop: 2,
+                  marginTop: 4,
                 }}
               >
                 {stats.complianceScore} <span style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8' }}>/ 100</span>
               </div>
-              <Progress
-                percent={stats.complianceScore}
-                strokeColor={stats.complianceScore > 70 ? '#16a34a' : '#d97706'}
-                showInfo={false}
-                size="small"
-                style={{ margin: '6px 0 0 0' }}
-              />
             </div>
+            <Progress
+              percent={stats.complianceScore}
+              strokeColor={stats.complianceScore > 70 ? '#16a34a' : '#d97706'}
+              showInfo={false}
+              size="small"
+              style={{ margin: '8px 0 0 0' }}
+            />
           </div>
         </Col>
 
@@ -392,31 +368,15 @@ export const DashboardPage: React.FC = () => {
               padding: '16px 20px',
               height: '100%',
               display: 'flex',
-              alignItems: 'center',
-              gap: 16,
+              flexDirection: 'column',
+              justifyContent: 'space-between',
               transition: 'all 0.2s ease',
             }}
           >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.28)',
-                outline: '3px solid rgba(37, 99, 235, 0.15)',
-                flexShrink: 0,
-              }}
-            >
-              <CheckCircleOutlined style={{ fontSize: 22, color: '#ffffff' }} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
+            <div>
               <div
                 style={{
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: 700,
                   color: '#64748b',
                   textTransform: 'uppercase',
@@ -427,18 +387,18 @@ export const DashboardPage: React.FC = () => {
               </div>
               <div
                 style={{
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: 800,
                   color: '#0f172a',
                   lineHeight: 1.2,
-                  marginTop: 2,
+                  marginTop: 4,
                 }}
               >
                 {stats.totalTasks}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                Đã hoàn tất: <Text strong style={{ color: '#16a34a' }}>{stats.completedTasks}</Text> việc
-              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+              Đã hoàn tất: <Text strong style={{ color: '#16a34a' }}>{stats.completedTasks}</Text> việc
             </div>
           </div>
         </Col>
@@ -455,37 +415,15 @@ export const DashboardPage: React.FC = () => {
               padding: '16px 20px',
               height: '100%',
               display: 'flex',
-              alignItems: 'center',
-              gap: 16,
+              flexDirection: 'column',
+              justifyContent: 'space-between',
               transition: 'all 0.2s ease',
             }}
           >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: stats.urgentTasksCount > 0
-                  ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
-                  : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: stats.urgentTasksCount > 0
-                  ? '0 4px 12px rgba(234, 88, 12, 0.28)'
-                  : '0 4px 12px rgba(22, 163, 74, 0.28)',
-                outline: stats.urgentTasksCount > 0
-                  ? '3px solid rgba(234, 88, 12, 0.15)'
-                  : '3px solid rgba(22, 163, 74, 0.15)',
-                flexShrink: 0,
-              }}
-            >
-              <WarningOutlined style={{ fontSize: 22, color: '#ffffff' }} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
+            <div>
               <div
                 style={{
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: 700,
                   color: '#64748b',
                   textTransform: 'uppercase',
@@ -496,22 +434,22 @@ export const DashboardPage: React.FC = () => {
               </div>
               <div
                 style={{
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: 800,
                   color: stats.urgentTasksCount > 0 ? '#ea580c' : '#16a34a',
                   lineHeight: 1.2,
-                  marginTop: 2,
+                  marginTop: 4,
                 }}
               >
                 {stats.urgentTasksCount}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                {stats.urgentTasksCount > 0 ? (
-                  <Text type="danger" strong>Cần theo dõi sát sao</Text>
-                ) : (
-                  <Text type="success">Trạng thái an toàn</Text>
-                )}
-              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+              {stats.urgentTasksCount > 0 ? (
+                <Text type="danger" strong>Cần theo dõi sát sao</Text>
+              ) : (
+                <Text type="success">Trạng thái an toàn</Text>
+              )}
             </div>
           </div>
         </Col>

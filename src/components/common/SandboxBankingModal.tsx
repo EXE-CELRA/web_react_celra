@@ -307,7 +307,7 @@ export const SandboxBankingModal: React.FC<SandboxBankingModalProps> = ({
             <Input
               value={pinCode}
               onChange={(e) => setPinCode(e.target.value)}
-              style={{ width: 100, textAlign: 'center', fontWeight: 'bold', fontFamily: 'monospace' }}
+              style={{ width: 100, textAlign: 'center', fontWeight: 'bold' }}
               maxLength={6}
             />
           </div>

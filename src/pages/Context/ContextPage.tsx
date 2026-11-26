@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useContextStore } from '../../store/useContextStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import type { ContextFact, ContextGroupConfig } from '../../interfaces';
@@ -233,21 +233,39 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
   ];
 }
 
+const ContextAuditPage = React.lazy(() =>
+  import('./ContextAuditPage').then((m) => ({ default: m.ContextAuditPage }))
+);
+
 export const ContextPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const rawGroup = searchParams.get('group');
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawGroup = searchParams.get('group') || searchParams.get('tab');
   const { activeOrg } = useOrgStore();
   const { facts, fetchFacts, updateFact, createFact } = useContextStore();
 
-  const [selectedTab, setSelectedTab] = useState<string>('boi_canh_co_so');
+  const isAuditRoute = location.pathname.includes('/audit');
+  const [selectedTab, setSelectedTab] = useState<string>(
+    isAuditRoute || rawGroup === 'thue_ke_toan' ? 'thue_ke_toan' : 'boi_canh_co_so'
+  );
 
-  // Nếu truy cập hoặc chọn phân hệ Thuế TNDN: Vào thẳng trang rà soát, không hiện thẻ trung gian
   useEffect(() => {
-    if (rawGroup === 'thue_ke_toan' || selectedTab === 'thue_ke_toan') {
-      navigate('/context/audit?group=thue_ke_toan', { replace: true });
+    if (rawGroup === 'thue_ke_toan' || isAuditRoute) {
+      setSelectedTab('thue_ke_toan');
+    } else if (rawGroup === 'boi_canh_co_so') {
+      setSelectedTab('boi_canh_co_so');
     }
-  }, [rawGroup, selectedTab, navigate]);
+  }, [rawGroup, isAuditRoute]);
+
+  const handleSelectTab = (key: string) => {
+    setSelectedTab(key);
+    if (key === 'thue_ke_toan') {
+      setSearchParams({ tab: 'thue_ke_toan' }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
   const [activeFactForHistory, setActiveFactForHistory] = useState<ContextFact | null>(null);
 
   // Edit value modal
@@ -585,110 +603,67 @@ export const ContextPage: React.FC = () => {
         )}
       </div>
 
-      {/* TABS PHÂN LOẠI 9 NHÓM BỐI CẢNH DOANH NGHIỆP ĐỘNG */}
-      <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-2 overflow-x-auto">
-        {/* CÁC PHÂN HỆ ĐANG HOẠT ĐỘNG (THUẾ DOANH NGHIỆP) */}
-        {CONTEXT_GROUPS.filter((g) => ENABLED_CONTEXT_GROUP_KEYS.includes(g.key)).map((g) => {
-          const count = g.key === 'boi_canh_co_so' ? baseProfileFacts.length : g.key === 'thue_ke_toan' ? 'Excel' : facts.filter((f) => f.group === g.key).length;
-          const isSelected = selectedTab === g.key;
-          const IconComponent = g.icon;
+      {/* TABS PHÂN LOẠI NHÓM BỐI CẢNH DOANH NGHIỆP - SLIDING PILL CHUYỂN MƯỢT MÀ */}
+      <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-2 overflow-x-auto">
+        <div className="relative bg-slate-100/90 p-1 rounded-2xl border border-slate-200 inline-grid grid-cols-2 gap-1 select-none w-fit">
+          {/* Sliding Blue Pill Indicator */}
+          <div
+            className="absolute top-1 bottom-1 rounded-xl bg-blue-600 shadow-xs transition-all duration-300 ease-in-out pointer-events-none"
+            style={{
+              left: selectedTab === 'boi_canh_co_so' ? '4px' : 'calc(50% + 2px)',
+              width: 'calc(50% - 6px)',
+            }}
+          />
 
-          return (
-            <button
-              key={g.key}
-              type="button"
-              onClick={() => {
-                if (g.key === 'thue_ke_toan') {
-                  navigate('/context/audit?group=thue_ke_toan');
-                  return;
-                }
-                setSelectedTab(g.key);
-              }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                isSelected
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-blue-700 hover:bg-slate-100 bg-slate-50 border border-slate-200'
+          <button
+            type="button"
+            onClick={() => handleSelectTab('boi_canh_co_so')}
+            className={`relative z-10 px-5 py-2 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer flex items-center justify-center gap-2 ${
+              selectedTab === 'boi_canh_co_so' ? 'text-white' : 'text-slate-700 hover:text-blue-700'
+            }`}
+          >
+            <span>Bối Cảnh Ban Đầu</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold transition-colors duration-200 ${
+                selectedTab === 'boi_canh_co_so' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
               }`}
             >
-              <IconComponent className="w-3.5 h-3.5" />
-              <span>{g.label}</span>
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-                  isSelected
-                    ? 'bg-white/20 text-white'
-                    : count === 'Excel' || (typeof count === 'number' && count > 0)
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-slate-200 text-slate-500'
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+              {baseProfileFacts.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectTab('thue_ke_toan')}
+            className={`relative z-10 px-5 py-2 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+              selectedTab === 'thue_ke_toan' ? 'text-white' : 'text-slate-700 hover:text-blue-700'
+            }`}
+          >
+            <span>Thuế TNDN</span>
+          </button>
+        </div>
       </div>
 
-
-      {!ENABLED_CONTEXT_GROUP_KEYS.includes(selectedTab) ? (
-        <div className="bg-white p-8 sm:p-12 rounded-2xl border border-dashed border-slate-300 text-center space-y-5 shadow-xs">
-          <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto border border-slate-200 shadow-inner">
-            {(() => {
-              const CurrentIcon = CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.icon || Layers;
-              return <CurrentIcon className="w-8 h-8 text-slate-600" />;
-            })()}
-          </div>
-          <div className="space-y-2 max-w-lg mx-auto">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              Phân Hệ Đang Phát Triển
+      {/* NỘI DUNG CHÍNH THEO TAB VỚI HIỆU ỨNG CHUYỂN MƯỢT MÀ */}
+      <div key={selectedTab} className="animate-tab-fade">
+        {selectedTab === 'thue_ke_toan' ? (
+          <React.Suspense fallback={<div className="p-12 text-center text-slate-500 text-xs">Đang tải phân hệ Thuế TNDN...</div>}>
+            <ContextAuditPage hideTabBar />
+          </React.Suspense>
+        ) : filteredFacts.length === 0 ? (
+          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-xs">
+            <div className="w-14 h-14 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto">
+              <Database className="w-7 h-7" />
             </div>
-            <h3 className="text-base font-bold text-slate-900">
-              Phân Hệ {CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab} Chưa Kích Hoạt
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              CELRA hiện tại đang chuyên sâu và chỉ rà soát cho phân hệ <strong>Thuế TNDN</strong>.
-              <br />
-              Để kích hoạt phân hệ này, lập trình viên sẽ cấu hình bộ câu hỏi độc lập tại thư mục <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-800 text-[11px]">src/data/questionSurvey/</code> và kết nối vào hệ sinh thái CELRA.
-            </p>
-          </div>
-
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => message.info(`Phân hệ "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label}" đang chờ lập trình viên bổ sung file khảo sát vào questionSurvey/!`)}
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4 text-emerald-400" />
-              <span>Khảo sát &amp; Kích hoạt Phân hệ này</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/context/audit?group=thue_ke_toan')}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
-            >
-              Quay lại phân hệ Thuế TNDN
-            </button>
-          </div>
-        </div>
-      ) : filteredFacts.length === 0 ? (
-        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-xs">
-          <div className="w-14 h-14 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto">
-            <Database className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-800">
-              {selectedTab === 'boi_canh_co_so'
-                ? 'Doanh nghiệp chưa có hồ sơ bối cảnh ban đầu'
-                : `Chưa có dữ kiện nào thuộc nhóm "${CONTEXT_GROUPS.find((g) => g.key === selectedTab)?.label || selectedTab}"`}
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              {selectedTab === 'boi_canh_co_so'
-                ? 'Hệ thống chỉ khởi tạo và lưu các thẻ ngữ cảnh sau khi bạn hoàn thành và nộp bài khảo sát doanh nghiệp. Hãy thực hiện khảo sát ngay!'
-                : 'Doanh nghiệp có thể thêm dữ kiện mới cho nhóm này hoặc hoàn tất Khảo sát doanh nghiệp để đồng bộ dữ liệu tự động.'}
-            </p>
-          </div>
-          <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
-            {selectedTab === 'boi_canh_co_so' ? (
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-800">
+                Doanh nghiệp chưa có hồ sơ bối cảnh ban đầu
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Hệ thống chỉ khởi tạo và lưu các thẻ ngữ cảnh sau khi bạn hoàn thành và nộp bài khảo sát doanh nghiệp. Hãy thực hiện khảo sát ngay!
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
               <button
                 type="button"
                 onClick={() => navigate('/survey')}
@@ -697,23 +672,10 @@ export const ContextPage: React.FC = () => {
                 <Plus className="w-4 h-4" />
                 Làm bài khảo sát doanh nghiệp ngay
               </button>
-            ) : (
-              <button
-                onClick={() => {
-                  createForm.resetFields();
-                  createForm.setFieldsValue({ group: selectedTab || 'thue_ke_toan' });
-                  setIsCreateModalOpen(true);
-                }}
-                className="px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-              >
-                <Plus className="w-4 h-4" />
-                Thêm dữ kiện cho nhóm này
-              </button>
-            )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredFacts.map((fact) => {
             const compInfo = getFactComplianceInfo(fact);
             const groupMeta = getGroupMeta(fact.group || fact.category || '');
@@ -812,6 +774,7 @@ export const ContextPage: React.FC = () => {
           })}
         </div>
       )}
+      </div>
 
       {/* History Modal */}
       {activeFactForHistory && createPortal(
@@ -849,7 +812,7 @@ export const ContextPage: React.FC = () => {
             <div className="flex justify-end pt-2 border-t">
               <button
                 onClick={() => setActiveFactForHistory(null)}
-                className="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >
                 Đóng
               </button>
@@ -879,7 +842,7 @@ export const ContextPage: React.FC = () => {
                   rows={3}
                   value={newFactValue}
                   onChange={(e) => setNewFactValue(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-teal-500"
+                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -890,7 +853,7 @@ export const ContextPage: React.FC = () => {
                   placeholder="VD: Theo hồ sơ đăng ký kinh doanh điều chỉnh ngày 15/03..."
                   value={factEditNote}
                   onChange={(e) => setFactEditNote(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-teal-500"
+                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -898,13 +861,13 @@ export const ContextPage: React.FC = () => {
             <div className="flex justify-end gap-2 pt-2 border-t">
               <button
                 onClick={() => setEditingFact(null)}
-                className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer font-medium"
               >
                 Hủy
               </button>
               <button
                 onClick={handleSaveFactUpdate}
-                className="px-4 py-1.5 bg-teal-600 text-white rounded-lg font-bold hover:bg-teal-700 shadow-xs cursor-pointer"
+                className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
               >
                 Lưu cập nhật
               </button>

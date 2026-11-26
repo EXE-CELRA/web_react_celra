@@ -814,51 +814,104 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
           />
         )}
 
-        {/* 5 Thẻ thống kê chỉ số nhỏ gọn (Compact Cards) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+        {/* 5 Thẻ thống kê - Phong cách tối giản (Minimalist, border trái) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, paddingTop: 4 }}
+          className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 max-lg:!grid-cols-2 max-sm:!grid-cols-1"
+        >
           {/* Card 1: Tổng số nghĩa vụ */}
-          <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-1">
-            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Tổng số nghĩa vụ</span>
-            <div className="text-xl sm:text-2xl font-bold font-mono text-slate-900 tracking-tight">
-              {stats.total}
+          <div style={{
+            background: '#ffffff', borderRadius: 14,
+            border: '1px solid #e2e8f0', borderLeft: '5px solid #64748b',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            transition: 'all 0.2s ease', minHeight: 96,
+          }}>
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                TỔNG SỐ NGHĨA VỤ
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.2, marginTop: 4 }}>
+                {stats.total}
+              </div>
             </div>
-            <span className="text-[10.5px] text-slate-400 block">Ma trận pháp luật thuế</span>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Ma trận pháp luật thuế</div>
           </div>
 
           {/* Card 2: Đã hoàn thành */}
-          <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3 space-y-1">
-            <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider block">Đã hoàn thành</span>
-            <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-800 tracking-tight">
-              {stats.completed}
+          <div style={{
+            background: '#ffffff', borderRadius: 14,
+            border: '1px solid #bbf7d0', borderLeft: '5px solid #16a34a',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            transition: 'all 0.2s ease', minHeight: 96,
+          }}>
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                ĐÃ HOÀN THÀNH
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a', lineHeight: 1.2, marginTop: 4 }}>
+                {stats.completed}
+              </div>
             </div>
-            <span className="text-[10.5px] text-emerald-600 font-medium block">Đầy đủ hồ sơ minh chứng</span>
+            <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>Đầy đủ hồ sơ minh chứng</div>
           </div>
 
           {/* Card 3: Đang thực hiện */}
-          <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3 space-y-1">
-            <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider block">Đang thực hiện</span>
-            <div className="text-xl sm:text-2xl font-bold font-mono text-blue-800 tracking-tight">
-              {stats.inProgress}
+          <div style={{
+            background: '#ffffff', borderRadius: 14,
+            border: '1px solid #bfdbfe', borderLeft: '5px solid #2563eb',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            transition: 'all 0.2s ease', minHeight: 96,
+          }}>
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                ĐANG THỰC HIỆN
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb', lineHeight: 1.2, marginTop: 4 }}>
+                {stats.inProgress}
+              </div>
             </div>
-            <span className="text-[10.5px] text-blue-600 font-medium block">Trong hạn tiến độ quý</span>
+            <div style={{ fontSize: 11, color: '#2563eb', marginTop: 4 }}>Trong hạn tiến độ quý</div>
           </div>
 
           {/* Card 4: Cần xác minh */}
-          <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-1">
-            <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider block">Cần xác minh</span>
-            <div className="text-xl sm:text-2xl font-bold font-mono text-amber-800 tracking-tight">
-              {stats.needVerification}
+          <div style={{
+            background: '#ffffff', borderRadius: 14,
+            border: stats.needVerification > 0 ? '1px solid #fde68a' : '1px solid #e2e8f0',
+            borderLeft: stats.needVerification > 0 ? '5px solid #d97706' : '5px solid #94a3b8',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            transition: 'all 0.2s ease', minHeight: 96,
+          }}>
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                CẦN XÁC MINH
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: stats.needVerification > 0 ? '#d97706' : '#64748b', lineHeight: 1.2, marginTop: 4 }}>
+                {stats.needVerification}
+              </div>
             </div>
-            <span className="text-[10.5px] text-amber-600 font-medium block">Chờ đối soát chứng từ</span>
+            <div style={{ fontSize: 11, color: '#d97706', marginTop: 4 }}>Chờ đối soát chứng từ</div>
           </div>
 
           {/* Card 5: Không áp dụng */}
-          <div className="bg-slate-50/60 border border-slate-200/70 rounded-xl p-3 space-y-1 col-span-2 sm:col-span-1">
-            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Không áp dụng</span>
-            <div className="text-xl sm:text-2xl font-bold font-mono text-slate-600 tracking-tight">
-              {stats.notApplicable}
+          <div style={{
+            background: '#ffffff', borderRadius: 14,
+            border: '1px solid #e2e8f0', borderLeft: '5px solid #cbd5e1',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            transition: 'all 0.2s ease', minHeight: 96,
+          }}>
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                KHÔNG ÁP DỤNG
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#94a3b8', lineHeight: 1.2, marginTop: 4 }}>
+                {stats.notApplicable}
+              </div>
             </div>
-            <span className="text-[10.5px] text-slate-400 block">Ngoài phạm vi ngành</span>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Ngoài phạm vi ngành</div>
           </div>
         </div>
       </div>
