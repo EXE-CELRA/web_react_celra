@@ -263,7 +263,7 @@ export const AdminAIQuotaPage: React.FC = () => {
         <div>
           <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13.5 }}>{name}</div>
           {record.taxCode && (
-            <div style={{ fontSize: 11.5, color: '#64748b', fontFamily: 'monospace', marginTop: 2 }}>
+            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
               MST: {record.taxCode}
             </div>
           )}

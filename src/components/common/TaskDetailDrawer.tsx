@@ -625,7 +625,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                     <div>
                       <div style={{ fontSize: 11, color: '#64748b' }}>Số tiền tạm tính từ sổ:</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>
                           {taxMatch[1]} VNĐ
                         </span>
                         <Button

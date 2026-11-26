@@ -10,7 +10,6 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  RightOutlined,
   BankOutlined,
   DownOutlined,
   CalendarOutlined,
@@ -341,42 +340,6 @@ export const MainLayout: React.FC = () => {
               fontWeight: 500,
             }}
           />
-
-          {/* Nút Đăng Xuất ở đáy Sidebar */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 20,
-              left: 0,
-              right: 0,
-              padding: '0 16px',
-            }}
-          >
-            <Button
-              type="text"
-              danger
-              icon={<LogoutOutlined />}
-              onClick={() => {
-                logout();
-                window.location.href = '/login';
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                color: '#f87171',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: (!isMobile && collapsed) ? 'center' : 'flex-start',
-                height: 40,
-                borderRadius: 8,
-                background: 'rgba(239, 68, 68, 0.12)',
-                fontWeight: 500,
-                fontSize: 13.5,
-              }}
-            >
-              {(isMobile || !collapsed) && 'Đăng Xuất'}
-            </Button>
-          </div>
         </Sider>
       </ConfigProvider>
 
@@ -548,10 +511,49 @@ export const MainLayout: React.FC = () => {
               </Tag>
             </div>
 
-            {/* Thẻ Hồ Sơ Doanh Nghiệp (User Profile Card) */}
-            <Tooltip title="Xem & chỉnh sửa hồ sơ cá nhân">
+            {/* Thẻ Hồ Sơ & Dropdown Tài Khoản */}
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'user-info',
+                    disabled: true,
+                    label: (
+                      <div style={{ padding: '4px 2px', borderBottom: '1px solid #f1f5f9', cursor: 'default' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13.5 }}>
+                          {user?.name || user?.fullName || 'Người dùng'}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                          {user?.email || user?.roleTitle || 'Chủ doanh nghiệp'}
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'profile',
+                    icon: <UserOutlined />,
+                    label: 'Hồ sơ tài khoản',
+                    onClick: () => setProfileModalOpen(true),
+                  },
+                  {
+                    type: 'divider',
+                  },
+                  {
+                    key: 'logout',
+                    icon: <LogoutOutlined />,
+                    label: 'Đăng xuất',
+                    danger: true,
+                    onClick: () => {
+                      logout();
+                      window.location.href = '/login';
+                    },
+                  },
+                ],
+              }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
               <div
-                onClick={() => setProfileModalOpen(true)}
                 style={{
                   cursor: 'pointer',
                   display: 'flex',
@@ -596,11 +598,11 @@ export const MainLayout: React.FC = () => {
                         {user?.roleTitle || 'Chủ doanh nghiệp'}
                       </span>
                     </div>
-                    <RightOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />
+                    <DownOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />
                   </>
                 )}
               </div>
-            </Tooltip>
+            </Dropdown>
           </Space>
         </Header>
 

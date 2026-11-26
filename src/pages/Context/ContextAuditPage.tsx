@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, message } from 'antd';
-import { FileExcelOutlined } from '@ant-design/icons';
-import { SlidersHorizontal, ShieldCheck, Check } from 'lucide-react';
+import { SlidersHorizontal, Check } from 'lucide-react';
 import { useContextStore } from '../../store/useContextStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useOrgStore } from '../../store/useOrgStore';
@@ -35,7 +34,11 @@ export {
   type PeriodStore,
 } from './audit/audit.constants';
 
-export const ContextAuditPage: React.FC = () => {
+export interface ContextAuditPageProps {
+  hideTabBar?: boolean;
+}
+
+export const ContextAuditPage: React.FC<ContextAuditPageProps> = ({ hideTabBar = false }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const rawGroup = searchParams.get('group');
@@ -257,60 +260,60 @@ export const ContextAuditPage: React.FC = () => {
       {step === 'select' && (
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-5">
           {/* THANH TABS NHÓM BỐI CẢNH & NÚT CẬP NHẬT KHẢO SÁT */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 overflow-x-auto">
-              {CONTEXT_GROUPS.filter(
-                (g) => g.key !== 'boi_canh_co_so' && ENABLED_CONTEXT_GROUP_KEYS.includes(g.key),
-              ).map((g) => {
-                const count = effectiveFacts.filter((f) => f.group === g.key).length;
-                const isSelected = activeTab === g.key;
-                const IconComp = g.icon;
+          {!hideTabBar && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 overflow-x-auto">
+                {CONTEXT_GROUPS.filter(
+                  (g) => g.key !== 'boi_canh_co_so' && ENABLED_CONTEXT_GROUP_KEYS.includes(g.key),
+                ).map((g) => {
+                  const count = effectiveFacts.filter((f) => f.group === g.key).length;
+                  const isSelected = activeTab === g.key;
 
-                return (
-                  <button
-                    key={g.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(g.key);
-                      const groupFacts = effectiveFacts.filter((f) => f.group === g.key);
-                      setSelectedFactIds(groupFacts.map((f) => f.id));
-                    }}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-slate-700 hover:text-blue-700 hover:bg-white/70'
-                    }`}
-                  >
-                    <IconComp className="w-3.5 h-3.5" />
-                    <span>{g.shortLabel}</span>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                  return (
+                    <button
+                      key={g.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(g.key);
+                        const groupFacts = effectiveFacts.filter((f) => f.group === g.key);
+                        setSelectedFactIds(groupFacts.map((f) => f.id));
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                         isSelected
-                          ? 'bg-white/20 text-white'
-                          : count > 0
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-slate-200 text-slate-500'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-700 hover:text-blue-700 hover:bg-white/70'
                       }`}
                     >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span>{g.shortLabel}</span>
+                      {g.key !== 'thue_ke_toan' && count > 0 && (
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-            {activeTab !== 'thue_ke_toan' && (
-              <button
-                type="button"
-                onClick={() => setIsSurveyModalOpen(true)}
-                className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-teal-800 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shadow-xs self-stretch sm:self-auto shrink-0"
-                title="Mở lại bài khảo sát tình huống chuyên biệt để cập nhật câu trả lời"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
-                <span>Cập nhật khảo sát tình huống</span>
-              </button>
-            )}
-          </div>
+              {activeTab !== 'thue_ke_toan' && (
+                <button
+                  type="button"
+                  onClick={() => setIsSurveyModalOpen(true)}
+                  className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-teal-800 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shadow-xs self-stretch sm:self-auto shrink-0"
+                  title="Mở lại bài khảo sát tình huống chuyên biệt để cập nhật câu trả lời"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Cập nhật khảo sát tình huống</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* PHÂN HỆ QUẢN LÝ BÁO CÁO TUÂN THỦ & SỔ THU CHI THUẾ TNDN */}
           {activeTab === 'thue_ke_toan' && (
@@ -327,11 +330,7 @@ export const ContextAuditPage: React.FC = () => {
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    <ShieldCheck className="w-4 h-4" />
                     <span>Báo Cáo Rà Soát Tuân Thủ (5 Khu Vực)</span>
-                    <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded-full font-extrabold">
-                      Chuẩn CELRA
-                    </span>
                   </button>
 
                   <button
@@ -343,7 +342,6 @@ export const ContextAuditPage: React.FC = () => {
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    <FileExcelOutlined className="text-sm" />
                     <span>Sổ Thu Chi &amp; Bóc Tách B4 (Kế Toán)</span>
                   </button>
                 </div>

@@ -271,7 +271,7 @@ export const MobileSandboxPaymentPage: React.FC = () => {
               <Input
                 value={pinCode}
                 onChange={(e) => setPinCode(e.target.value)}
-                style={{ width: 90, textAlign: 'center', fontWeight: 'bold', fontFamily: 'monospace' }}
+                style={{ width: 90, textAlign: 'center', fontWeight: 'bold' }}
                 maxLength={6}
               />
             </div>

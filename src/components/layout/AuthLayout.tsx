@@ -72,7 +72,6 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                 color: '#072448',
                 letterSpacing: 1.2,
                 lineHeight: 1.1,
-                fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               }}
             >
               CELRA

@@ -10,11 +10,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import {
-  AlertTriangle,
   Plus,
-  TrendingUp,
-  DollarSign,
-  FileText,
   Upload as UploadIcon,
 } from 'lucide-react';
 import {
@@ -312,53 +308,61 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
         </div>
       </div>
 
-      {/* 🌟 4 THẺ CHỈ SỐ KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+      {/* 🌟 4 THẺ CHỈ SỐ KPI - Phong cách tối giản (Minimalist, border trái) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}
+        className="max-xl:!grid-cols-2 max-md:!grid-cols-1"
+      >
+        {/* Card 1: Tổng doanh thu */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: '1px solid #bbf7d0', borderLeft: '5px solid #0d9488',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 112,
+        }}>
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span className="font-semibold uppercase tracking-wider text-[11px]">
-                Tổng doanh thu
-              </span>
-              <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-100/60 shrink-0">
-                <DollarSign className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-1.5 truncate">
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Tổng doanh thu
+            </span>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.2, marginTop: 4 }}>
               {citSummary.totalRevenue.toLocaleString('vi-VN')} đ
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+          {/* Phần dưới: Dòng thông tin phụ */}
+          <div style={{ fontSize: 11, color: '#64748b', paddingTop: 8, marginTop: 8, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span>{citSummary.revenueCount} khoản thu</span>
-            <span className="font-medium text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded text-[10.5px]">
+            <span style={{ fontWeight: 600, color: '#0d9488', background: '#f0fdfa', padding: '1px 6px', borderRadius: 4, fontSize: 10.5 }}>
               100% doanh thu
             </span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+        {/* Card 2: Tổng chi phí kế toán */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: '1px solid #bfdbfe', borderLeft: '5px solid #2563eb',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 112,
+        }}>
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
-                Tổng chi phí kế toán
-                <Tooltip title="Tổng các khoản chi phí ghi nhận trên sổ sách. Hệ thống sẽ tự động bóc tách chi phí hợp lý được trừ và các khoản có nguy cơ bị cơ quan thuế loại trừ (Mục B4).">
-                  <InfoCircleOutlined className="text-slate-400 hover:text-blue-600 cursor-pointer text-[12px]" />
-                </Tooltip>
-              </span>
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100/60 shrink-0">
-                <FileText className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-1.5 truncate">
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Tổng chi phí kế toán
+              <Tooltip title="Tổng các khoản chi phí ghi nhận trên sổ sách. Hệ thống sẽ tự động bóc tách chi phí hợp lý được trừ và các khoản có nguy cơ bị cơ quan thuế loại trừ (Mục B4).">
+                <InfoCircleOutlined className="text-slate-400 hover:text-blue-600 cursor-pointer text-[12px]" />
+              </Tooltip>
+            </span>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.2, marginTop: 4 }}>
               {citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-            <span className="text-emerald-700 font-medium">
+          {/* Phần dưới: Dòng thông tin phụ */}
+          <div style={{ fontSize: 11, color: '#64748b', paddingTop: 8, marginTop: 8, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4, width: '100%' }}>
+            <span style={{ color: '#16a34a', fontWeight: 600 }}>
               Được trừ: {citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ
             </span>
             {citSummary.totalDisallowedExpense > 0 && (
-              <span className="text-rose-600 font-medium flex items-center gap-0.5">
+              <span style={{ color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
                 Bị loại: -{citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ
                 <Tooltip title="Chi phí bị loại B4: Khoản chi có dấu hiệu không đáp ứng điều kiện được trừ khi tính thuế TNDN (ví dụ: thiếu hóa đơn hợp pháp, thanh toán tiền mặt từ 5 triệu đồng trở lên, thù lao chủ công ty TNHH 1TV). Cần kiểm tra lại theo hồ sơ thực tế trước khi quyết toán.">
                   <InfoCircleOutlined className="text-rose-400 hover:text-rose-600 cursor-pointer text-[11px]" />
@@ -368,72 +372,74 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+        {/* Card 3: Thuế TNDN dự kiến */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: citSummary.estimatedTaxAmount > 0 ? '1px solid #fde68a' : '1px solid #e2e8f0',
+          borderLeft: citSummary.estimatedTaxAmount > 0 ? '5px solid #d97706' : '5px solid #94a3b8',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 112,
+        }}>
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
-                Thuế TNDN dự kiến
-                <Tooltip title="Số tiền thuế Thu nhập doanh nghiệp ước tính phải nộp cho kỳ tính thuế hiện tại = (Doanh thu - Chi phí được trừ thực tế) * Thuế suất áp dụng.">
-                  <InfoCircleOutlined className="text-slate-400 hover:text-amber-600 cursor-pointer text-[12px]" />
-                </Tooltip>
-              </span>
-              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100/60 shrink-0">
-                <AlertTriangle className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 tracking-tight mt-1.5 truncate">
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Thuế TNDN dự kiến
+              <Tooltip title="Số tiền thuế Thu nhập doanh nghiệp ước tính phải nộp cho kỳ tính thuế hiện tại = (Doanh thu - Chi phí được trừ thực tế) * Thuế suất áp dụng.">
+                <InfoCircleOutlined className="text-slate-400 hover:text-amber-600 cursor-pointer text-[12px]" />
+              </Tooltip>
+            </span>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.2, marginTop: 4 }}>
               {citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1 whitespace-nowrap">
+          {/* Phần dưới: Dòng thông tin phụ */}
+          <div style={{ fontSize: 11, color: '#64748b', paddingTop: 8, marginTop: 8, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4, width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
               <span>Tạm nộp 80%:</span>
-              <strong className="text-slate-700 font-mono">
-                {(
-                  citCalcResult?.statutoryPrepayment80 || citSummary.statutoryPrepayment80
-                ).toLocaleString('vi-VN')}{' '}
-                đ
+              <strong style={{ color: '#334155' }}>
+                {(citCalcResult?.statutoryPrepayment80 || citSummary.statutoryPrepayment80).toLocaleString('vi-VN')} đ
               </strong>
-              <Tooltip title="Theo Khoản 3 Điều 1 Nghị định 91/2022/NĐ-CP: Tổng số thuế TNDN tạm nộp của 4 quý không được thấp hơn 80% số thuế TNDN phải nộp theo quyết toán năm. Nếu nộp thiếu ngưỡng 80%, doanh nghiệp sẽ bị tính tiền chậm nộp 0,03%/ngày.">
+              <Tooltip title="Theo Khoản 3 Điều 1 Nghị định 91/2022/NĐ-CP: Tổng số thuế TNDN tạm nộp của 4 quý không được thấp hơn 80% số thuế TNDN phải nộp theo quyết toán năm.">
                 <InfoCircleOutlined className="text-slate-400 hover:text-amber-600 cursor-pointer text-[11px]" />
               </Tooltip>
             </div>
-            <span
-              className={`font-bold text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ${citTierResult.badgeColor}`}
-            >
+            <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ${citTierResult.badgeColor}`}>
               {citTierResult.taxRatePercentText}
             </span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between">
+        {/* Card 4: Lợi nhuận ròng sau thuế */}
+        <div style={{
+          background: '#ffffff', borderRadius: 14,
+          border: citSummary.netProfitAfterTax >= 0 ? '1px solid #bbf7d0' : '1px solid #fecaca',
+          borderLeft: citSummary.netProfitAfterTax >= 0 ? '5px solid #16a34a' : '5px solid #dc2626',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '16px 20px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease', minHeight: 112,
+        }}>
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
-                Lợi nhuận ròng sau thuế
-                <Tooltip title="Khoản lợi nhuận thực tế doanh nghiệp giữ lại sau khi đã khấu trừ toàn bộ chi phí hoạt động và hoàn thành nghĩa vụ nộp thuế TNDN cho Nhà nước.">
-                  <InfoCircleOutlined className="text-slate-400 hover:text-emerald-600 cursor-pointer text-[12px]" />
-                </Tooltip>
-              </span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100/60 shrink-0">
-                <TrendingUp className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <div
-              className={`text-2xl font-bold font-mono tracking-tight mt-1.5 truncate ${
-                citSummary.netProfitAfterTax >= 0 ? 'text-emerald-700' : 'text-rose-600'
-              }`}
-            >
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Lợi nhuận ròng sau thuế
+              <Tooltip title="Khoản lợi nhuận thực tế doanh nghiệp giữ lại sau khi đã khấu trừ toàn bộ chi phí hoạt động và hoàn thành nghĩa vụ nộp thuế TNDN cho Nhà nước.">
+                <InfoCircleOutlined className="text-slate-400 hover:text-emerald-600 cursor-pointer text-[12px]" />
+              </Tooltip>
+            </span>
+            <div style={{
+              fontSize: 22, fontWeight: 800, lineHeight: 1.2, marginTop: 4,
+              color: citSummary.netProfitAfterTax >= 0 ? '#16a34a' : '#dc2626',
+            }}>
               {citSummary.netProfitAfterTax.toLocaleString('vi-VN')} đ
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-            <span className="text-slate-400 whitespace-nowrap">= Thu - Chi - Thuế</span>
-            <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 text-[10.5px] flex items-center gap-1 shrink-0">
+          {/* Phần dưới: Dòng thông tin phụ */}
+          <div style={{ fontSize: 11, color: '#64748b', paddingTop: 8, marginTop: 8, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4, width: '100%' }}>
+            <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>= Thu - Chi - Thuế</span>
+            <span style={{ fontWeight: 600, color: '#065f46', background: '#ecfdf5', padding: '1px 6px', borderRadius: 4, border: '1px solid #d1fae5', fontSize: 10.5, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               {citSummary.totalRevenue > 0
                 ? `${((citSummary.netProfitAfterTax / citSummary.totalRevenue) * 100).toFixed(1)}% ROS`
                 : '0% ROS'}
-              <Tooltip title="ROS (Return on Sales): Tỷ suất lợi nhuận ròng trên doanh thu = (Lợi nhuận sau thuế / Tổng doanh thu) * 100%. Chỉ số đo lường hiệu quả sinh lời: Cứ 100 đồng doanh thu mang về bao nhiêu đồng lợi nhuận sạch.">
+              <Tooltip title="ROS (Return on Sales): Tỷ suất lợi nhuận ròng trên doanh thu = (Lợi nhuận sau thuế / Tổng doanh thu) * 100%.">
                 <InfoCircleOutlined className="text-emerald-600 hover:text-emerald-800 cursor-pointer text-[11px]" />
               </Tooltip>
             </span>

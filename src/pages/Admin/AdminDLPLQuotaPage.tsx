@@ -509,7 +509,7 @@ export const AdminDLPLQuotaPage: React.FC = () => {
                       {filteredDocs.length > 0 ? (
                         filteredDocs.map((doc, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '10px 12px', fontWeight: 700, fontFamily: 'monospace', color: '#0f172a' }}>
+                            <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>
                               {doc.code}
                             </td>
                             <td style={{ padding: '10px 12px', fontWeight: 600, color: '#1e293b', maxWidth: 360 }}>

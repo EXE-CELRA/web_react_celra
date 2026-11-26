@@ -507,10 +507,10 @@ export const TasksPage: React.FC = () => {
           </Space>
         }
         extra={
-          <Space size={8}>
+          <Space size={14}>
             {/* NÚT THÔNG BÁO NHẮC HẠN */}
             <Tooltip title="Thông báo nhắc hạn tuân thủ">
-              <Badge count={unreadNotificationsCount} overflowCount={99}>
+              <Badge count={unreadNotificationsCount} overflowCount={99} offset={[-3, 2]}>
                 <Button
                   icon={<BellOutlined />}
                   onClick={() => setNotificationDrawerOpen(true)}
@@ -521,10 +521,7 @@ export const TasksPage: React.FC = () => {
               </Badge>
             </Tooltip>
 
-            
-
-            
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)} style={{ borderRadius: 8 }}>
               Tạo Nghĩa Vụ Mới
             </Button>
           </Space>

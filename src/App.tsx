@@ -41,11 +41,6 @@ const ContextPage = React.lazy(() =>
     default: m.ContextPage,
   })),
 );
-const ContextAuditPage = React.lazy(() =>
-  import("./pages/Context/ContextAuditPage").then((m) => ({
-    default: m.ContextAuditPage,
-  })),
-);
 const TasksPage = React.lazy(() =>
   import("./pages/Tasks/TasksPage").then((m) => ({ default: m.TasksPage })),
 );
@@ -150,7 +145,7 @@ export const App: React.FC = () => {
               <Route element={<MainLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/context" element={<ContextPage />} />
-                <Route path="/context/audit" element={<ContextAuditPage />} />
+                <Route path="/context/audit" element={<ContextPage />} />
                 <Route path="/survey" element={<SurveyPage />} />
                 <Route
                   path="/onboarding"
