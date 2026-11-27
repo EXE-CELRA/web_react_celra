@@ -56,6 +56,7 @@ interface OrgState {
   organizations: Organization[];
   activeOrg: Organization | null;
   isLoading: boolean;
+  hasInitialized: boolean;
   error: string | null;
 
   fetchMyOrganizations: () => Promise<void>;
@@ -71,7 +72,25 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function loadInitialActiveOrg(): Organization | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storedOrgId = localStorage.getItem('celra_active_org_id');
+    const rawSnapshot = localStorage.getItem('celra_active_org_snapshot');
+    if (!rawSnapshot) return null;
+    const parsed = JSON.parse(rawSnapshot) as Organization | null;
+    if (parsed && (!storedOrgId || parsed.id === storedOrgId)) {
+      return parsed;
+    }
+  } catch {
+    // Bỏ qua nếu snapshot bị lỗi định dạng
+  }
+  return null;
+}
+
 export const useOrgStore = create<OrgState>((set) => {
+  const initialActiveOrg = loadInitialActiveOrg();
+
   const fetchMyOrgsFn = async () => {
     set({ isLoading: true });
     try {
@@ -83,8 +102,10 @@ export const useOrgStore = create<OrgState>((set) => {
 
       if (currentActive) {
         localStorage.setItem('celra_active_org_id', currentActive.id);
+        localStorage.setItem('celra_active_org_snapshot', JSON.stringify(currentActive));
       } else {
         localStorage.removeItem('celra_active_org_id');
+        localStorage.removeItem('celra_active_org_snapshot');
         resetTenantStores();
       }
 
@@ -92,16 +113,22 @@ export const useOrgStore = create<OrgState>((set) => {
         organizations: list,
         activeOrg: currentActive,
         isLoading: false,
+        hasInitialized: true,
       });
     } catch (err: unknown) {
-      set({ error: getErrorMessage(err, 'Không thể tải danh sách doanh nghiệp'), isLoading: false });
+      set({
+        error: getErrorMessage(err, 'Không thể tải danh sách doanh nghiệp'),
+        isLoading: false,
+        hasInitialized: true,
+      });
     }
   };
 
   const setActiveOrgFn = (org: Organization) => {
     localStorage.setItem('celra_active_org_id', org.id);
+    localStorage.setItem('celra_active_org_snapshot', JSON.stringify(org));
     resetTenantStores();
-    set({ activeOrg: org });
+    set({ activeOrg: org, hasInitialized: true });
 
     try {
       useContextStore.getState().fetchFacts();
@@ -117,11 +144,13 @@ export const useOrgStore = create<OrgState>((set) => {
     try {
       const res = await apiClient.post<unknown, Organization>('/organizations/onboarding', data);
       localStorage.setItem('celra_active_org_id', res.id);
+      localStorage.setItem('celra_active_org_snapshot', JSON.stringify(res));
       resetTenantStores();
       set((state) => ({
         organizations: [res, ...state.organizations.filter((o) => o.id !== res.id)],
         activeOrg: res,
         isLoading: false,
+        hasInitialized: true,
       }));
       return res;
     } catch (err: unknown) {
@@ -133,16 +162,18 @@ export const useOrgStore = create<OrgState>((set) => {
   const fetchOrgDetailsFn = async (id: string) => {
     try {
       const res = await apiClient.get<unknown, Organization>(`/organizations/${id}`);
-      set({ activeOrg: res });
+      localStorage.setItem('celra_active_org_snapshot', JSON.stringify(res));
+      set({ activeOrg: res, hasInitialized: true });
     } catch (err) {
       console.error(err);
     }
   };
 
   return {
-    organizations: [],
-    activeOrg: null,
+    organizations: initialActiveOrg ? [initialActiveOrg] : [],
+    activeOrg: initialActiveOrg,
     isLoading: false,
+    hasInitialized: false,
     error: null,
 
     fetchMyOrganizations: fetchMyOrgsFn,

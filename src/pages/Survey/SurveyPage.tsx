@@ -19,7 +19,7 @@ import { IndustryTagsSection } from './components/IndustryTagsSection';
 
 export const SurveyPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeOrg } = useOrgStore();
+  const { activeOrg, isLoading: isOrgLoading, hasInitialized: hasOrgInitialized } = useOrgStore();
 
   // Kiểm tra tức thì từ localStorage & activeOrg để chặn đứng việc chớp modal
   const activeOrgId =
@@ -29,7 +29,7 @@ export const SurveyPage: React.FC = () => {
     (activeOrgId &&
       typeof window !== 'undefined' &&
       localStorage.getItem(`celra_survey_completed_${activeOrgId}`) === 'true') ||
-      (activeOrg?.taxCode && activeOrg?.name),
+      (activeOrg?.taxCode && activeOrg?.name && activeOrg.taxCode !== 'MST-temp'),
   );
 
   const [isSurveyCompleted, setIsSurveyCompleted] = useState<boolean>(initialCompleted);
@@ -51,7 +51,6 @@ export const SurveyPage: React.FC = () => {
       taxCode: '',
       companyName: '',
       employeeScale: DEFAULT_BASE_PROFILE.employeeScale,
-      requiresLaborRuleBook: DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
       companyTypeTag: DEFAULT_BASE_PROFILE.companyTypeTag,
       industryTags: [],
     };
@@ -116,8 +115,6 @@ export const SurveyPage: React.FC = () => {
         isNewlyEstablished: activeOrg.revenueStatus
           ? activeOrg.revenueStatus === 'newly_established'
           : (scopedProfile?.isNewlyEstablished ?? false),
-        requiresLaborRuleBook:
-          scopedProfile?.requiresLaborRuleBook ?? DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
         companyTypeTag: scopedProfile?.companyTypeTag || DEFAULT_BASE_PROFILE.companyTypeTag,
         industryTags: scopedProfile?.industryTags || [],
       };
@@ -127,8 +124,11 @@ export const SurveyPage: React.FC = () => {
 
       const completed = Boolean(
         (activeOrg.id && localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true') ||
-          (activeOrg.taxCode && activeOrg.name),
+          (activeOrg.taxCode && activeOrg.name && activeOrg.taxCode !== 'MST-temp'),
       );
+      if (completed && activeOrg.id) {
+        localStorage.setItem(`celra_survey_completed_${activeOrg.id}`, 'true');
+      }
       setIsSurveyCompleted(completed);
 
       if (completed) {
@@ -152,7 +152,6 @@ export const SurveyPage: React.FC = () => {
         taxCode: '',
         companyName: '',
         employeeScale: DEFAULT_BASE_PROFILE.employeeScale,
-        requiresLaborRuleBook: DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
         companyTypeTag: DEFAULT_BASE_PROFILE.companyTypeTag,
         industryTags: [],
       });
@@ -162,10 +161,6 @@ export const SurveyPage: React.FC = () => {
   const updateBaseProfile = (updates: Partial<BaseProfile>) => {
     setBaseProfile((prev) => {
       const next = { ...prev, ...updates };
-      if (updates.employeeScale) {
-        next.requiresLaborRuleBook =
-          next.employeeScale === '10_to_50' || next.employeeScale === 'over_50';
-      }
       try {
         const orgId = activeOrg?.id || localStorage.getItem('celra_active_org_id');
         if (orgId) {
@@ -370,7 +365,7 @@ export const SurveyPage: React.FC = () => {
     }
   };
 
-  if (isSurveyCompleted || initialCompleted) {
+  if (isSurveyCompleted || initialCompleted || (!hasOrgInitialized && Boolean(activeOrgId)) || isOrgLoading) {
     return null;
   }
 

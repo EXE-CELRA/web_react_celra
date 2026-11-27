@@ -4,15 +4,10 @@ import type { ContextFact, ContextFactHistory } from '../types';
 
 export interface CreateContextFactInput {
   key?: string;
-  khoa?: string;
   label?: string;
-  nhan?: string;
   group?: string;
-  nhom?: string;
   currentValue?: string;
-  giaTriHienTai?: string;
   source?: string;
-  nguon?: string;
 }
 
 interface ContextState {
@@ -50,11 +45,11 @@ export const useContextStore = create<ContextState>((set) => {
 
   const createFactFn = async (data: CreateContextFactInput) => {
     const payload = {
-      key: data.khoa || data.key,
-      label: data.nhan || data.label,
-      group: data.nhom || data.group,
-      currentValue: data.giaTriHienTai || data.currentValue,
-      source: data.nguon || data.source || 'Hệ thống',
+      key: data.key,
+      label: data.label,
+      group: data.group,
+      currentValue: data.currentValue,
+      source: data.source || 'Hệ thống',
     };
     const res = await apiClient.post<unknown, ContextFact>('/context-facts', payload);
     set((state) => ({ facts: [res, ...state.facts] }));
@@ -75,7 +70,6 @@ export const useContextStore = create<ContextState>((set) => {
           ? {
               ...f,
               currentValue: res.currentValue,
-              giaTriHienTai: res.currentValue,
               value: res.currentValue,
               updatedAt: res.updatedAt,
               history: res.history,

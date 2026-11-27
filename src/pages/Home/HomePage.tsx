@@ -149,10 +149,10 @@ export const HomePage: React.FC = () => {
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.25 }}>
                   <span style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>
-                    {user?.hoVaTen || user?.name || user?.fullName || (isSuperAdmin ? 'Quản Trị Viên' : 'Chủ doanh nghiệp')}
+                    {user?.name || user?.fullName || (isSuperAdmin ? 'Quản Trị Viên' : 'Chủ doanh nghiệp')}
                   </span>
                   <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 500 }}>
-                    {isSuperAdmin ? 'Quản Trị Viên Hệ Thống' : (user?.chucDanh || user?.roleTitle || 'Chủ doanh nghiệp')}
+                    {isSuperAdmin ? 'Quản Trị Viên Hệ Thống' : (user?.roleTitle || 'Chủ doanh nghiệp')}
                   </span>
                 </div>
                 <RightOutlined style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }} />

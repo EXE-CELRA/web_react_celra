@@ -52,19 +52,19 @@ export interface MessageItem {
   timestamp?: string;
 }
 
-// 3 câu hỏi gợi ý cốt lõi chuẩn Enterprise LegalTech (từ nhánh dev)
+// 3 câu hỏi gợi ý cốt lõi chuyên sâu Thuế TNDN & Chi phí được trừ Mục B4
 export const CURATED_SUGGESTIONS = [
   {
-    title: 'Doanh nghiệp của tôi có những nghĩa vụ thuế TNDN và GTGT nào sắp đến hạn quý này?',
-    category: 'Thuế TNDN & GTGT',
+    title: 'Doanh nghiệp của tôi cần tạm nộp thuế TNDN 80% quý này bao nhiêu và hạn nộp ngày nào?',
+    category: 'Tạm nộp Thuế TNDN',
   },
   {
-    title: 'Quy định về thời hạn lập và lưu trữ hồ sơ lao động theo Bộ luật Lao động 2019?',
-    category: 'Lao động & Tiền lương',
+    title: 'Các khoản chi nào đang có nguy cơ bị loại trừ tại chỉ tiêu B4 khi quyết toán thuế TNDN?',
+    category: 'Chi phí & Mục B4',
   },
   {
-    title: 'Kiểm tra danh mục tuân thủ pháp lý bắt buộc đối với ngành bán lẻ vàng bạc đá quý?',
-    category: 'Điều kiện kinh doanh',
+    title: 'Doanh nghiệp của tôi được áp dụng mức thuế suất TNDN ưu đãi 15%, 17% hay 20% theo Luật mới?',
+    category: 'Thuế suất TNDN',
   },
 ] as const;
 

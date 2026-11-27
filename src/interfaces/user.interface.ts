@@ -15,23 +15,17 @@ export interface User {
   email: string;
   fullName: string;
   name?: string;
-  hoVaTen?: string;
   phoneNumber?: string;
   phone?: string;
-  soDienThoai?: string;
   avatarUrl?: string;
   avatar?: string;
-  anhDaiDien?: string;
   systemRole: string;
   role?: string;
-  vaiTro?: string;
   roleTitle?: string;
-  chucDanh?: string;
   twoFactorEnabled?: boolean;
   isTwoFactorEnabled?: boolean;
   isSuperAdmin?: boolean;
   createdAt: string;
-  taoLuc?: string;
   [key: string]: any;
 }
 

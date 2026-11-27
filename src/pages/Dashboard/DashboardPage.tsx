@@ -131,19 +131,19 @@ export const DashboardPage: React.FC = () => {
       }
 
       const completed = currentTasks.filter((t) => {
-        const s = String(t.trangThai || t.status || '').toUpperCase();
+        const s = String(t.status || '').toUpperCase();
         return s === 'COMPLETED' || s === 'VERIFIED';
       }).length;
       const inProgress = currentTasks.filter((t) => {
-        const s = String(t.trangThai || t.status || '').toUpperCase();
+        const s = String(t.status || '').toUpperCase();
         return s === 'IN_PROGRESS' || s === 'TODO' || s === 'WAITING_VERIFICATION' || s === 'NEED_INFO';
       }).length;
       const overdue = currentTasks.filter((t) => {
-        const s = String(t.trangThai || t.status || '').toUpperCase();
+        const s = String(t.status || '').toUpperCase();
         return s === 'OVERDUE';
       }).length;
       const urgent = currentTasks.filter((t) => {
-        const p = String(t.doUuTien || t.priority || '').toLowerCase();
+        const p = String(t.priority || '').toLowerCase();
         return p === 'high' || p === 'urgent' || p === 'critical';
       }).length;
 

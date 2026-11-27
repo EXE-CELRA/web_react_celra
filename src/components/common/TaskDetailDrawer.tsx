@@ -138,7 +138,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const periodMeta = currentTask.periodCycle
     ? STATUTORY_PERIOD_METAS[currentTask.periodCycle as keyof typeof STATUTORY_PERIOD_METAS]
     : null;
-  const remaining = getRemainingDaysInfo(currentTask.hanChot || currentTask.dueDate || '');
+  const remaining = getRemainingDaysInfo(currentTask.dueDate || '');
   const statutoryRisk = (currentTask.statutoryPriority || currentTask.legalRisk || currentTask.priority || 'medium') as string;
   const currentOperationalPriority = (currentTask.customPriority || currentTask.priority || 'medium') as string;
   const hasCustomPriority = Boolean(
@@ -146,7 +146,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
     String(currentTask.customPriority).toLowerCase() !== String(statutoryRisk).toLowerCase()
   );
   const isPriorityDowngraded = hasCustomPriority && getPriorityWeight(currentOperationalPriority) < getPriorityWeight(statutoryRisk);
-  const basis = currentTask.canCuPhapLy || currentTask.legalBasis || currentTask.legalCitation || '';
+  const basis = currentTask.legalBasis || currentTask.legalCitation || '';
   const cleanBasis = cleanDLPLUrl(basis);
   const directUrl = (cleanBasis.startsWith('http') ? cleanBasis : null) || matchCoreLegalDocUrl(basis);
   const isCitTask = Boolean(
@@ -239,11 +239,11 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
         title={
           <Space direction="vertical" size={2} style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>{currentTask.tieuDe || currentTask.title}</span>
-              {(currentTask.maQuyTac || currentTask.ruleCode) && <Tag color="cyan">{currentTask.maQuyTac || currentTask.ruleCode}</Tag>}
+              <span style={{ fontWeight: 700, fontSize: 16 }}>{currentTask.title}</span>
+              {currentTask.ruleCode && <Tag color="cyan">{currentTask.ruleCode}</Tag>}
             </div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Mã tác vụ: <strong>{currentTask.maNhiemVu || currentTask.code || currentTask.id}</strong> | Kỳ:{' '}
+              Mã tác vụ: <strong>{currentTask.code || currentTask.id}</strong> | Kỳ:{' '}
               <strong>{periodMeta?.badge || currentTask.periodCycle || 'Theo quy định'}</strong>
             </Text>
           </Space>

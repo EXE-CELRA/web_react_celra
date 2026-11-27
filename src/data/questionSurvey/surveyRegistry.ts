@@ -1,10 +1,5 @@
 import type { BaseProfile, ContextFact, DynamicSituationQuestion } from '../../interfaces';
 import { taxSurveyConfig } from './taxSurvey';
-import { legalSurveyConfig } from './legalSurvey';
-import { invoiceCashSurveyConfig } from './invoiceCashSurvey';
-import { laborBhxhSurveyConfig } from './laborBhxhSurvey';
-import { pcccFireSurveyConfig } from './pcccFireSurvey';
-import { operationSurveyConfig } from './operationSurvey';
 
 export interface ModuleSurveyConfig {
   groupKey: string;
@@ -17,11 +12,6 @@ export interface ModuleSurveyConfig {
 
 export const SURVEY_MODULE_REGISTRY: Record<string, ModuleSurveyConfig> = {
   thue_ke_toan: taxSurveyConfig,
-  phap_ly_von: legalSurveyConfig,
-  hoa_don_dong_tien: invoiceCashSurveyConfig,
-  lao_dong_bhxh: laborBhxhSurveyConfig,
-  dia_diem_pccc: pcccFireSurveyConfig,
-  nganh_nghe_van_hanh: operationSurveyConfig,
 };
 
 export function getModuleSurveyConfig(groupKey: string): ModuleSurveyConfig | null {

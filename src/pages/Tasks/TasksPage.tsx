@@ -118,7 +118,7 @@ export const TasksPage: React.FC = () => {
       if (periodCode === 'MONTHLY') return t.category?.includes('Tháng') || t.title?.toLowerCase().includes('hàng tháng');
       if (periodCode === 'QUARTERLY') return t.category?.includes('Quý') || t.title?.toLowerCase().includes('quý');
       if (periodCode === 'BIANNUAL_6M') return t.category?.includes('6 Tháng') || t.category?.includes('bán niên');
-      if (periodCode === 'ANNUAL') return t.category?.includes('Năm') || t.title?.toLowerCase().includes('môn bài') || t.title?.toLowerCase().includes('quyết toán');
+      if (periodCode === 'ANNUAL') return t.category?.includes('Năm') || t.title?.toLowerCase().includes('quyết toán');
       if (periodCode === 'EVENT_3D') return t.category?.includes('03 Ngày') || t.title?.toLowerCase().includes('tạm ngừng');
       if (periodCode === 'EVENT_10D') return t.category?.includes('10 Ngày') && !t.category?.includes('Làm Việc');
       if (periodCode === 'EVENT_10D_BIZ') return t.category?.includes('10 Ngày Làm Việc') || t.title?.toLowerCase().includes('đkkd');
@@ -161,13 +161,6 @@ export const TasksPage: React.FC = () => {
       if (statusFilter === 'IN_PROGRESS' && !isInProgressStatus(t.status)) return false;
       if (statusFilter === 'COMPLETED' && !isCompletedStatus(t.status)) return false;
 
-      // Yêu cầu #2: Bỏ nghĩa vụ môn bài năm 2026 trở đi (vẫn giữ dữ liệu <= 2025)
-      const isMonBai = t.ruleCode === 'RULE-TAX-MB' || t.title?.toLowerCase().includes('môn bài');
-      if (isMonBai) {
-        const taskYear = t.dueDate ? new Date(t.dueDate).getFullYear() : (t.createdAt ? new Date(t.createdAt).getFullYear() : 2026);
-        if (taskYear >= 2026) return false;
-      }
-
       if (periodFilter !== 'ALL') {
         if (t.periodCycle) {
           if (t.periodCycle !== periodFilter) return false;
@@ -175,9 +168,9 @@ export const TasksPage: React.FC = () => {
           if (periodFilter === 'MONTHLY' && !t.category?.includes('Tháng') && !t.title?.toLowerCase().includes('hàng tháng')) return false;
           if (periodFilter === 'QUARTERLY' && !t.category?.includes('Quý') && !t.title?.toLowerCase().includes('quý')) return false;
           if (periodFilter === 'BIANNUAL_6M' && !t.category?.includes('6 Tháng') && !t.category?.includes('bán niên')) return false;
-          if (periodFilter === 'ANNUAL' && !t.category?.includes('Năm') && !t.title?.toLowerCase().includes('môn bài')) return false;
+          if (periodFilter === 'ANNUAL' && !t.category?.includes('Năm') && !t.title?.toLowerCase().includes('quyết toán')) return false;
           if (periodFilter === 'EVENT_3D' && !t.category?.includes('03 Ngày')) return false;
-          if (periodFilter === 'EVENT_10D' && !t.title?.toLowerCase().includes('nhà thầu') && !t.title?.toLowerCase().includes('nội quy')) return false;
+          if (periodFilter === 'EVENT_10D' && !t.title?.toLowerCase().includes('nhà thầu')) return false;
           if (periodFilter === 'EVENT_10D_BIZ' && !t.category?.includes('10 Ngày Làm Việc')) return false;
           if (periodFilter === 'EVENT_20D' && !t.category?.includes('20 Ngày')) return false;
           if (periodFilter === 'EVENT_30D_CAPITAL' && !t.category?.includes('Giảm Vốn')) return false;
@@ -780,18 +773,18 @@ export const TasksPage: React.FC = () => {
             label="Tiêu đề nghĩa vụ / công việc"
             rules={[{ required: true, message: 'Vui lòng nhập tên công việc' }]}
           >
-            <Input placeholder="Ví dụ: Nộp tờ khai thuế GTGT Q1, Khám sức khỏe định kỳ..." />
+            <Input placeholder="Ví dụ: Tạm nộp thuế TNDN Quý 4, Bổ sung ủy nhiệm chi hóa đơn > 5 triệu..." />
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="category" label="Phân loại" initialValue="Thuế & Kế toán">
+              <Form.Item name="category" label="Phân loại" initialValue="Thuế TNDN">
                 <Select
                   options={[
-                    { label: 'Thuế & Kế toán', value: 'Thuế & Kế toán' },
-                    { label: 'Lao động & BHXH', value: 'Lao động & BHXH' },
-                    { label: 'PCCC & An toàn', value: 'PCCC & An toàn' },
-                    { label: 'Pháp lý & Giấy phép', value: 'Pháp lý & Giấy phép' },
+                    { label: 'Thuế TNDN', value: 'Thuế TNDN' },
+                    { label: 'Chi phí & Mục B4', value: 'Chi phí & Mục B4' },
+                    { label: 'Quyết toán 03/TNDN', value: 'Quyết toán 03/TNDN' },
+                    { label: 'Hồ sơ & Chứng từ thuế', value: 'Hồ sơ & Chứng từ thuế' },
                   ]}
                 />
               </Form.Item>

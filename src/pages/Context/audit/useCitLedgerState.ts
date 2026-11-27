@@ -246,11 +246,10 @@ export function useCitLedgerState({
   }, [activeOrg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Thông tin doanh nghiệp & địa bàn ưu đãi
-  const orgAddress = activeOrg?.address || activeOrg?.diaChi || 'Quận Ninh Kiều, TP. Cần Thơ';
-  const orgTaxCode = activeOrg?.taxCode || activeOrg?.maSoThue || '0101234567';
-  const orgName =
-    activeOrg?.legalName || activeOrg?.name || activeOrg?.tenDoanhNghiep || 'Doanh nghiệp';
-  const orgModel = activeOrg?.legalType || activeOrg?.loaiHinhPhapLy || 'TAG_TNHH_1TV';
+  const orgAddress = activeOrg?.address || 'Quận Ninh Kiều, TP. Cần Thơ';
+  const orgTaxCode = activeOrg?.taxCode || '0101234567';
+  const orgName = activeOrg?.legalName || activeOrg?.name || 'Doanh nghiệp';
+  const orgModel = activeOrg?.legalType || 'TAG_TNHH_1TV';
   const orgCity = activeOrg?.city ? `Cục Thuế ${activeOrg.city}` : 'Cơ quan thuế quản lý trực tiếp';
 
   const incentiveInfo = useMemo(() => detectTaxIncentiveZone(orgAddress), [orgAddress]);

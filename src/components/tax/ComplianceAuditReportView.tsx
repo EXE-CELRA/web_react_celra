@@ -42,7 +42,7 @@ export type CelraTaskStatus = 'TODO' | 'WAITING_INPUT' | 'IN_PROGRESS' | 'REVIEW
 export interface ComplianceObligationItem {
   id: string;
   ruleCode: string;
-  category: 'GTGT' | 'TNDN' | 'OTHER';
+  category: 'CIT_FILING' | 'CIT_B4_EXPENSE' | 'CIT_WITHHOLDING';
   categoryLabel: string;
   title: string;
   applicabilityStatus: ApplicabilityStatus;
@@ -141,6 +141,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
   onOpenEtaxGuide,
 }) => {
   const { createTask, fetchTasks } = useTaskStore();
+  void facts;
 
   // State điều khiển Drawer Chi tiết nghĩa vụ
   const [selectedObligation, setSelectedObligation] = useState<ComplianceObligationItem | null>(null);
@@ -148,10 +149,10 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
 
   // State điều khiển Modal Upload Bằng chứng
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [uploadTargetObligation, setUploadTargetObligation] = useState<string>('RULE-TAX-GTGT');
+  const [uploadTargetObligation, setUploadTargetObligation] = useState<string>('RULE-TAX-TNDN-80');
 
-  // State lọc nhóm nghĩa vụ
-  const [selectedTaxFilter, setSelectedTaxFilter] = useState<'ALL' | 'GTGT' | 'TNDN' | 'OTHER'>('ALL');
+  // State lọc nhóm nghĩa vụ Thuế TNDN
+  const [selectedTaxFilter, setSelectedTaxFilter] = useState<'ALL' | 'CIT_FILING' | 'CIT_B4_EXPENSE' | 'CIT_WITHHOLDING'>('ALL');
 
   // Hạn pháp lý chuẩn luật định (được tự động điều chỉnh ngày nghỉ Thứ 7, Chủ Nhật)
   const quarterDeadlineInfo = useMemo(() => {
@@ -172,124 +173,47 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
     }
   }, [taxQuarter, taxYear]);
 
-  // Thông tin doanh nghiệp
-  const companyName = activeOrg?.legalName || activeOrg?.name || 'CÔNG TY TNHH MỘT THÀNH VIÊN VÀNG BẠC ĐÁ QUÝ SÀI GÒN - SJC';
-  const taxCode = activeOrg?.taxCode || '0300521758';
-  const address = activeOrg?.address || '418-420 Nguyễn Thị Minh Khai, Phường 05, Quận 3, TP. Hồ Chí Minh';
-  const industry = activeOrg?.industry || 'Bán lẻ trang sức, vàng bạc đá quý và dịch vụ thương mại';
-  const legalType = activeOrg?.legalType || 'Công ty TNHH Một Thành Viên (100% vốn Nhà nước / Tư nhân)';
+  // Thông tin doanh nghiệp thực tế từ activeOrg (không dùng dữ liệu mẫu giả lập)
+  const companyName = activeOrg?.legalName || activeOrg?.name || 'Chưa cập nhật tên doanh nghiệp';
+  const taxCode = activeOrg?.taxCode || 'Chưa cập nhật MST';
+  const address = activeOrg?.address || 'Chưa cập nhật địa chỉ trụ sở';
+  const industry = activeOrg?.industry || 'Hoạt động sản xuất kinh doanh';
+  const legalType = activeOrg?.legalType || 'Công ty TNHH';
 
-  // Kiểm tra tính toàn vẹn hồ sơ & cảnh báo mâu thuẫn bối cảnh
+  // Kiểm tra tính toàn vẹn hồ sơ doanh nghiệp
   const profileWarning = useMemo(() => {
-    const isGoldJewelryOrg = companyName.toLowerCase().includes('vàng') || companyName.toLowerCase().includes('đá quý') || companyName.toLowerCase().includes('sjc');
-    // Kiểm tra nếu trong facts có bối cảnh F&B hoặc mâu thuẫn
-    const fnbFact = facts.find((f) => {
-      const val = (f.currentValue || '').toLowerCase();
-      return val.includes('nhà hàng') || val.includes('ăn uống') || val.includes('f&b');
-    });
-
-    if (isGoldJewelryOrg && fnbFact) {
-      return {
-        type: 'warning' as const,
-        message: 'Cảnh báo đồng bộ bối cảnh doanh nghiệp',
-        description: 'Tên doanh nghiệp ghi nhận ngành kinh doanh Vàng bạc / Trang sức, nhưng hệ thống phát hiện bối cảnh F&B (Dịch vụ ăn uống) chưa đồng bộ. Vui lòng cập nhật lại hồ sơ bối cảnh để đảm bảo xếp hạng nghĩa vụ tuân thủ chính xác.',
-      };
-    }
-
-    if (!activeOrg?.taxCode || !activeOrg?.legalName) {
+    if (!activeOrg?.taxCode || (!activeOrg?.legalName && !activeOrg?.name)) {
       return {
         type: 'info' as const,
         message: 'Hồ sơ pháp lý đang chờ hoàn thiện',
-        description: 'Một số thông tin pháp lý chính thức chưa được điền đầy đủ. Hệ thống đang áp dụng phân tích theo dữ liệu bối cảnh hiện hành.',
+        description: 'Một số thông tin định danh pháp nhân chưa đầy đủ. Vui lòng cập nhật tại tab Hồ Sơ Cơ Sở để cá nhân hóa báo cáo Thuế TNDN.',
       };
     }
 
     return null;
-  }, [companyName, facts, activeOrg]);
+  }, [activeOrg]);
 
   // ============================================================================
-  // KHU VỰC 2: DANH SÁCH TẤT CẢ CÁC NGHĨA VỤ PHÁP LÝ CHUẨN LUẬT ĐỊNH
+  // KHU VỰC 2: DANH SÁCH NGHĨA VỤ TUÂN THỦ TRỌNG TÂM THUẾ TNDN
   // ============================================================================
   const obligations: ComplianceObligationItem[] = useMemo(() => {
     const hasDisallowedB4 = citSummary.disallowedCount > 0;
     const hasCitTaxToPay = citSummary.estimatedTaxAmount > 0;
+    const isOneMemberLlc = legalType.toUpperCase().includes('1 THÀNH VIÊN') || legalType.toUpperCase().includes('MỘT THÀNH VIÊN') || legalType.toUpperCase().includes('1TV');
 
     return [
-      // 1. THUẾ GTGT
-      {
-        id: 'ob-gtgt-1',
-        ruleCode: 'RULE-TAX-GTGT',
-        category: 'GTGT',
-        categoryLabel: 'Thuế GTGT',
-        title: 'Kê khai và nộp tờ khai thuế GTGT định kỳ theo Quý (mẫu 01/GTGT)',
-        applicabilityStatus: 'APPLICABLE',
-        completionStatus: 'IN_PROGRESS',
-        issueSummary: `Cần hoàn thành lập bảng kê hóa đơn bán ra - mua vào và gửi tờ khai trước ngày ${legalDeadlineText}.`,
-        legalDeadline: legalDeadlineText,
-        internalDeadline: internalDeadlineText,
-        riskSeverity: 'HIGH',
-        penaltyText: 'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai thuế quá hạn quy định.',
-        evidenceTotal: 2,
-        evidenceUploaded: 1,
-        evidenceMissing: 1,
-        description: 'Doanh nghiệp thuộc đối tượng kê khai thuế GTGT theo phương pháp khấu trừ định kỳ theo Quý có nghĩa vụ lập và gửi tờ khai mẫu 01/GTGT kèm bảng kê bán ra, mua vào cho cơ quan thuế quản lý trực tiếp.',
-        businessDataSnapshot: {
-          'Doanh thu quý hiện tại': `${citSummary.totalRevenue.toLocaleString('vi-VN')} đ`,
-          'Số hóa đơn bán ra': `${citSummary.revenueCount} hóa đơn`,
-          'Kỳ kê khai': `Quý ${taxQuarter}/${taxYear}`,
-          'Cơ quan thuế quản lý': 'Chi cục Thuế trực tiếp',
-        },
-        legalBasisTitle: 'Luật Quản lý thuế số 38/2019/QH14 & Nghị định 126/2020/NĐ-CP',
-        legalArticle: 'Điều 44 Luật Quản lý thuế số 38/2019/QH14; Điều 8, Điều 9 Nghị định 126/2020/NĐ-CP',
-        legalDocNumber: '126/2020/NĐ-CP',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-126-2020-ND-CP-huong-dan-Luat-Quan-ly-thue-455243.aspx',
-        suggestedAction: 'Tạo tác vụ nhắc hạn lập bảng kê hóa đơn điện tử và nộp tờ khai qua Cổng Thuế Điện Tử (thuedientu.gdt.gov.vn).',
-        verificationQuestion: 'Doanh nghiệp đã nộp tờ khai thuế GTGT Quý này và nhận được thông báo chấp nhận của CQT chưa?',
-      },
-      {
-        id: 'ob-gtgt-2',
-        ruleCode: 'RULE-TAX-GTGT-BANK',
-        category: 'GTGT',
-        categoryLabel: 'Thuế GTGT',
-        title: 'Chứng từ thanh toán không dùng tiền mặt cho hóa đơn từ 20 triệu đồng trở lên',
-        applicabilityStatus: 'APPLICABLE',
-        completionStatus: hasDisallowedB4 ? 'IN_PROGRESS' : 'COMPLETED',
-        issueSummary: hasDisallowedB4
-          ? `Phát hiện ${citSummary.disallowedCount} khoản chi có dấu hiệu thiếu chứng từ chuyển khoản ngân hàng hợp lệ.`
-          : '100% khoản chi lớn đã được rà soát chứng từ chuyển khoản ngân hàng đầy đủ.',
-        legalDeadline: legalDeadlineText,
-        internalDeadline: internalDeadlineText,
-        riskSeverity: 'HIGH',
-        penaltyText: 'Không được khấu trừ thuế GTGT đầu vào; bị loại toàn bộ chi phí khỏi thu nhập được trừ khi tính thuế TNDN và truy thu phạt 20%.',
-        evidenceTotal: 3,
-        evidenceUploaded: hasDisallowedB4 ? 2 : 3,
-        evidenceMissing: hasDisallowedB4 ? 1 : 0,
-        description: 'Hàng hóa, dịch vụ mua vào từng lần theo hóa đơn từ 20 triệu đồng trở lên (giá đã bao gồm thuế GTGT) bắt buộc phải có chứng từ thanh toán không dùng tiền mặt (Ủy nhiệm chi / Chuyển khoản) qua tài khoản ngân hàng của doanh nghiệp mở tại ngân hàng thương mại.',
-        businessDataSnapshot: {
-          'Tổng chi phí ghi nhận': `${citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ`,
-          'Khoản chi bị nghi ngờ loại B4': `${citSummary.disallowedCount} khoản (${citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ)`,
-          'Điều kiện áp dụng': 'Hóa đơn mua vào từng lần >= 20.000.000 đ',
-        },
-        legalBasisTitle: 'Thông tư 219/2013/TT-BTC & Thông tư 173/2016/TT-BTC',
-        legalArticle: 'Điều 15 Thông tư 219/2013/TT-BTC (sửa đổi bổ sung bởi Thông tư 173/2016/TT-BTC)',
-        legalDocNumber: '219/2013/TT-BTC',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Thong-tu-219-2013-TT-BTC-huong-dan-Luat-thue-gia-tri-gia-tang-va-Nghi-dinh-209-2013-ND-CP-216960.aspx',
-        suggestedAction: 'Liên hệ nhà cung cấp bổ sung Ủy nhiệm chi hoặc chứng từ xác nhận thanh toán qua ngân hàng.',
-        verificationQuestion: 'Các hóa đơn đầu vào từ 20 triệu đồng trở lên đã có đủ Ủy nhiệm chi khớp số tài khoản người bán chưa?',
-      },
-
-      // 2. THUẾ TNDN
+      // 1. KÊ KHAI & TẠM NỘP THUẾ TNDN
       {
         id: 'ob-tndn-1',
         ruleCode: 'RULE-TAX-TNDN-80',
-        category: 'TNDN',
-        categoryLabel: 'Thuế TNDN',
+        category: 'CIT_FILING',
+        categoryLabel: 'Tạm nộp TNDN 80%',
         title: 'Tạm nộp thuế TNDN hàng quý đạt ngưỡng tối thiểu 80% số thuế quyết toán năm',
         applicabilityStatus: 'APPLICABLE',
         completionStatus: hasCitTaxToPay ? 'IN_PROGRESS' : 'COMPLETED',
         issueSummary: hasCitTaxToPay
-          ? `Số thuế TNDN tạm nộp dự kiến Quý ${taxQuarter}: ${citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ cần nộp vào NSNN trước ${legalDeadlineText}.`
-          : 'Chưa phát sinh số thuế TNDN phải tạm nộp cho kỳ tính thuế hiện tại.',
+          ? `Số thuế TNDN tạm nộp dự kiến Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter}: ${citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ cần nộp vào NSNN (tiểu mục 1052) trước ${legalDeadlineText}.`
+          : 'Chưa phát sinh số thuế TNDN phải tạm nộp cho kỳ tính thuế hiện tại (do chưa phát sinh thu nhập tính thuế dương).',
         legalDeadline: legalDeadlineText,
         internalDeadline: internalDeadlineText,
         riskSeverity: 'HIGH',
@@ -297,168 +221,178 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         evidenceTotal: 2,
         evidenceUploaded: hasCitTaxToPay ? 1 : 2,
         evidenceMissing: hasCitTaxToPay ? 1 : 0,
-        description: 'Tổng số thuế TNDN đã tạm nộp của 04 quý không được thấp hơn 80% số thuế TNDN phải nộp theo quyết toán năm. Trường hợp người nộp thuế nộp thiếu so với số thuế phải tạm nộp 4 quý thì phải nộp tiền chậm nộp tính trên số thuế nộp thiếu.',
+        description: 'Tổng số thuế TNDN đã tạm nộp của 04 quý không được thấp hơn 80% số thuế TNDN phải nộp theo quyết toán năm. Trường hợp nộp thiếu so với ngưỡng 80% của 4 quý thì bị tính tiền chậm nộp kể từ ngày tiếp sau ngày cuối cùng của thời hạn tạm nộp thuế TNDN quý 4.',
         businessDataSnapshot: {
-          'Thuế suất áp dụng': `${citTierResult.taxRatePercentText} (${citTierResult.title})`,
-          'Thuế TNDN dự kiến cả quý': `${citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ`,
-          'Ngưỡng tạm nộp tối thiểu 80%': `${citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ`,
-          'Doanh thu tính thuế': `${citSummary.totalRevenue.toLocaleString('vi-VN')} đ`,
+          'Thuế suất TNDN áp dụng': `${citTierResult.taxRatePercentText} (${citTierResult.title})`,
+          'Thu nhập tính thuế kỳ này': `${citSummary.assessableIncome.toLocaleString('vi-VN')} đ`,
+          'Thuế TNDN dự kiến (100%)': `${citSummary.estimatedTaxAmount.toLocaleString('vi-VN')} đ`,
+          'Ngưỡng an toàn tối thiểu (80%)': `${citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ`,
         },
         legalBasisTitle: 'Nghị định 91/2022/NĐ-CP sửa đổi Nghị định 126/2020/NĐ-CP',
         legalArticle: 'Khoản 3 Điều 1 Nghị định 91/2022/NĐ-CP',
         legalDocNumber: '91/2022/NĐ-CP',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-91-2022-ND-CP-sua-doi-Nghi-dinh-126-2020-ND-CP-huong-dan-Luat-Quan-ly-thue-537464.aspx',
-        suggestedAction: 'Lập giấy nộp tiền eTax nộp số tiền thuế TNDN tạm tính vào tiểu mục 1052 Kho bạc Nhà nước.',
-        verificationQuestion: 'Doanh nghiệp đã nộp giấy nộp tiền tạm nộp thuế TNDN Quý này qua Cổng eTax chưa?',
+        legalDocUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-912022nd-cp-cua-chinh-phu-ve-viec-sua-doi-bo-sung-mot-so-dieu-cua-nghi-dinh-1262020nd-cp-ngay-19102020-cua-chinh-phu-quy-dinh-chi-tiet-mot-so-dieu-cua-luat-quan-ly-thue-1098434.html',
+        suggestedAction: 'Lập giấy nộp tiền điện tử trên Cổng eTax nộp vào tiểu mục 1052 trước hạn và lưu chứng từ xác nhận.',
+        verificationQuestion: 'Doanh nghiệp đã lập Giấy nộp tiền tạm nộp thuế TNDN (tiểu mục 1052) trên Cổng eTax chưa?',
       },
       {
-        id: 'ob-tndn-2',
+        id: 'ob-tndn-final',
+        ruleCode: 'RULE-TAX-TNDN-FINAL',
+        category: 'CIT_FILING',
+        categoryLabel: 'Quyết toán 03/TNDN',
+        title: 'Lập và nộp Hồ sơ quyết toán thuế TNDN năm (Mẫu 03/TNDN) kèm Báo cáo tài chính',
+        applicabilityStatus: 'APPLICABLE',
+        completionStatus: 'IN_PROGRESS',
+        issueSummary: `Tổng hợp doanh thu (${citSummary.totalRevenue.toLocaleString('vi-VN')} đ), đối chiếu chi phí hợp lệ và gửi Tờ khai 03/TNDN chậm nhất ngày 31/03/${taxYear + 1}.`,
+        legalDeadline: `31/03/${taxYear + 1}`,
+        internalDeadline: `15/03/${taxYear + 1}`,
+        riskSeverity: 'HIGH',
+        penaltyText: 'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi chậm nộp hồ sơ quyết toán thuế năm.',
+        evidenceTotal: 2,
+        evidenceUploaded: 1,
+        evidenceMissing: 1,
+        description: 'Người nộp thuế phải kê khai chính xác tổng doanh thu, chi phí được trừ, các khoản điều chỉnh tăng tổng lợi nhuận trước thuế (chỉ tiêu B4) và xác định đúng bậc thuế suất TNDN (15%, 17% hoặc 20% theo Luật Thuế TNDN 67/2025/QH15) trên Tờ khai quyết toán mẫu 03/TNDN.',
+        businessDataSnapshot: {
+          'Doanh thu ghi nhận': `${citSummary.totalRevenue.toLocaleString('vi-VN')} đ (${citSummary.revenueCount} chứng từ)`,
+          'Lợi nhuận kế toán trước thuế': `${citSummary.accountingProfitBeforeTax.toLocaleString('vi-VN')} đ`,
+          'Thuế suất TNDN sàng lọc': citTierResult.taxRatePercentText,
+          'Kỳ quyết toán': `Năm tài chính ${taxYear}`,
+        },
+        legalBasisTitle: 'Luật Quản lý thuế số 38/2019/QH14 & Luật Thuế TNDN số 67/2025/QH15',
+        legalArticle: 'Điểm a Khoản 2 Điều 44 Luật Quản lý thuế số 38/2019/QH14; Điều 10 Luật Thuế TNDN 67/2025/QH15',
+        legalDocNumber: '38/2019/QH14',
+        legalDocUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/luat-quan-ly-thue-2019-54279.html',
+        suggestedAction: 'Hoàn tất đối soát Sổ Thu Chi 4 quý, xuất Bảng kê quyết toán và nộp tờ khai XML 03/TNDN trên thuedientu.gdt.gov.vn.',
+        verificationQuestion: 'Doanh nghiệp đã chốt số liệu doanh thu - chi phí 4 quý để chuẩn bị lên Tờ khai 03/TNDN chưa?',
+      },
+
+      // 2. CHI PHÍ ĐƯỢC TRỪ & MỤC B4
+      {
+        id: 'ob-tndn-b4',
         ruleCode: 'RULE-TAX-TNDN-B4',
-        category: 'TNDN',
-        categoryLabel: 'Thuế TNDN',
-        title: 'Rà soát điều kiện chi phí được trừ khi tính thuế TNDN và bóc tách Mục B4',
+        category: 'CIT_B4_EXPENSE',
+        categoryLabel: 'Bóc tách Mục B4',
+        title: 'Rà soát hóa đơn hợp pháp và bóc tách chi phí không được trừ tại chỉ tiêu B4 (03/TNDN)',
         applicabilityStatus: 'APPLICABLE',
         completionStatus: hasDisallowedB4 ? 'IN_PROGRESS' : 'COMPLETED',
         issueSummary: hasDisallowedB4
-          ? `Ghi nhận ${citSummary.disallowedCount} khoản chi (${citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ) có nguy cơ bị loại trừ Mục B4 khi quyết toán.`
-          : 'Toàn bộ chi phí kế toán đáp ứng điều kiện hợp lý, hợp lệ được trừ khi tính thuế TNDN.',
+          ? `Phát hiện ${citSummary.disallowedCount} khoản chi (${citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ) không đủ điều kiện được trừ, cần bóc tách vào Mục B4.`
+          : '100% khoản chi trong sổ đang đáp ứng điều kiện hóa đơn hợp pháp để tính vào chi phí được trừ TNDN.',
         legalDeadline: `31/03/${taxYear + 1}`,
         internalDeadline: `15/03/${taxYear + 1}`,
-        riskSeverity: 'MEDIUM',
-        penaltyText: 'Bị truy thu 20% tiền thuế TNDN, phạt 20% trên số thuế khai sai và phạt chậm nộp 0,03%/ngày theo Điều 16 Nghị định 125/2020/NĐ-CP.',
+        riskSeverity: hasDisallowedB4 ? 'HIGH' : 'MEDIUM',
+        penaltyText: 'Truy thu thuế TNDN, phạt 20% trên số tiền thuế khai thiếu và tính tiền chậm nộp 0,03%/ngày theo Điều 16 Nghị định 125/2020/NĐ-CP.',
         evidenceTotal: 3,
         evidenceUploaded: hasDisallowedB4 ? 1 : 3,
         evidenceMissing: hasDisallowedB4 ? 2 : 0,
-        description: 'Chi phí được trừ khi tính thuế TNDN phải đáp ứng 3 điều kiện: (1) Thực tế phát sinh liên quan đến hoạt động sản xuất kinh doanh; (2) Có đủ hóa đơn, chứng từ hợp pháp; (3) Có chứng từ thanh toán không dùng tiền mặt với hóa đơn từ 20 triệu đồng trở lên. Các khoản không đáp ứng phải bóc tách tại Mục B4 trên Tờ khai quyết toán 03/TNDN.',
+        description: 'Khoản chi được trừ khi xác định thu nhập chịu thuế TNDN bắt buộc phải liên quan thực tế đến hoạt động sản xuất kinh doanh và có đủ hóa đơn, chứng từ hợp pháp. Mọi khoản chi không có hóa đơn hoặc chi phạt hành chính phải chủ động loại ra tại chỉ tiêu B4.',
         businessDataSnapshot: {
-          'Tổng chi phí kế toán': `${citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ`,
-          'Chi phí được trừ thực tế': `${citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ`,
-          'Chi phí bị loại trừ Mục B4': `${citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ`,
+          'Tổng chi phí kế toán': `${citSummary.totalAccountingExpense.toLocaleString('vi-VN')} đ (${citSummary.expenseCount} khoản)`,
+          'Chi phí được trừ hợp lệ': `${citSummary.totalDeductibleExpense.toLocaleString('vi-VN')} đ`,
+          'Chi phí bị loại Mục B4': `${citSummary.totalDisallowedExpense.toLocaleString('vi-VN')} đ (${citSummary.disallowedCount} khoản)`,
         },
-        legalBasisTitle: 'Thông tư 96/2015/TT-BTC & Thông tư 78/2014/TT-BTC',
-        legalArticle: 'Điều 4 Thông tư 96/2015/TT-BTC; Điều 6 Thông tư 78/2014/TT-BTC',
+        legalBasisTitle: 'Thông tư 96/2015/TT-BTC sửa đổi bổ sung Thông tư 78/2014/TT-BTC',
+        legalArticle: 'Điều 4 Thông tư 96/2015/TT-BTC',
         legalDocNumber: '96/2015/TT-BTC',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Thong-tu-96-2015-TT-BTC-huong-dan-ve-thue-thu-nhap-doanh-nghiep-280456.aspx',
-        suggestedAction: 'Bổ sung hóa đơn hợp lệ hoặc đánh dấu chuyển sang Mục B4 khi lập hồ sơ quyết toán năm.',
-        verificationQuestion: 'Doanh nghiệp đã kiểm tra hóa đơn điện tử hợp pháp trên trang hoadondientu.gdt.gov.vn chưa?',
-      },
-
-      // 3. CÁC NGHĨA VỤ KHÁC
-      {
-        id: 'ob-other-1',
-        ruleCode: 'RULE-TAX-MB',
-        category: 'OTHER',
-        categoryLabel: 'Lệ phí môn bài',
-        title: 'Kê khai và nộp Lệ phí môn bài hàng năm',
-        applicabilityStatus: 'APPLICABLE',
-        completionStatus: 'COMPLETED',
-        issueSummary: `Doanh nghiệp đã hoàn thành nghĩa vụ nộp lệ phí môn bài năm ${taxYear} đúng hạn quy định.`,
-        legalDeadline: `30/01/${taxYear}`,
-        internalDeadline: `20/01/${taxYear}`,
-        riskSeverity: 'LOW',
-        penaltyText: 'Phạt tiền từ 2.000.000đ - 5.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai lệ phí môn bài quá hạn.',
-        evidenceTotal: 1,
-        evidenceUploaded: 1,
-        evidenceMissing: 0,
-        description: 'Tổ chức hoạt động sản xuất, kinh doanh hàng hóa, dịch vụ nộp lệ phí môn bài hàng năm chậm nhất là ngày 30 tháng 01 hàng năm.',
-        businessDataSnapshot: {
-          'Vốn điều lệ đăng ký': 'Theo giấy phép kinh doanh hiện hành',
-          'Mức lệ phí môn bài bậc 2': '2.000.000 đ/năm (Vốn <= 10 tỷ)',
-          'Tình trạng hoàn thành': 'Đã nộp giấy nộp tiền eTax',
-        },
-        legalBasisTitle: 'Nghị định 139/2016/NĐ-CP & Nghị định 22/2020/NĐ-CP',
-        legalArticle: 'Điều 5 Nghị định 139/2016/NĐ-CP; Khoản 2 Điều 1 Nghị định 22/2020/NĐ-CP',
-        legalDocNumber: '139/2016/NĐ-CP',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-139-2016-ND-CP-quy-dinh-ve-le-phi-mon-bai-324395.aspx',
-        suggestedAction: 'Duy trì lưu trữ chứng từ nộp lệ phí môn bài trong Hồ sơ & Bằng chứng.',
+        legalDocUrl: 'https://dulieuphapluat.vn/van-ban/linh-vuc-khac-van-ban/thong-tu-962015tt-btc-huong-dan-ve-thue-thu-nhap-doanh-nghiep-tai-nghi-dinh-122015nd-cp-quy-dinh-chi-tiet-thi-hanh-luat-sua-doi-bo-sung-mot-so-dieu-cua-cac-luat-ve-thue-va-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-782014tt-btc-thong-tu-1192014tt-btc-thong-tu-1512014tt-btc-do-bo-truong-bo-tai-chinh-ban-hanh-285496.html',
+        suggestedAction: 'Mở Sổ Thu Chi & Bóc Tách B4 để thu thập bổ sung hóa đơn điện tử hoặc xác nhận loại trừ Mục B4 trước kỳ quyết toán.',
+        verificationQuestion: 'Các hóa đơn đầu vào trong kỳ đã được đối chiếu trạng thái hợp lệ trên hoadondientu.gdt.gov.vn chưa?',
       },
       {
-        id: 'ob-other-2',
-        ruleCode: 'RULE-TAX-TNCN',
-        category: 'OTHER',
-        categoryLabel: 'Thuế TNCN',
-        title: 'Khấu trừ thuế TNCN và nộp tờ khai khấu trừ định kỳ (mẫu 05/KK-TNCN)',
+        id: 'ob-cit-cash-5m',
+        ruleCode: 'RULE-CIT-B4-CASH',
+        category: 'CIT_B4_EXPENSE',
+        categoryLabel: 'Chuyển khoản ≥ 5 triệu',
+        title: 'Chứng từ thanh toán không dùng tiền mặt cho mọi khoản chi mua vào từ 5 triệu đồng trở lên',
         applicabilityStatus: 'APPLICABLE',
-        completionStatus: 'IN_PROGRESS',
-        issueSummary: `Khấu trừ thuế TNCN tiền lương, thù lao vãng lai và gửi tờ khai trước ngày ${legalDeadlineText}.`,
+        completionStatus: hasDisallowedB4 ? 'IN_PROGRESS' : 'COMPLETED',
+        issueSummary: hasDisallowedB4
+          ? 'Cần kiểm tra kỹ các khoản chi từ 5.000.000 đ trở lên đang thanh toán tiền mặt để tránh bị xuất toán khỏi chi phí TNDN.'
+          : 'Các khoản chi từ 5.000.000 đ trở lên đã đảm bảo nguyên tắc thanh toán không dùng tiền mặt.',
         legalDeadline: legalDeadlineText,
         internalDeadline: internalDeadlineText,
         riskSeverity: 'HIGH',
-        penaltyText: 'Phạt tiền từ 2.000.000đ - 25.000.000đ do nộp chậm tờ khai khấu trừ thuế và truy thu số thuế TNCN chưa khấu trừ.',
+        penaltyText: 'Loại toàn bộ giá trị hóa đơn khỏi chi phí được trừ khi tính thuế TNDN (tăng thu nhập tính thuế và truy thu phạt 20%).',
+        evidenceTotal: 2,
+        evidenceUploaded: hasDisallowedB4 ? 1 : 2,
+        evidenceMissing: hasDisallowedB4 ? 1 : 0,
+        description: 'Theo quy định mới về điều kiện chi phí được trừ Thuế TNDN, các giao dịch mua hàng hóa, dịch vụ từng lần từ 5 triệu đồng trở lên (đã bao gồm VAT) bắt buộc phải có chứng từ thanh toán không dùng tiền mặt qua tài khoản ngân hàng của doanh nghiệp.',
+        businessDataSnapshot: {
+          'Ngưỡng kiểm soát chuyển khoản': 'Từ 5.000.000 đ / lần giao dịch trở lên',
+          'Loại hình áp dụng': legalType,
+          'Khoản chi nghi vấn B4': `${citSummary.disallowedCount} khoản`,
+        },
+        legalBasisTitle: 'Luật Thuế TNDN số 67/2025/QH15 & Điều 4 Thông tư 96/2015/TT-BTC',
+        legalArticle: 'Điều 9 Luật Thuế TNDN 67/2025/QH15; Điều 4 Thông tư 96/2015/TT-BTC',
+        legalDocNumber: '67/2025/QH15',
+        legalDocUrl: 'https://dulieuphapluat.vn/van-ban/linh-vuc-khac-van-ban/thong-tu-962015tt-btc-huong-dan-ve-thue-thu-nhap-doanh-nghiep-tai-nghi-dinh-122015nd-cp-quy-dinh-chi-tiet-thi-hanh-luat-sua-doi-bo-sung-mot-so-dieu-cua-cac-luat-ve-thue-va-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-782014tt-btc-thong-tu-1192014tt-btc-thong-tu-1512014tt-btc-do-bo-truong-bo-tai-chinh-ban-hanh-285496.html',
+        suggestedAction: 'Lưu trữ đầy đủ Ủy nhiệm chi / Sao kê ngân hàng công ty khớp tên và số tài khoản nhà cung cấp trên hóa đơn.',
+        verificationQuestion: 'Mọi hóa đơn mua vào từ 5 triệu đồng trở lên đã có Ủy nhiệm chi từ tài khoản công ty chưa?',
+      },
+
+      // 3. KHẤU TRỪ & NHÀ THẦU BẢO VỆ CHI PHÍ TNDN
+      {
+        id: 'ob-cit-salary',
+        ruleCode: 'RULE-CIT-B4-SALARY',
+        category: 'CIT_WITHHOLDING',
+        categoryLabel: 'Chi phí lương TNDN',
+        title: isOneMemberLlc
+          ? 'Loại trừ lương Chủ sở hữu Công ty TNHH 1TV tại Mục B4 và hoàn thiện hồ sơ chi phí tiền lương'
+          : 'Hoàn thiện hồ sơ tiền lương, bảng chấm công và chứng từ khấu trừ 10% thù lao vãng lai để bảo vệ chi phí TNDN',
+        applicabilityStatus: 'APPLICABLE',
+        completionStatus: 'IN_PROGRESS',
+        issueSummary: isOneMemberLlc
+          ? 'Lưu ý đặc thù TNHH 1TV: Tiền lương, thù lao của Chủ công ty không được tính vào chi phí được trừ TNDN (phải đưa vào Mục B4).'
+          : 'Đảm bảo thực chi quỹ lương trước ngày 31/03 và lưu đủ chứng từ khấu trừ 10% đối với thù lao thời vụ từ 2 triệu đồng/lần.',
+        legalDeadline: legalDeadlineText,
+        internalDeadline: internalDeadlineText,
+        riskSeverity: 'MEDIUM',
+        penaltyText: 'Xuất toán toàn bộ chi phí nhân công không đủ hồ sơ chứng minh hoặc chi trả sau thời hạn quyết toán 03/TNDN.',
         evidenceTotal: 2,
         evidenceUploaded: 1,
         evidenceMissing: 1,
-        description: 'Doanh nghiệp trả thu nhập có trách nhiệm khấu trừ thuế TNCN đối với thu nhập từ tiền lương, tiền công và các khoản chi trả thù lao cho cá nhân vãng lai từ 2 triệu đồng/lần trở lên; lập tờ khai 05/KK-TNCN theo quý.',
+        description: 'Theo Khoản 2.6 Điều 4 Thông tư 96/2015/TT-BTC: Chi tiền lương, tiền thưởng phải được quy định cụ thể điều kiện hưởng trong Hợp đồng/Quy chế tài chính và thực chi trước hạn quyết toán năm; riêng lương chủ Công ty TNHH 1TV (do một cá nhân làm chủ) tuyệt đối không được trừ khi tính thuế TNDN.',
         businessDataSnapshot: {
-          'Kỳ kê khai': `Quý ${taxQuarter}/${taxYear}`,
-          'Quy mô nhân sự': 'Theo danh sách chi lương thực tế',
-          'Hạn chót nộp tờ khai': legalDeadlineText,
+          'Loại hình pháp lý': legalType,
+          'Ngành nghề hoạt động': industry,
+          'Kỳ rà soát': `Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter}/${taxYear}`,
         },
-        legalBasisTitle: 'Luật Quản lý thuế số 38/2019/QH14 & Thông tư 111/2013/TT-BTC',
-        legalArticle: 'Điều 44 Luật Quản lý thuế số 38/2019/QH14; Điều 25 Thông tư 111/2013/TT-BTC',
-        legalDocNumber: '111/2013/TT-BTC',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Thong-tu-111-2013-TT-BTC-huong-dan-Luat-thue-thu-nhap-ca-nhan-va-Nghi-dinh-65-2013-ND-CP-205356.aspx',
-        suggestedAction: 'Lập bảng tính khấu trừ thuế TNCN từ bảng lương và xuất tờ khai XML nộp qua eTax.',
+        legalBasisTitle: 'Thông tư 96/2015/TT-BTC & Thông tư 111/2013/TT-BTC',
+        legalArticle: 'Khoản 2.6 Điều 4 Thông tư 96/2015/TT-BTC; Điều 25 Thông tư 111/2013/TT-BTC',
+        legalDocNumber: '96/2015/TT-BTC',
+        legalDocUrl: 'https://dulieuphapluat.vn/van-ban/linh-vuc-khac-van-ban/thong-tu-962015tt-btc-huong-dan-ve-thue-thu-nhap-doanh-nghiep-tai-nghi-dinh-122015nd-cp-quy-dinh-chi-tiet-thi-hanh-luat-sua-doi-bo-sung-mot-so-dieu-cua-cac-luat-ve-thue-va-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-782014tt-btc-thong-tu-1192014tt-btc-thong-tu-1512014tt-btc-do-bo-truong-bo-tai-chinh-ban-hanh-285496.html',
+        suggestedAction: 'Lưu trữ bảng lương, phiếu chi/sao kê chuyển lương và tách riêng thù lao chủ sở hữu TNHH 1TV khi quyết toán TNDN.',
       },
       {
-        id: 'ob-other-3',
+        id: 'ob-cit-fct',
         ruleCode: 'RULE-TAX-FCT-10D',
-        category: 'OTHER',
-        categoryLabel: 'Thuế nhà thầu',
-        title: 'Kê khai và nộp thuế Nhà thầu (FCT) khi chi trả dịch vụ nước ngoài (Google, Meta, TikTok...)',
+        category: 'CIT_WITHHOLDING',
+        categoryLabel: 'Thuế nhà thầu (FCT)',
+        title: 'Hoàn thiện chứng từ Thuế nhà thầu (FCT) để hợp thức hóa chi phí quảng cáo / phần mềm quốc tế khi tính thuế TNDN',
         applicabilityStatus: 'POSSIBLE',
         completionStatus: 'PENDING_VERIFICATION',
-        issueSummary: 'Cần xác minh nếu doanh nghiệp có phát sinh thanh toán dịch vụ quảng cáo online cho Meta, Google...',
+        issueSummary: 'Cần xác minh hóa đơn VAT hoặc tờ khai 01/NTNN nếu doanh nghiệp hạch toán chi phí Google, Meta, TikTok, AWS, SaaS nước ngoài.',
         legalDeadline: 'Trong vòng 10 ngày từ ngày thanh toán',
         internalDeadline: 'Trong vòng 3 ngày từ ngày thanh toán',
         riskSeverity: 'MEDIUM',
-        penaltyText: 'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai thuế quá hạn.',
+        penaltyText: 'Bị loại toàn bộ chi phí dịch vụ nước ngoài khỏi chi phí được trừ TNDN và phạt chậm nộp tờ khai FCT từ 2 - 25 triệu đồng.',
         evidenceTotal: 2,
         evidenceUploaded: 0,
         evidenceMissing: 2,
-        description: 'Tổ chức Việt Nam thanh toán cho tổ chức nước ngoài kinh doanh tại Việt Nam hoặc có thu nhập tại Việt Nam mà nhà thầu nước ngoài chưa kê khai trực tiếp thì bên Việt Nam có trách nhiệm khấu trừ và kê khai thuế nhà thầu mẫu 01/NTNN trong thời hạn 10 ngày.',
+        description: 'Để khoản chi mua dịch vụ quảng cáo trực tuyến (Facebook, Google, TikTok) hoặc phần mềm nước ngoài được tính vào chi phí được trừ Thuế TNDN, doanh nghiệp phải có hóa đơn từ nhà cung cấp nước ngoài đã đăng ký thuế tại Việt Nam (ghi đúng MST công ty) hoặc tờ khai khấu trừ thuế nhà thầu mẫu 01/NTNN kèm chứng từ thanh toán không dùng tiền mặt.',
         businessDataSnapshot: {
-          'Chi phí quảng cáo số': 'Chờ đối soát từ sao kê thẻ tín dụng',
-          'Tình trạng kê khai': 'Chưa ghi nhận tờ khai mẫu 01/NTNN',
+          'Khoản mục kiểm tra': 'Chi phí Ads & Phần mềm xuyên biên giới',
+          'Điều kiện được trừ TNDN': 'Hóa đơn hợp pháp / Tờ khai 01/NTNN + Sao kê ngân hàng công ty',
         },
-        legalBasisTitle: 'Thông tư 103/2014/TT-BTC về Thuế Nhà thầu nước ngoài (FCT)',
-        legalArticle: 'Điều 8, Điều 11 Thông tư 103/2014/TT-BTC',
+        legalBasisTitle: 'Thông tư 103/2014/TT-BTC & Điều 4 Thông tư 96/2015/TT-BTC',
+        legalArticle: 'Điều 8, Điều 11 Thông tư 103/2014/TT-BTC; Điều 4 Thông tư 96/2015/TT-BTC',
         legalDocNumber: '103/2014/TT-BTC',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Thong-tu-103-2014-TT-BTC-huong-dan-thuc-hien-nghia-vu-thue-ap-dung-voi-to-chuc-ca-nhan-nuoc-ngoai-kinh-doanh-246944.aspx',
-        suggestedAction: 'Kiểm tra sao kê thẻ tín dụng doanh nghiệp xem có thanh toán cho Google, Facebook, TikTok không.',
-        verificationQuestion: 'Trong quý doanh nghiệp có phát sinh chi phí quảng cáo Facebook, Google, TikTok qua thẻ tín dụng không?',
-      },
-      {
-        id: 'ob-other-4',
-        ruleCode: 'RULE-TAX-POS-FNB',
-        category: 'OTHER',
-        categoryLabel: 'Hóa đơn máy tính tiền',
-        title: 'Phát hành Hóa đơn điện tử khởi tạo từ máy tính tiền (áp dụng bán lẻ & trang sức vàng bạc)',
-        applicabilityStatus: 'APPLICABLE',
-        completionStatus: 'PENDING_VERIFICATION',
-        issueSummary: 'Doanh nghiệp kinh doanh bán lẻ trang sức vàng bạc bắt buộc áp dụng HĐĐT máy tính tiền kết nối CQT.',
-        legalDeadline: 'Ngay khi phát sinh giao dịch bán lẻ',
-        internalDeadline: 'Kiểm tra truyền dữ liệu hàng ngày',
-        riskSeverity: 'HIGH',
-        penaltyText: 'Phạt cảnh cáo hoặc phạt tiền từ 4.000.000đ - 8.000.000đ theo Điều 24 Nghị định 125/2020/NĐ-CP đối với hành vi không lập hóa đơn theo quy định.',
-        evidenceTotal: 2,
-        evidenceUploaded: 1,
-        evidenceMissing: 1,
-        description: 'Doanh nghiệp cung cấp hàng hóa, dịch vụ trực tiếp đến người tiêu dùng (bán lẻ hàng hóa, dịch vụ ăn uống, bán lẻ vàng bạc đá quý) thuộc đối tượng sử dụng hóa đơn điện tử khởi tạo từ máy tính tiền có kết nối chuyển dữ liệu điện tử với cơ quan thuế.',
-        businessDataSnapshot: {
-          'Mô hình hoạt động': industry,
-          'Hình thức bán hàng': 'Bán lẻ trực tiếp đến người tiêu dùng',
-          'Quy định bắt buộc': 'Theo Nghị định 123/2020/NĐ-CP',
-        },
-        legalBasisTitle: 'Nghị định 123/2020/NĐ-CP & Thông tư 78/2021/TT-BTC',
-        legalArticle: 'Điều 11 Nghị định 123/2020/NĐ-CP; Điều 8 Thông tư 78/2021/TT-BTC',
-        legalDocNumber: '123/2020/NĐ-CP',
-        legalDocUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-123-2020-ND-CP-quy-dinh-ve-hoa-don-chung-tu-454508.aspx',
-        suggestedAction: 'Kiểm tra thông báo chấp nhận đăng ký HĐĐT máy tính tiền (mẫu 01/ĐKTĐ-HĐĐT) trên Cổng Tổng cục Thuế.',
-        verificationQuestion: 'Hệ thống máy tính tiền / phần mềm bán hàng đã kết nối truyền dữ liệu HĐĐT trực tiếp đến cơ quan thuế chưa?',
+        legalDocUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/thong-tu-1032014tt-btc-huong-dan-thuc-hien-nghia-vu-thue-ap-dung-doi-voi-to-chuc-ca-nhan-nuoc-ngoai-kinh-doanh-tai-viet-nam-hoac-co-thu-nhap-tai-viet-nam-do-bo-truong-bo-tai-chinh-ban-hanh-243292.html',
+        suggestedAction: 'Kiểm tra tài khoản quảng cáo đã cập nhật Mã số thuế doanh nghiệp chưa và lưu hóa đơn/tờ khai 01/NTNN.',
+        verificationQuestion: 'Trong kỳ doanh nghiệp có đưa chi phí quảng cáo Facebook, Google, TikTok hoặc phần mềm quốc tế vào sổ chi phí TNDN không?',
       },
     ];
-  }, [citSummary, citTierResult, legalDeadlineText, internalDeadlineText, industry, taxQuarter, taxYear]);
+  }, [citSummary, citTierResult, legalDeadlineText, internalDeadlineText, industry, legalType, taxQuarter, taxYear]);
 
   // Bộ lọc danh sách nghĩa vụ
   const filteredObligations = useMemo(() => {
@@ -484,50 +418,50 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
     return [
       {
         id: 'task-cit-pay',
-        title: `Tạm nộp tiền thuế TNDN Quý ${taxQuarter} vào Kho bạc Nhà nước trước hạn`,
+        title: `Tạm nộp tiền thuế TNDN Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter} vào Kho bạc Nhà nước (tiểu mục 1052)`,
         relatedObligationCode: 'RULE-TAX-TNDN-80',
         relatedObligationTitle: 'Tạm nộp thuế TNDN 80% định kỳ 4 quý',
         priority: 'HIGH',
-        assigneeRole: 'Kế toán trưởng / Giám đốc',
+        assigneeRole: 'Kế toán thuế / Giám đốc',
         deadline: legalDeadlineText,
         status: citSummary.estimatedTaxAmount > 0 ? 'TODO' : 'COMPLETED',
-        completionCondition: `Có Giấy nộp tiền vào NSNN tiểu mục 1052 có mã giao dịch eTax hoặc xác nhận của ngân hàng với số tiền tối thiểu ${citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ.`,
+        completionCondition: `Có Giấy nộp tiền vào NSNN tiểu mục 1052 xác nhận trên Cổng eTax với số tiền tối thiểu ${citSummary.statutoryPrepayment80.toLocaleString('vi-VN')} đ.`,
       },
       {
         id: 'task-b4-gather',
-        title: `Bổ sung hóa đơn hợp pháp & ủy nhiệm chi cho ${citSummary.disallowedCount > 0 ? citSummary.disallowedCount : 2} khoản chi bị loại Mục B4`,
+        title: `Bổ sung hóa đơn hợp pháp & chứng từ cho ${citSummary.disallowedCount > 0 ? citSummary.disallowedCount : 0} khoản chi nguy cơ loại Mục B4`,
         relatedObligationCode: 'RULE-TAX-TNDN-B4',
         relatedObligationTitle: 'Rà soát chi phí được trừ khi tính thuế TNDN (Mục B4)',
         priority: citSummary.disallowedCount > 0 ? 'CRITICAL' : 'MEDIUM',
         assigneeRole: 'Kế toán thanh toán',
         deadline: internalDeadlineText,
         status: citSummary.disallowedCount > 0 ? 'WAITING_INPUT' : 'COMPLETED',
-        completionCondition: 'Thu thập đầy đủ hóa đơn điện tử hợp pháp hoặc chứng từ ủy nhiệm chi ngân hàng khớp tên người bán.',
+        completionCondition: 'Thu thập đầy đủ hóa đơn điện tử hợp pháp hoặc đánh dấu loại trừ tại chỉ tiêu B4 trên tờ khai 03/TNDN.',
       },
       {
-        id: 'task-gtgt-declare',
-        title: `Lập bảng kê bán ra - mua vào và nộp tờ khai thuế GTGT Quý ${taxQuarter}`,
-        relatedObligationCode: 'RULE-TAX-GTGT',
-        relatedObligationTitle: 'Kê khai thuế GTGT theo Quý (mẫu 01/GTGT)',
+        id: 'task-cit-cash-check',
+        title: 'Đối soát Ủy nhiệm chi ngân hàng cho toàn bộ khoản chi từ 5 triệu đồng trở lên',
+        relatedObligationCode: 'RULE-CIT-B4-CASH',
+        relatedObligationTitle: 'Điều kiện chuyển khoản không dùng tiền mặt từ 5 triệu đồng',
         priority: 'HIGH',
-        assigneeRole: 'Kế toán thuế',
-        deadline: legalDeadlineText,
-        status: 'IN_PROGRESS',
-        completionCondition: 'Gửi tờ khai 01/GTGT qua hệ thống eTax và nhận Thông báo bước 2 (Chấp nhận hồ sơ khai thuế) từ CQT.',
+        assigneeRole: 'Kế toán thanh toán',
+        deadline: internalDeadlineText,
+        status: citSummary.disallowedCount > 0 ? 'IN_PROGRESS' : 'COMPLETED',
+        completionCondition: '100% hóa đơn mua vào từ 5.000.000 đ trở lên có sao kê/ủy nhiệm chi từ tài khoản ngân hàng công ty.',
       },
       {
-        id: 'task-pos-check',
-        title: 'Kiểm tra truyền nhận dữ liệu hóa đơn điện tử khởi tạo từ máy tính tiền',
-        relatedObligationCode: 'RULE-TAX-POS-FNB',
-        relatedObligationTitle: 'Hóa đơn điện tử máy tính tiền cho bán lẻ vàng bạc',
+        id: 'task-cit-final-prep',
+        title: `Tổng hợp Sổ Thu Chi & chuẩn bị Tờ khai quyết toán thuế TNDN (Mẫu 03/TNDN) năm ${taxYear}`,
+        relatedObligationCode: 'RULE-TAX-TNDN-FINAL',
+        relatedObligationTitle: 'Quyết toán thuế TNDN năm (Mẫu 03/TNDN)',
         priority: 'MEDIUM',
-        assigneeRole: 'Quản lý cửa hàng / IT',
-        deadline: legalDeadlineText,
+        assigneeRole: 'Kế toán trưởng / Đại diện pháp luật',
+        deadline: `31/03/${taxYear + 1}`,
         status: 'REVIEW',
-        completionCondition: 'Thông báo kết quả truyền nhận dữ liệu hóa đơn máy tính tiền với Tổng cục Thuế hiển thị trạng thái Hợp lệ 100%.',
+        completionCondition: 'Nộp Tờ khai 03/TNDN kèm Báo cáo tài chính qua eTax và nhận Thông báo chấp nhận hồ sơ từ Cơ quan Thuế.',
       },
     ];
-  }, [taxQuarter, legalDeadlineText, internalDeadlineText, citSummary]);
+  }, [taxQuarter, taxYear, legalDeadlineText, internalDeadlineText, citSummary]);
 
   // ============================================================================
   // KHU VỰC 4: HỒ SƠ MINH CHỨNG & XÁC MINH (EVIDENCE & VERIFICATION)
@@ -536,50 +470,49 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
     return [
       {
         id: 'ev-1',
-        title: `Bảng kê Doanh thu & Chi phí Quý ${taxQuarter}/${taxYear} (Excel)`,
-        documentType: 'BẢNG KÊ DOANH THU & CHI PHÍ',
+        title: `Bảng kê Doanh thu & Chi phí tính thuế TNDN Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter}/${taxYear} (Excel)`,
+        documentType: 'BẢNG KÊ THU CHI THUẾ TNDN',
         relatedObligationCode: 'RULE-TAX-TNDN-B4',
         relatedObligationTitle: 'Rà soát chi phí được trừ khi tính thuế TNDN',
-        verificationStatus: 'VERIFIED',
-        fileName: `Bang_Ke_Thu_Chi_Q${taxQuarter}_${taxYear}.xlsx`,
-        updatedAt: '23/11/2026',
-        guidanceNote: 'Đã bóc tách tự động và tính toán thuế suất theo đúng quy định Luật Thuế TNDN.',
+        verificationStatus: citSummary.revenueCount > 0 || citSummary.expenseCount > 0 ? 'VERIFIED' : 'PENDING',
+        fileName: `Bang_Ke_TNDN_Q${taxQuarter}_${taxYear}.xlsx`,
+        guidanceNote: 'Dữ liệu sổ thu chi dùng để tự động bóc tách chỉ tiêu B4 và tính thuế suất TNDN áp dụng.',
       },
       {
         id: 'ev-2',
-        title: `Giấy nộp tiền thuế TNDN tạm nộp Quý ${taxQuarter}/${taxYear}`,
+        title: `Giấy nộp tiền thuế TNDN tạm nộp (Tiểu mục 1052) Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter}/${taxYear}`,
         documentType: 'GIẤY NỘP TIỀN VÀO NSNN',
         relatedObligationCode: 'RULE-TAX-TNDN-80',
         relatedObligationTitle: 'Tạm nộp thuế TNDN 80% định kỳ 4 quý',
         verificationStatus: citSummary.estimatedTaxAmount > 0 ? 'MISSING' : 'VERIFIED',
-        guidanceNote: 'Chưa có chứng từ không đồng nghĩa với vi phạm. Doanh nghiệp cần tải lên giấy nộp tiền eTax sau khi hoàn thành giao dịch.',
+        guidanceNote: 'Chưa có chứng từ không đồng nghĩa với vi phạm. Doanh nghiệp tải lên giấy nộp tiền eTax sau khi nộp vào NSNN.',
       },
       {
         id: 'ev-3',
-        title: `Tờ khai thuế GTGT mẫu 01/GTGT Quý ${taxQuarter}/${taxYear}`,
-        documentType: 'TỜ KHAI THUẾ GTGT',
-        relatedObligationCode: 'RULE-TAX-GTGT',
-        relatedObligationTitle: 'Kê khai thuế GTGT theo Quý (mẫu 01/GTGT)',
+        title: `Tờ khai quyết toán thuế TNDN mẫu 03/TNDN năm ${taxYear}`,
+        documentType: 'TỜ KHAI QUYẾT TOÁN 03/TNDN',
+        relatedObligationCode: 'RULE-TAX-TNDN-FINAL',
+        relatedObligationTitle: 'Quyết toán thuế TNDN năm (Mẫu 03/TNDN)',
         verificationStatus: 'PENDING',
-        guidanceNote: 'Hồ sơ đang chờ nộp qua Cổng Thuế Điện Tử để lấy thông báo chấp nhận của cơ quan thuế.',
+        guidanceNote: 'Hồ sơ quyết toán nộp chậm nhất ngày 31/03 năm tiếp theo qua Cổng Thuế Điện Tử.',
       },
       {
         id: 'ev-4',
-        title: 'Ủy nhiệm chi ngân hàng cho các hóa đơn mua vào từ 20 triệu đồng',
+        title: 'Ủy nhiệm chi ngân hàng công ty cho các khoản chi từ 5 triệu đồng trở lên',
         documentType: 'CHỨNG TỪ THANH TOÁN NGÂN HÀNG',
-        relatedObligationCode: 'RULE-TAX-GTGT-BANK',
-        relatedObligationTitle: 'Điều kiện thanh toán không dùng tiền mặt',
+        relatedObligationCode: 'RULE-CIT-B4-CASH',
+        relatedObligationTitle: 'Điều kiện thanh toán không dùng tiền mặt TNDN',
         verificationStatus: citSummary.disallowedCount > 0 ? 'MISSING' : 'VERIFIED',
-        guidanceNote: 'Hệ thống chưa ghi nhận ủy nhiệm chi không đồng nghĩa doanh nghiệp chưa thanh toán. Vui lòng bổ sung sao kê để xác nhận hoàn thành.',
+        guidanceNote: 'Bổ sung sao kê / ủy nhiệm chi ngân hàng đứng tên doanh nghiệp để bảo vệ chi phí được trừ.',
       },
       {
         id: 'ev-5',
-        title: 'Thông báo chấp nhận đăng ký HĐĐT máy tính tiền (Mẫu 01/ĐKTĐ-HĐĐT)',
-        documentType: 'THÔNG BÁO TIẾP NHẬN CQT',
-        relatedObligationCode: 'RULE-TAX-POS-FNB',
-        relatedObligationTitle: 'Hóa đơn điện tử máy tính tiền',
-        verificationStatus: 'NOT_AVAILABLE',
-        guidanceNote: 'Doanh nghiệp bán lẻ vàng bạc cần kiểm tra mẫu 01/ĐKTĐ-HĐĐT với cơ quan thuế quản lý trực tiếp.',
+        title: 'Bảng lương, chấm công & chứng từ khấu trừ bảo vệ chi phí nhân công TNDN',
+        documentType: 'HỒ SƠ CHI PHÍ NHÂN CÔNG',
+        relatedObligationCode: 'RULE-CIT-B4-SALARY',
+        relatedObligationTitle: 'Hồ sơ chi phí tiền lương được trừ TNDN',
+        verificationStatus: 'PENDING',
+        guidanceNote: 'Đảm bảo lưu đủ hợp đồng, quy chế thưởng và tách riêng lương chủ Công ty TNHH 1TV vào Mục B4.',
       },
     ];
   }, [taxQuarter, taxYear, citSummary]);
@@ -590,34 +523,14 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
   const legalReferences: LegalReferenceDocItem[] = useMemo(() => {
     return [
       {
-        id: 'law-gtgt-1',
-        docTitle: 'Luật Quản lý thuế số 38/2019/QH14',
-        docNumber: '38/2019/QH14',
-        articles: 'Điều 44 - Thời hạn nộp hồ sơ khai thuế',
+        id: 'law-cit-2025',
+        docTitle: 'Luật Thuế thu nhập doanh nghiệp số 67/2025/QH15',
+        docNumber: '67/2025/QH15',
+        articles: 'Điều 9 (Chi phí được trừ & ngưỡng 5 triệu); Điều 10 (Thuế suất 15%, 17%, 20%)',
         validity: 'Đang có hiệu lực',
-        relatedObligationCode: 'RULE-TAX-GTGT',
-        relatedObligationTitle: 'Thời hạn nộp tờ khai thuế theo quý',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Luat-Quan-ly-thue-2019-so-38-2019-QH14-417109.aspx',
-      },
-      {
-        id: 'law-gtgt-2',
-        docTitle: 'Nghị định 126/2020/NĐ-CP hướng dẫn Luật Quản lý thuế',
-        docNumber: '126/2020/NĐ-CP',
-        articles: 'Điều 8, Điều 9 - Tiêu chí khai thuế GTGT theo quý',
-        validity: 'Đang có hiệu lực',
-        relatedObligationCode: 'RULE-TAX-GTGT',
-        relatedObligationTitle: 'Kê khai thuế GTGT theo Quý (mẫu 01/GTGT)',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-126-2020-ND-CP-huong-dan-Luat-Quan-ly-thue-455243.aspx',
-      },
-      {
-        id: 'law-gtgt-3',
-        docTitle: 'Thông tư 219/2013/TT-BTC & Thông tư 173/2016/TT-BTC',
-        docNumber: '219/2013/TT-BTC',
-        articles: 'Điều 15 - Điều kiện khấu trừ thuế GTGT đầu vào hóa đơn từ 20 triệu',
-        validity: 'Đang có hiệu lực',
-        relatedObligationCode: 'RULE-TAX-GTGT-BANK',
-        relatedObligationTitle: 'Chứng từ thanh toán không dùng tiền mặt',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Thong-tu-219-2013-TT-BTC-huong-dan-Luat-thue-gia-tri-gia-tang-va-Nghi-dinh-209-2013-ND-CP-216960.aspx',
+        relatedObligationCode: 'RULE-CIT-B4-CASH',
+        relatedObligationTitle: 'Thuế suất TNDN & điều kiện chi phí được trừ',
+        officialUrl: 'https://dulieuphapluat.vn/van-ban/tim-kiem.html?q=67%2F2025%2FQH15',
       },
       {
         id: 'law-tndn-1',
@@ -627,50 +540,69 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         validity: 'Đang có hiệu lực',
         relatedObligationCode: 'RULE-TAX-TNDN-80',
         relatedObligationTitle: 'Tạm nộp thuế TNDN 80% định kỳ 4 quý',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-91-2022-ND-CP-sua-doi-Nghi-dinh-126-2020-ND-CP-huong-dan-Luat-Quan-ly-thue-537464.aspx',
+        officialUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-912022nd-cp-cua-chinh-phu-ve-viec-sua-doi-bo-sung-mot-so-dieu-cua-nghi-dinh-1262020nd-cp-ngay-19102020-cua-chinh-phu-quy-dinh-chi-tiet-mot-so-dieu-cua-luat-quan-ly-thue-1098434.html',
       },
       {
         id: 'law-tndn-2',
-        docTitle: 'Thông tư 96/2015/TT-BTC về Thuế Thu Nhập Doanh Nghiệp',
+        docTitle: 'Thông tư 96/2015/TT-BTC hướng dẫn về Thuế Thu Nhập Doanh Nghiệp',
         docNumber: '96/2015/TT-BTC',
         articles: 'Điều 4 - Các khoản chi được trừ và không được trừ (Mục B4)',
         validity: 'Đang có hiệu lực',
         relatedObligationCode: 'RULE-TAX-TNDN-B4',
         relatedObligationTitle: 'Rà soát chi phí được trừ khi tính thuế TNDN',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Thong-tu-96-2015-TT-BTC-huong-dan-ve-thue-thu-nhap-doanh-nghiep-280456.aspx',
+        officialUrl: 'https://dulieuphapluat.vn/van-ban/linh-vuc-khac-van-ban/thong-tu-962015tt-btc-huong-dan-ve-thue-thu-nhap-doanh-nghiep-tai-nghi-dinh-122015nd-cp-quy-dinh-chi-tiet-thi-hanh-luat-sua-doi-bo-sung-mot-so-dieu-cua-cac-luat-ve-thue-va-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-782014tt-btc-thong-tu-1192014tt-btc-thong-tu-1512014tt-btc-do-bo-truong-bo-tai-chinh-ban-hanh-285496.html',
+      },
+      {
+        id: 'law-qlt-1',
+        docTitle: 'Luật Quản lý thuế số 38/2019/QH14',
+        docNumber: '38/2019/QH14',
+        articles: 'Điều 44 - Thời hạn nộp hồ sơ quyết toán thuế TNDN năm (31/03)',
+        validity: 'Đang có hiệu lực',
+        relatedObligationCode: 'RULE-TAX-TNDN-FINAL',
+        relatedObligationTitle: 'Quyết toán thuế TNDN năm (Mẫu 03/TNDN)',
+        officialUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/luat-quan-ly-thue-2019-54279.html',
+      },
+      {
+        id: 'law-fct-1',
+        docTitle: 'Thông tư 103/2014/TT-BTC về Thuế Nhà thầu nước ngoài (FCT)',
+        docNumber: '103/2014/TT-BTC',
+        articles: 'Điều 8, Điều 11 - Chứng từ thuế nhà thầu bảo vệ chi phí dịch vụ nước ngoài',
+        validity: 'Đang có hiệu lực',
+        relatedObligationCode: 'RULE-TAX-FCT-10D',
+        relatedObligationTitle: 'Chứng từ FCT cho chi phí Ads & phần mềm quốc tế',
+        officialUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/thong-tu-1032014tt-btc-huong-dan-thuc-hien-nghia-vu-thue-ap-dung-doi-voi-to-chuc-ca-nhan-nuoc-ngoai-kinh-doanh-tai-viet-nam-hoac-co-thu-nhap-tai-viet-nam-do-bo-truong-bo-tai-chinh-ban-hanh-243292.html',
       },
       {
         id: 'law-penal-1',
         docTitle: 'Nghị định 125/2020/NĐ-CP về xử phạt vi phạm hành chính thuế, hóa đơn',
         docNumber: '125/2020/NĐ-CP',
-        articles: 'Điều 13 (Chậm nộp tờ khai); Điều 16 (Khai sai thuế); Điều 24 (Hóa đơn)',
+        articles: 'Điều 13 (Chậm nộp quyết toán); Điều 16 (Phạt 20% khai sai thuế TNDN)',
         validity: 'Đang có hiệu lực',
-        relatedObligationCode: 'RULE-TAX-GTGT',
-        relatedObligationTitle: 'Khung chế tài xử phạt hành chính thuế',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-125-2020-ND-CP-xu-phat-vi-pham-hanh-chinh-thue-hoa-don-455242.aspx',
-      },
-      {
-        id: 'law-pos-1',
-        docTitle: 'Nghị định 123/2020/NĐ-CP về Hóa đơn, Chứng từ',
-        docNumber: '123/2020/NĐ-CP',
-        articles: 'Điều 11 - Hóa đơn điện tử khởi tạo từ máy tính tiền',
-        validity: 'Đang có hiệu lực',
-        relatedObligationCode: 'RULE-TAX-POS-FNB',
-        relatedObligationTitle: 'Hóa đơn điện tử máy tính tiền bán lẻ',
-        officialUrl: 'https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Nghi-dinh-123-2020-ND-CP-quy-dinh-ve-hoa-don-chung-tu-454508.aspx',
+        relatedObligationCode: 'RULE-TAX-TNDN-B4',
+        relatedObligationTitle: 'Khung chế tài xử phạt hành chính thuế TNDN',
+        officialUrl: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/nghi-dinh-1252020nd-cp-quy-dinh-ve-xu-phat-vi-pham-hanh-chinh-ve-thue-hoa-don-24591.html',
       },
     ];
   }, []);
 
-  // Xử lý tạo task từ obligation
+  // Xử lý tạo task từ obligation chuẩn hóa đúng DTO Backend
   const handleCreateTaskFromObligation = async (ob: ComplianceObligationItem) => {
     try {
+      let parsedDueDateIso = new Date(Date.now() + 14 * 86400000).toISOString();
+      const dmYMatch = ob.legalDeadline.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (dmYMatch) {
+        const [, dd, mm, yyyy] = dmYMatch;
+        parsedDueDateIso = new Date(Number(yyyy), Number(mm) - 1, Number(dd), 23, 59, 59).toISOString();
+      }
+
       await createTask({
         title: `Hoàn tất tuân thủ: ${ob.title}`,
-        category: 'compliance',
-        priority: ob.riskSeverity === 'HIGH' ? 'HIGH' : 'MEDIUM',
-        dueDate: ob.legalDeadline,
-        notes: `Tác vụ điều phối sinh tự động từ Báo cáo rà soát tuân thủ CELRA.\nCăn cứ pháp lý: ${ob.legalBasisTitle} (${ob.legalArticle}).\nHành động đề xuất: ${ob.suggestedAction}`,
+        category: 'Thuế TNDN',
+        priority: ob.riskSeverity === 'HIGH' ? 'high' : 'medium',
+        dueDate: parsedDueDateIso,
+        ruleCode: ob.ruleCode,
+        legalBasis: `${ob.legalBasisTitle} (${ob.legalArticle})`,
+        description: `Tác vụ điều phối sinh tự động từ Báo cáo rà soát Thuế TNDN CELRA.\nCăn cứ pháp lý: ${ob.legalBasisTitle} (${ob.legalArticle}).\nHành động đề xuất: ${ob.suggestedAction}`,
       });
       Modal.success({
         title: 'Tạo Tác Vụ Điều Phối Thành Công',
@@ -678,7 +610,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         okText: 'Đã hiểu',
       });
       if (fetchTasks) fetchTasks();
-    } catch (err: any) {
+    } catch {
       Modal.info({
         title: 'Đã ghi nhận yêu cầu điều phối',
         content: `Nhiệm vụ "${ob.title}" đã được lưu vào hệ thống điều phối tuân thủ của doanh nghiệp.`,
@@ -934,7 +866,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             </p>
           </div>
 
-          {/* Bộ lọc nhóm thuế */}
+          {/* Bộ lọc nhóm nghĩa vụ Thuế TNDN */}
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl self-start sm:self-auto overflow-x-auto">
             <button
               type="button"
@@ -949,36 +881,36 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             </button>
             <button
               type="button"
-              onClick={() => setSelectedTaxFilter('GTGT')}
+              onClick={() => setSelectedTaxFilter('CIT_FILING')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                selectedTaxFilter === 'GTGT'
+                selectedTaxFilter === 'CIT_FILING'
                   ? 'bg-white text-blue-700 shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Thuế GTGT ({obligations.filter((o) => o.category === 'GTGT').length})
+              Kê khai &amp; Tạm nộp ({obligations.filter((o) => o.category === 'CIT_FILING').length})
             </button>
             <button
               type="button"
-              onClick={() => setSelectedTaxFilter('TNDN')}
+              onClick={() => setSelectedTaxFilter('CIT_B4_EXPENSE')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                selectedTaxFilter === 'TNDN'
+                selectedTaxFilter === 'CIT_B4_EXPENSE'
                   ? 'bg-white text-blue-700 shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Thuế TNDN ({obligations.filter((o) => o.category === 'TNDN').length})
+              Chi phí &amp; Mục B4 ({obligations.filter((o) => o.category === 'CIT_B4_EXPENSE').length})
             </button>
             <button
               type="button"
-              onClick={() => setSelectedTaxFilter('OTHER')}
+              onClick={() => setSelectedTaxFilter('CIT_WITHHOLDING')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                selectedTaxFilter === 'OTHER'
+                selectedTaxFilter === 'CIT_WITHHOLDING'
                   ? 'bg-white text-blue-700 shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Khác ({obligations.filter((o) => o.category === 'OTHER').length})
+              Lương &amp; Nhà thầu ({obligations.filter((o) => o.category === 'CIT_WITHHOLDING').length})
             </button>
           </div>
         </div>
@@ -1176,7 +1108,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             size="middle"
             icon={<UploadCloud className="w-4 h-4 mr-1 text-slate-600 inline" />}
             onClick={() => {
-              setUploadTargetObligation('RULE-TAX-GTGT');
+              setUploadTargetObligation('RULE-TAX-TNDN-80');
               setUploadModalVisible(true);
             }}
             className="rounded-xl text-xs font-semibold border-slate-300 text-slate-700 hover:border-indigo-500 hover:text-indigo-600"

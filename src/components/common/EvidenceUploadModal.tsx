@@ -82,8 +82,8 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
         layout="vertical"
         onFinish={handleSubmit}
         initialValues={{
-          documentType: 'LEGAL_LICENSE',
-          tag: 'Pháp lý & Giấy phép',
+          documentType: 'TAX_DECLARATION',
+          tag: 'Thuế TNDN',
           quarter: 'Cả năm',
           year: currentYear,
         }}
@@ -91,7 +91,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
         <Alert
           type="info"
           showIcon
-          message="Hồ sơ / chứng từ tải lên sẽ được hệ thống lưu lại vào kho Bằng Chứng và cập nhật vào Context Doanh Nghiệp để hỗ trợ rà soát tuân thủ."
+          message="Hồ sơ / chứng từ tải lên sẽ được hệ thống lưu lại vào kho Bằng Chứng và cập nhật vào Context Thuế TNDN để hỗ trợ đối soát chi phí & quyết toán."
           style={{ marginBottom: 16 }}
         />
         
@@ -100,7 +100,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
           label="Tên tài liệu / Tiêu đề chứng từ"
           rules={[{ required: true, message: 'Vui lòng nhập tên tài liệu' }]}
         >
-          <Input placeholder="Ví dụ: Bảng kê thu chi Quý 1/2026, Giấy phép ĐKKD, Hợp đồng lao động..." />
+          <Input placeholder="Ví dụ: Bảng kê thu chi Quý 4/2026, Giấy nộp tiền thuế TNDN (1052), Ủy nhiệm chi..." />
         </Form.Item>
 
         <Row gutter={16}>
@@ -112,12 +112,12 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
             >
               <Select
                 options={[
-                  { label: 'Tờ khai thuế / BCTC', value: 'TAX_DECLARATION' },
-                  { label: 'Hóa đơn / Bảng kê chi phí', value: 'INVOICE_VOUCHER' },
-                  { label: 'Giấy phép pháp lý / ĐKKD', value: 'LEGAL_LICENSE' },
-                  { label: 'Hợp đồng lao động & Nhân sự', value: 'LABOR_CONTRACT' },
-                  { label: 'Chứng nhận PCCC / An toàn', value: 'SAFETY_CERTIFICATE' },
-                  { label: 'Tài liệu khác', value: 'OTHER' },
+                  { label: 'Tờ khai quyết toán 03/TNDN & BCTC', value: 'TAX_DECLARATION' },
+                  { label: 'Giấy nộp tiền NSNN (Tiểu mục 1052)', value: 'STATE_TREASURY_RECEIPT' },
+                  { label: 'Hóa đơn & Bảng kê chi phí B4', value: 'INVOICE_VOUCHER' },
+                  { label: 'Ủy nhiệm chi / Sao kê ngân hàng', value: 'BANK_PAYMENT_ORDER' },
+                  { label: 'Hồ sơ pháp lý & ĐKKD', value: 'LEGAL_LICENSE' },
+                  { label: 'Chứng từ giải trình khác', value: 'OTHER' },
                 ]}
               />
             </Form.Item>
@@ -132,12 +132,12 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
                 options={[
                   { label: 'Bảng kê thu - chi', value: 'Bảng kê thu - chi' },
                   { label: 'Thuế TNDN', value: 'Thuế TNDN' },
-                  { label: 'Thuế GTGT', value: 'Thuế GTGT' },
-                  { label: 'Hóa đơn chứng từ', value: 'Hóa đơn chứng từ' },
-                  { label: 'Lao động & BHXH', value: 'Lao động & BHXH' },
-                  { label: 'Pháp lý & Giấy phép', value: 'Pháp lý & Giấy phép' },
-                  { label: 'PCCC & An toàn', value: 'PCCC & An toàn' },
-                  { label: 'Hợp đồng kinh tế', value: 'Hợp đồng kinh tế' },
+                  { label: 'Tạm nộp 80% (1052)', value: 'Tạm nộp 80% (1052)' },
+                  { label: 'Quyết toán 03/TNDN', value: 'Quyết toán 03/TNDN' },
+                  { label: 'Chi phí & Mục B4', value: 'Chi phí & Mục B4' },
+                  { label: 'Hóa đơn & Ủy nhiệm chi', value: 'Hóa đơn & Ủy nhiệm chi' },
+                  { label: 'Thuế nhà thầu (FCT)', value: 'Thuế nhà thầu (FCT)' },
+                  { label: 'Hồ sơ pháp lý', value: 'Hồ sơ pháp lý' },
                   { label: 'Khác', value: 'Khác' },
                 ]}
               />

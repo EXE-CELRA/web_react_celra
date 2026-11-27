@@ -59,23 +59,14 @@ export const FinancialAndLaborSection: React.FC<FinancialAndLaborSectionProps> =
     hasRelatedParty: baseProfile.hasRelatedParty,
   });
 
-  const citeUnder10 = getRuleCitation('RULE-LABOR-UNDER10', 0, {
-    title: 'Bộ luật Lao động 2019',
-    url: 'https://dulieuphapluat.vn/van-ban/lao-dong-van-ban/bo-luat-lao-dong-2019-45716.html',
+  const citeCitSalaryRule = getRuleCitation('RULE-TAX-TNDN-80', 0, {
+    title: 'Thông tư 96/2015/TT-BTC (Điều kiện chi phí tiền lương được trừ TNDN)',
+    url: 'https://dulieuphapluat.vn/van-ban/linh-vuc-khac-van-ban/thong-tu-962015tt-btc-huong-dan-ve-thue-thu-nhap-doanh-nghiep-tai-nghi-dinh-122015nd-cp-quy-dinh-chi-tiet-thi-hanh-luat-sua-doi-bo-sung-mot-so-dieu-cua-cac-luat-ve-thue-va-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-782014tt-btc-thong-tu-1192014tt-btc-thong-tu-1512014tt-btc-do-bo-truong-bo-tai-chinh-ban-hanh-285496.html',
   });
-  const cite10To50Law = getRuleCitation('RULE-LABOR-10TO50', 0, {
-    title: 'Bộ luật Lao động 2019',
-    url: 'https://dulieuphapluat.vn/van-ban/lao-dong-van-ban/bo-luat-lao-dong-2019-45716.html',
-  });
-  const cite10To50Penalty = getRuleCitation('RULE-LABOR-10TO50', 1, {
-    title: 'Nghị định 283/2026/NĐ-CP (Xử phạt lao động mới)',
-    url: 'https://dulieuphapluat.vn/van-ban/bao-hiem-van-ban/nghi-dinh-2832026nd-cp-quy-dinh-xu-phat-vi-pham-hanh-chinh-trong-linh-vuc-lao-dong-bao-hiem-xa-hoi-nguoi-lao-dong-viet-nam-di-lam-viec-o-nuoc-ngoai-theo-hop-dong-1426549.html',
-    label: 'NĐ 283/2026',
-  });
-  const citeOver50Safety = getRuleCitation('RULE-LABOR-OVER50', 0, {
-    title: 'Luật An toàn, vệ sinh lao động 2015',
-    url: 'https://dulieuphapluat.vn/van-ban/lao-dong-van-ban/luat-an-toan-ve-sinh-lao-dong-2015-285199.html',
-  });
+  const citeWithholdingRule = {
+    title: 'Thông tư 111/2013/TT-BTC (Chứng từ khấu trừ bảo vệ chi phí nhân công)',
+    url: 'https://dulieuphapluat.vn/van-ban/thue-phi-le-phi-van-ban/thong-tu-1112013tt-btc-huong-dan-luat-thue-thu-nhap-ca-nhan-va-nghi-dinh-652013nd-cp-do-bo-truong-bo-tai-chinh-ban-hanh-334800.html',
+  };
 
   return (
     <>
@@ -330,29 +321,28 @@ export const FinancialAndLaborSection: React.FC<FinancialAndLaborSectionProps> =
             <div className="p-4 rounded-xl border border-teal-500 bg-teal-50/70 text-xs shadow-sm transition-all">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-slate-900 text-sm">
-                  Quy mô: Dưới 10 nhân viên ({baseProfile.employeeCount || 0} người)
+                  Quy mô siêu nhỏ: Dưới 10 nhân sự ({baseProfile.employeeCount || 0} người)
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-teal-200 text-teal-900 font-bold">
-                  MIỄN THỦ TỤC VĂN BẢN
+                  CHI PHÍ LƯƠNG TNDN GỌN NHẸ
                 </span>
               </div>
               <span className="text-[11px] text-slate-600 font-normal block mb-2">
-                Quy mô vi mô, chưa bắt buộc đăng ký NQLĐ bằng văn bản
+                Phân loại doanh nghiệp siêu nhỏ xét ưu đãi TNDN &amp; kiểm soát chi phí tiền lương được trừ
               </span>
               <div className="p-2 rounded bg-white/80 border border-slate-200 text-[10px] text-slate-600 mb-2 italic leading-relaxed">
-                "Người sử dụng lao động phải ban hành NQLĐ, nếu sử dụng từ 10 người lao động trở lên
-                thì NQLĐ phải bằng văn bản."
+                "Lưu ý Thuế TNDN: Tiền lương, tiền công trả cho Chủ sở hữu Công ty TNHH 1TV (do cá nhân làm chủ) không được trừ khi tính thuế TNDN (bắt buộc bóc tách vào Mục B4 theo Khoản 2.6 Điều 4 TT 96/2015/TT-BTC)."
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <a
-                  href={citeUnder10.url}
+                  href={citeCitSalaryRule.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 hover:text-teal-900 hover:underline"
-                  title={`Xem Điều 218 ${citeUnder10.title}: Miễn, giảm thủ tục đối với trường hợp sử dụng dưới 10 lao động trên Dữ Liệu Pháp Luật (DLPL)`}
+                  title={citeCitSalaryRule.title}
                 >
                   <Scale className="w-3 h-3 text-teal-600" />
-                  <span>Điều 218 BLLĐ 2019 (Miễn thủ tục dưới 10 người)</span>
+                  <span>Điều 4 Thông tư 96/2015/TT-BTC (Điều kiện chi phí lương được trừ TNDN)</span>
                   <ExternalLink className="w-2.5 h-2.5 text-teal-600" />
                 </a>
               </div>
@@ -363,39 +353,38 @@ export const FinancialAndLaborSection: React.FC<FinancialAndLaborSectionProps> =
             <div className="p-4 rounded-xl border border-amber-500 bg-amber-50/80 text-xs shadow-sm transition-all">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                  Quy mô: Từ 10 đến 50 nhân viên ({baseProfile.employeeCount} người)
+                  Quy mô nhỏ: Từ 10 đến 50 nhân sự ({baseProfile.employeeCount} người)
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold font-mono">
-                  CỜ BẮT BUỘC
+                  RÀ SOÁT CHI PHÍ LƯƠNG B4
                 </span>
               </div>
               <span className="text-[11px] text-amber-900 font-medium block mb-2">
-                Kích hoạt cờ: Bắt buộc ban hành NQLĐ bằng văn bản &amp; Đăng ký trong vòng 10 ngày
+                Cần lưu trữ đầy đủ hợp đồng, bảng chấm công, quy chế thưởng &amp; chứng từ chi lương qua ngân hàng
               </span>
               <div className="p-2 rounded bg-amber-100/70 border border-amber-200 text-[10px] text-amber-900 mb-2 italic leading-relaxed">
-                "Khoản 1 Điều 119 BLLĐ 2019: Sử dụng từ 10 người lao động trở lên phải đăng ký NQLĐ
-                tại cơ quan chuyên môn về lao động cấp tỉnh."
+                "Khoản 2.6 Điều 4 TT 96/2015/TT-BTC: Chi tiền lương, tiền thưởng cho người lao động không ghi cụ thể điều kiện hưởng và mức hưởng tại Hợp đồng hoặc Quy chế tài chính sẽ bị loại khỏi chi phí được trừ khi quyết toán thuế TNDN."
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <a
-                  href={cite10To50Law.url}
+                  href={citeCitSalaryRule.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 hover:text-amber-950 hover:underline"
-                  title={`Mở trực tiếp toàn văn ${cite10To50Law.title} trên Dữ Liệu Pháp Luật (DLPL)`}
+                  title={citeCitSalaryRule.title}
                 >
                   <Scale className="w-3 h-3 text-amber-600" />
-                  <span>Văn bản gốc: Khoản 1 Điều 119 BLLĐ 2019</span>
+                  <span>Văn bản gốc: Điều 4 Thông tư 96/2015/TT-BTC</span>
                   <ExternalLink className="w-2.5 h-2.5 text-amber-600" />
                 </a>
                 <a
-                  href={cite10To50Penalty.url}
+                  href={citeWithholdingRule.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-800 hover:text-amber-950 hover:underline"
-                  title={`Xem chế tài xử phạt mới nhất tại ${cite10To50Penalty.title} trên DLPL`}
+                  title={citeWithholdingRule.title}
                 >
-                  <span>• Chế tài phạt: NĐ 283/2026</span>
+                  <span>• Khấu trừ 10% vãng lai: Điều 25 TT 111/2013/TT-BTC</span>
                   <ExternalLink className="w-2.5 h-2.5 text-amber-600" />
                 </a>
               </div>
@@ -406,29 +395,28 @@ export const FinancialAndLaborSection: React.FC<FinancialAndLaborSectionProps> =
             <div className="p-4 rounded-xl border border-amber-500 bg-amber-50/80 text-xs shadow-sm transition-all">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                  Quy mô: Trên 50 nhân viên ({baseProfile.employeeCount} người)
+                  Quy mô vừa &amp; lớn: Trên 50 nhân sự ({baseProfile.employeeCount} người)
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold font-mono">
-                  CỜ BẮT BUỘC
+                  TRỌNG YẾU QUYẾT TOÁN TNDN
                 </span>
               </div>
               <span className="text-[11px] text-amber-900 font-medium block mb-2">
-                Kích hoạt cờ: Cần NQLĐ, Cán bộ/Ban ATVSLĐ chuyên trách &amp; Đối thoại định kỳ
+                Kiểm soát chặt quỹ lương thực chi trước hạn nộp hồ sơ quyết toán thuế TNDN năm (31/03)
               </span>
               <div className="p-2 rounded bg-amber-100/70 border border-amber-200 text-[10px] text-amber-900 mb-2 italic leading-relaxed">
-                "Khoản 1 Điều 72 Luật ATVSLĐ 2015: Sử dụng từ 50 người lao động trở lên phải bố trí
-                người làm công tác ATVSLĐ chuyên trách hoặc thành lập bộ phận ATVSLĐ."
+                "Khoản 2.6 Điều 4 TT 96/2015/TT-BTC: Các khoản tiền lương, tiền công đã hạch toán vào chi phí trong kỳ nhưng hết thời hạn nộp hồ sơ quyết toán thuế TNDN năm thực tế chưa chi trả (hoặc trích quỹ dự phòng vượt 17%) sẽ bị loại trừ tại Mục B4."
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <a
-                  href={citeOver50Safety.url}
+                  href={citeCitSalaryRule.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 hover:text-amber-950 hover:underline"
-                  title={`Mở trực tiếp toàn văn ${citeOver50Safety.title} trên Dữ Liệu Pháp Luật (DLPL)`}
+                  title={citeCitSalaryRule.title}
                 >
                   <Scale className="w-3 h-3 text-amber-600" />
-                  <span>Văn bản gốc: Khoản 1 Điều 72 Luật ATVSLĐ 2015</span>
+                  <span>Văn bản gốc: Khoản 2.6 Điều 4 Thông tư 96/2015/TT-BTC</span>
                   <ExternalLink className="w-2.5 h-2.5 text-amber-600" />
                 </a>
               </div>

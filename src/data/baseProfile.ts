@@ -106,99 +106,27 @@ export const INDUSTRY_TAGS: TagMeta<IndustryTag>[] = [
 ];
 
 /**
- * 📦 METADATA CÁC MODULE TUÂN THỦ PHÁP LÝ CELRA
+ * 📦 METADATA PHÂN HỆ TUÂN THỦ THUẾ TNDN CELRA
  */
 export const COMPLIANCE_MODULES: Record<ComplianceModuleId, ComplianceModuleMeta> = {
   MODULE_TAX_CORE: {
     id: 'MODULE_TAX_CORE',
-    name: 'Tuân thủ Thuế Doanh Nghiệp',
-    badge: 'MVP Sẵn sàng',
+    name: 'Tuân thủ Thuế Thu Nhập Doanh Nghiệp (TNDN)',
+    badge: 'Trọng tâm',
     status: 'ACTIVE',
-    statusLabel: 'Đang kích hoạt (MVP)',
-    description: 'Kê khai thuế GTGT, TNDN, TNCN, Thuế môn bài & Lịch nghĩa vụ thuế định kỳ đủ các đợt',
+    statusLabel: 'Đang kích hoạt',
+    description: 'Sàng lọc thuế suất TNDN (15%/17%/20%), Tạm nộp 4 quý tối thiểu 80%, Quyết toán Mẫu 03/TNDN & Lịch nghĩa vụ thuế TNDN',
     iconName: 'Receipt'
   },
   MODULE_INVOICE_CASHFLOW: {
     id: 'MODULE_INVOICE_CASHFLOW',
-    name: 'Hóa Đơn & Dòng Tiền Thực Tế',
-    badge: 'MVP Sẵn sàng',
+    name: 'Hóa Đơn & Chi Phí Được Trừ (Mục B4)',
+    badge: 'Trọng tâm',
     status: 'ACTIVE',
-    statusLabel: 'Đang kích hoạt (MVP)',
-    description: 'Hóa đơn máy tính tiền POS, Doanh thu sàn TMĐT, Đối soát tiền mặt và sao kê ngân hàng',
+    statusLabel: 'Đang kích hoạt',
+    description: 'Kiểm soát hóa đơn hợp pháp, điều kiện chuyển khoản từ 5 triệu đồng và bóc tách chi phí không được trừ tại Mục B4',
     iconName: 'Coins'
   },
-  MODULE_LABOR_HR: {
-    id: 'MODULE_LABOR_HR',
-    name: 'Lao Động, Tiền Lương & BHXH',
-    badge: 'Giai đoạn 2',
-    status: 'ROADMAP_PHASE_2',
-    statusLabel: 'Lộ trình Giai đoạn 2',
-    description: 'Hợp đồng lao động, Thang bảng lương, Đóng BHXH bắt buộc, Đăng ký Nội quy lao động',
-    iconName: 'Users'
-  },
-  MODULE_LICENSING_ATTP: {
-    id: 'MODULE_LICENSING_ATTP',
-    name: 'An Toàn Thực Phẩm & Giấy Phép Con',
-    badge: 'Giai đoạn 3',
-    status: 'ROADMAP_PHASE_3',
-    statusLabel: 'Lộ trình Giai đoạn 3',
-    description: 'Chứng nhận ATTP, PCCC cơ sở, Khám sức khỏe thẻ xanh, Kiểm thực 3 bước & Lưu mẫu',
-    iconName: 'ShieldAlert'
-  },
-  MODULE_ECOM_DATA_PRIVACY: {
-    id: 'MODULE_ECOM_DATA_PRIVACY',
-    name: 'Thương Mại Điện Tử & Bảo Vệ Dữ Liệu',
-    badge: 'Toàn diện',
-    status: 'ACTIVE',
-    statusLabel: 'Hoạt động',
-    description: 'Thông báo website Bộ Công Thương, Nghị định 13/2023/NĐ-CP bảo vệ dữ liệu cá nhân khách hàng',
-    iconName: 'Globe'
-  },
-  MODULE_PREMISES_PCCC: {
-    id: 'MODULE_PREMISES_PCCC',
-    name: 'Địa Điểm & An Toàn PCCC',
-    badge: 'Toàn diện',
-    status: 'ACTIVE',
-    statusLabel: 'Hoạt động',
-    description: 'Biển hiệu trụ sở chính theo Luật Quảng cáo, Trang bị phương tiện PCCC cơ sở theo NĐ 136/2020',
-    iconName: 'Building2'
-  },
-  MODULE_CONTRACTS: {
-    id: 'MODULE_CONTRACTS',
-    name: 'Hợp Đồng & Giao Kết Kinh Doanh',
-    badge: 'Toàn diện',
-    status: 'ACTIVE',
-    statusLabel: 'Hoạt động',
-    description: 'Thẩm quyền đại diện ký kết hợp đồng, Hợp đồng thuê mặt bằng, Hợp đồng cung ứng dịch vụ',
-    iconName: 'Briefcase'
-  },
-  MODULE_DATA_IP: {
-    id: 'MODULE_DATA_IP',
-    name: 'Dữ Liệu & Sở Hữu Trí Tuệ',
-    badge: 'Toàn diện',
-    status: 'ACTIVE',
-    statusLabel: 'Hoạt động',
-    description: 'Bảo vệ dữ liệu cá nhân theo NĐ 13/2023, Đăng ký bảo hộ nhãn hiệu và thương hiệu theo Luật SHTT',
-    iconName: 'HardDrive'
-  },
-  MODULE_LICENSING_CON: {
-    id: 'MODULE_LICENSING_CON',
-    name: 'Giấy Phép Con & Ngành Nghề Chuyên Ngành',
-    badge: 'Toàn diện',
-    status: 'ACTIVE',
-    statusLabel: 'Hoạt động',
-    description: 'Rà soát danh mục ngành nghề có điều kiện theo Luật Đầu tư 2020 và các giấy phép chuyên ngành',
-    iconName: 'Award'
-  },
-  MODULE_LEGAL_CORP: {
-    id: 'MODULE_LEGAL_CORP',
-    name: 'Hồ Sơ Pháp Lý & Quản Trị Vốn',
-    badge: 'Toàn diện',
-    status: 'ACTIVE',
-    statusLabel: 'Hoạt động',
-    description: 'Tiến độ góp đủ 100% vốn điều lệ 90 ngày, Thủ tục đăng ký thay đổi ĐKKD trong 10 ngày làm việc',
-    iconName: 'ShieldCheck'
-  }
 };
 
 /**
@@ -212,7 +140,6 @@ export const DEFAULT_BASE_PROFILE: BaseProfile = {
   annualRevenue: 0,
   charterCapital: 0,
   isNewlyEstablished: false,
-  requiresLaborRuleBook: false,
   companyTypeTag: 'TAG_TNHH_2TV',
   industryTags: [], // Bắt đầu bằng mảng rỗng để bắt buộc người dùng chủ động chọn ngành nghề thực tế
 };

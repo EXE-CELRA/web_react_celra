@@ -84,11 +84,11 @@ export const useTaskStore = create<TaskState>((set) => {
     const res = await apiClient.patch<unknown, TaskItem>(`/tasks/${id}/status`, { status, note });
     set((state) => ({
       tasks: state.tasks.map((t) =>
-        t.id === id ? { ...t, status: res.status, trangThai: res.status } : t,
+        t.id === id ? { ...t, status: res.status } : t,
       ),
       selectedTask:
         state.selectedTask?.id === id
-          ? { ...state.selectedTask, status: res.status, trangThai: res.status }
+          ? { ...state.selectedTask, status: res.status }
           : state.selectedTask,
     }));
   };
@@ -118,7 +118,7 @@ export const useTaskStore = create<TaskState>((set) => {
     });
     set((state) => ({
       tasks: state.tasks.map((t) =>
-        t.id === taskId ? { ...t, status: res.status, trangThai: res.status } : t,
+        t.id === taskId ? { ...t, status: res.status } : t,
       ),
       selectedTask:
         state.selectedTask?.id === taskId ? { ...state.selectedTask, ...res } : state.selectedTask,

@@ -142,11 +142,12 @@ export const EvidencePage: React.FC = () => {
     const tags = new Set<string>();
     tags.add('Bảng kê thu - chi');
     tags.add('Thuế TNDN');
-    tags.add('Thuế GTGT');
-    tags.add('Hóa đơn chứng từ');
-    tags.add('Lao động & BHXH');
-    tags.add('Pháp lý & Giấy phép');
-    tags.add('PCCC & An toàn');
+    tags.add('Tạm nộp 80% (1052)');
+    tags.add('Quyết toán 03/TNDN');
+    tags.add('Chi phí & Mục B4');
+    tags.add('Hóa đơn & Ủy nhiệm chi');
+    tags.add('Thuế nhà thầu (FCT)');
+    tags.add('Hồ sơ pháp lý');
 
     documents.forEach((d) => {
       if (d.tag) tags.add(d.tag);
@@ -229,11 +230,10 @@ export const EvidencePage: React.FC = () => {
   const getTagColor = (tag?: string) => {
     if (!tag) return 'default';
     if (tag.includes('thu - chi') || tag.includes('Bảng kê')) return 'cyan';
-    if (tag.includes('TNDN') || tag.includes('GTGT') || tag.includes('Thuế')) return 'blue';
-    if (tag.includes('Hóa đơn')) return 'purple';
-    if (tag.includes('Lao động') || tag.includes('BHXH')) return 'orange';
-    if (tag.includes('Pháp lý')) return 'green';
-    if (tag.includes('PCCC')) return 'red';
+    if (tag.includes('TNDN') || tag.includes('1052') || tag.includes('Thuế')) return 'blue';
+    if (tag.includes('Hóa đơn') || tag.includes('Ủy nhiệm chi')) return 'purple';
+    if (tag.includes('B4') || tag.includes('Chi phí')) return 'orange';
+    if (tag.includes('Pháp lý') || tag.includes('pháp lý')) return 'green';
     return 'geekblue';
   };
 
@@ -458,7 +458,7 @@ export const EvidencePage: React.FC = () => {
         style={{ borderRadius: 10 }}
       >
         <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-          Kho lưu trữ tập trung các bảng kê thu - chi, tờ khai thuế, chứng từ hóa đơn, hồ sơ lao động và pháp lý.
+          Kho lưu trữ tập trung các bảng kê thu - chi, giấy nộp tiền tạm nộp 80% (tiểu mục 1052), tờ khai quyết toán 03/TNDN, hóa đơn và ủy nhiệm chi bảo vệ chi phí được trừ.
           Tài liệu được phân loại tự động theo <b>Tag danh mục</b> và <b>Kỳ thời gian (Quý, Năm)</b> khi tải lên qua luồng rà soát hoặc tải trực tiếp.
         </Paragraph>
 
