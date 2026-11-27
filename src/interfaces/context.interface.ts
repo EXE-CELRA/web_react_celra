@@ -12,31 +12,22 @@ export interface ContextFact {
   organizationId?: string;
   category?: string;
   group?: string;
-  nhom?: string;
   factKey?: string;
   key?: string;
-  khoa?: string;
   label: string;
-  nhan?: string;
   valueType?: string;
   value?: string;
   currentValue?: string;
-  giaTriHienTai?: string;
   source: string;
-  nguon?: string;
   providedBy?: string;
   providedAt?: string;
   affectedRules?: string[];
-  cacQuyTacLienQuan?: string[];
   status?: string;
-  trangThai?: string;
   confidenceScore?: number;
   history?: any[];
+  createdAt?: string;
   updatedAt?: string;
   conflictDetails?: string | null;
-  chiTietXungDot?: string | null;
-  taoLuc?: string;
-  capNhatLuc?: string;
   [key: string]: any;
 }
 

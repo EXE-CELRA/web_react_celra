@@ -2,34 +2,36 @@ import type { ContextFact } from '../../../interfaces';
 import type { RevenueRow, ExpenseRow } from '../../../utils/excelTaxTemplate';
 import { getCalculatedQuarterDeadline } from '../../../utils/taxCalendar';
 
-// Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế & Hóa đơn
+// Bảng rủi ro chế tài xử phạt thực tế theo các Nghị định hiện hành về Thuế TNDN & Chứng từ chi phí
 export const STATUTORY_PENALTY_RISKS: Record<string, string> = {
-  'RULE-TAX-GTGT':
-    'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai thuế quá thời hạn quy định.',
   'RULE-TAX-TNDN-80':
     'Tính tiền chậm nộp 0,03%/ngày trên số thuế TNDN tạm nộp 4 quý còn thiếu so với ngưỡng 80% quyết toán theo Khoản 3 Điều 1 Nghị định 91/2022/NĐ-CP.',
-  'RULE-TAX-MB':
-    'Phạt tiền từ 2.000.000đ - 5.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai lệ phí môn bài quá hạn quy định.',
+  'RULE-TAX-TNDN-FINAL':
+    'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp chậm hồ sơ khai quyết toán thuế TNDN năm (Mẫu 03/TNDN).',
+  'RULE-TAX-TNDN-B4':
+    'Truy thu thuế TNDN, phạt 20% trên số thuế khai thiếu và tính tiền chậm nộp 0,03%/ngày theo Điều 16 Nghị định 125/2020/NĐ-CP khi hạch toán sai chi phí không được trừ Mục B4.',
+  'RULE-CIT-B4-CASH':
+    'Loại toàn bộ khỏi chi phí được trừ tại chỉ tiêu B4 khi tính thuế TNDN đối với hóa đơn từ 5 triệu đồng trở lên thanh toán bằng tiền mặt.',
   'RULE-TAX-FCT-10D':
-    'Phạt tiền từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai thuế nhà thầu quá hạn quy định.',
+    'Loại chi phí dịch vụ nước ngoài khỏi chi phí được trừ TNDN và phạt từ 2.000.000đ - 25.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP nếu chậm kê khai thuế nhà thầu.',
   'RULE-TAX-CYCLE-CHANGE-20D':
     'Phạt cảnh cáo hoặc phạt tiền từ 1.000.000đ - 5.000.000đ theo Điều 10 Nghị định 125/2020/NĐ-CP khi vi phạm thời hạn thông báo chuyển đổi kỳ tính thuế.',
   'RULE-TAX-DISSOLUTION-45D':
-    'Phạt tiền từ 8.000.000đ - 15.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai quyết toán thuế khi giải thể chậm quá 90 ngày.',
+    'Phạt tiền từ 8.000.000đ - 15.000.000đ theo Điều 13 Nghị định 125/2020/NĐ-CP đối với hành vi nộp hồ sơ khai quyết toán thuế TNDN khi giải thể quá hạn.',
   'RULE-TAX-POS-FNB':
-    'Phạt cảnh cáo hoặc phạt tiền từ 4.000.000đ - 8.000.000đ theo Điều 24 Nghị định 125/2020/NĐ-CP đối với hành vi không lập hóa đơn điện tử máy tính tiền khi bán lẻ hàng hóa, dịch vụ ăn uống.',
+    'Phạt tiền từ 4.000.000đ - 8.000.000đ theo Điều 24 Nghị định 125/2020/NĐ-CP và rủi ro ấn định doanh thu tính thuế TNDN khi không xuất hóa đơn bán lẻ đúng thời điểm.',
 };
 
-// 21 Thẻ Bối Cảnh Chuẩn Luật Định Doanh Nghiệp Việt Nam (Dùng khi khởi tạo hoặc context rỗng)
+// Bộ Thẻ Bối Cảnh Chuẩn Luật Định Thuế TNDN (Dùng khi khởi tạo hoặc context rỗng)
 export const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: string }> = [
   {
     id: 'fact-tax-1',
-    key: 'q_tax_corp_1',
+    key: 'q_tax_cit_finalization',
     label:
-      'Doanh nghiệp có thực hiện nộp tờ khai thuế GTGT và thuế TNCN định kỳ theo Quý (hạn ngày cuối tháng đầu quý sau: 30/04, 31/07, 31/10, 31/01) đúng hạn không?',
+      'Doanh nghiệp có lập kế hoạch đối chiếu doanh thu - chi phí, bóc tách chỉ tiêu B4 và nộp Tờ khai quyết toán thuế TNDN (Mẫu 03/TNDN) trước ngày 31/03 hàng năm không?',
     group: 'thue_ke_toan',
     currentValue:
-      'Đã nộp tờ khai và tiền thuế đầy đủ đúng hạn theo Quý (hạn ngày cuối tháng đầu quý sau: 30/04, 31/07, 31/10, 31/01)',
+      'Đã đối chiếu sổ kế toán, bóc tách chi phí loại trừ Mục B4 và nộp quyết toán 03/TNDN đúng hạn',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
@@ -46,40 +48,40 @@ export const STANDARD_21_CONTEXT_FACTS: Array<Omit<ContextFact, 'id'> & { id: st
   {
     id: 'fact-tax-3',
     key: 'q_tax_corp_3',
-    label: 'Doanh nghiệp có thực hiện kê khai và nộp Lệ phí môn bài hàng năm trước ngày 30/01 không?',
+    label: 'Mọi khoản chi mua hàng hóa, dịch vụ từng lần từ 5 triệu đồng trở lên có đủ hóa đơn hợp pháp và chứng từ thanh toán không dùng tiền mặt không?',
     group: 'thue_ke_toan',
-    currentValue: 'Đã nộp đầy đủ lệ phí môn bài bậc quy định trước ngày 30/01',
+    currentValue: '100% hóa đơn từ 5 triệu đồng trở lên đều chuyển khoản qua tài khoản ngân hàng của doanh nghiệp',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'fact-tax-4',
-    key: 'q_tax_corp_4',
+    key: 'q_tax_tncn_withholding',
     label:
-      'Doanh nghiệp có thực hiện khấu trừ 10% thuế TNCN tại nguồn khi chi trả thù lao từ 2 triệu đồng/lần trở lên cho cá nhân vãng lai không?',
+      'Doanh nghiệp đã lưu đủ hồ sơ chi lương, khấu trừ 10% thù lao vãng lai từ 2 triệu đồng và bóc tách lương chủ Công ty TNHH 1TV vào Mục B4 chưa?',
     group: 'thue_ke_toan',
-    currentValue: 'Đã thực hiện khấu trừ 10% và cấp chứng từ khấu trừ thuế TNCN điện tử',
+    currentValue: 'Đã hoàn thiện đầy đủ hồ sơ bảo vệ chi phí tiền lương và bóc tách đúng quy định TT 96/2015/TT-BTC',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'fact-tax-5',
-    key: 'q_tax_corp_5',
+    key: 'q_tax_corp_fct_ads',
     label:
-      'Doanh nghiệp có thanh toán chi phí quảng cáo trực tuyến (Facebook, Google, TikTok) và kê khai thuế nhà thầu (FCT) trong vòng 10 ngày không?',
+      'Doanh nghiệp có kê khai thuế nhà thầu (FCT) hoặc thu thập hóa đơn hợp pháp cho chi phí quảng cáo trực tuyến (Facebook, Google, TikTok) để tính vào chi phí được trừ TNDN không?',
     group: 'thue_ke_toan',
-    currentValue: 'Có phát sinh chi phí quảng cáo và đã nộp tờ khai thuế nhà thầu mẫu 01/NTNN',
+    currentValue: 'Đã có đủ tờ khai nộp thuế nhà thầu mẫu 01/NTNN hoặc hóa đơn VAT hợp lệ',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'fact-tax-6',
-    key: 'q_tax_corp_6',
+    key: 'q_tax_bank_account',
     label:
-      'Doanh nghiệp có rà soát điều kiện thanh toán không dùng tiền mặt qua ngân hàng đối với các hóa đơn mua vào từng lần từ 20 triệu đồng trở lên không?',
+      'Toàn bộ giao dịch thanh toán chi phí được trừ TNDN có được thực hiện từ tài khoản ngân hàng đứng tên pháp nhân doanh nghiệp không?',
     group: 'thue_ke_toan',
     currentValue:
-      '100% hóa đơn từ 20 triệu trở lên đều được chuyển khoản qua tài khoản ngân hàng của doanh nghiệp',
+      '100% giao dịch kinh doanh thực hiện qua tài khoản ngân hàng pháp nhân đã đăng ký với cơ quan thuế',
     status: 'confirmed',
     updatedAt: new Date().toISOString(),
   },
@@ -175,18 +177,10 @@ export function getQuarterReminderDate(quarter: number | 'ALL', year: number): s
 export function getModuleTag(groupKey?: string): string {
   switch (groupKey) {
     case 'thue_ke_toan':
-      return 'MODULE 1: THUẾ TNDN';
-    case 'phap_ly_von':
-      return 'MODULE 2: PHÁP LÝ';
-    case 'nganh_nghe_van_hanh':
-      return 'MODULE 3: VẬN HÀNH';
-    case 'hoa_don_dong_tien':
-      return 'MODULE 4: HÓA ĐƠN';
-    case 'lao_dong_bhxh':
-      return 'MODULE 5: LAO ĐỘNG';
-    case 'dia_diem_pccc':
-      return 'MODULE 6: PCCC';
+      return 'PHÂN HỆ: THUẾ TNDN';
+    case 'boi_canh_co_so':
+      return 'HỒ SƠ CƠ SỞ';
     default:
-      return 'MODULE BỐI CẢNH';
+      return 'PHÂN HỆ THUẾ TNDN';
   }
 }

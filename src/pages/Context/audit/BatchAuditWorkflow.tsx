@@ -62,12 +62,12 @@ export const ContextFactCardsStep: React.FC<ContextFactCardsStepProps> = ({
 
             {/* Tiêu đề câu hỏi */}
             <p className="text-xs font-bold text-slate-800 leading-snug m-0">
-              {fact.nhan || fact.label}
+              {fact.label}
             </p>
 
             {/* Giá trị ghi nhận */}
             <div className="text-xs text-slate-700 bg-white p-3 rounded-xl border border-teal-100 leading-relaxed font-medium">
-              {fact.giaTriHienTai || fact.currentValue || (
+              {fact.currentValue || (
                 <span className="text-slate-400 italic">Chưa có thông tin ghi nhận</span>
               )}
             </div>

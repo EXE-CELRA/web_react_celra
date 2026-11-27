@@ -16,13 +16,7 @@ import {
   X, 
   HelpCircle,
   Receipt,
-  FileText,
-  Layers,
-  Users,
   Building2,
-  Award,
-  Briefcase,
-  HardDrive,
   Plus,
   ArrowRight
 } from 'lucide-react';
@@ -52,70 +46,6 @@ export const CONTEXT_GROUPS: ContextGroupConfig[] = [
     tag: 'THUẾ TNDN',
     icon: Receipt,
     badgeClass: 'text-blue-700 bg-blue-50 border border-blue-200',
-  },
-  {
-    key: 'phap_ly_von',
-    label: 'Hồ Sơ Pháp Lý & Vốn',
-    shortLabel: 'Pháp Lý',
-    tag: 'HỒ SƠ PHÁP LÝ & VỐN',
-    icon: ShieldCheck,
-    badgeClass: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
-  },
-  {
-    key: 'nganh_nghe_van_hanh',
-    label: 'Ngành Nghề & Vận Hành',
-    shortLabel: 'Vận Hành',
-    tag: 'HOẠT ĐỘNG THỰC TẾ',
-    icon: Layers,
-    badgeClass: 'text-amber-700 bg-amber-50 border border-amber-200',
-  },
-  {
-    key: 'hoa_don_dong_tien',
-    label: 'Hóa Đơn & Dòng Tiền',
-    shortLabel: 'Hóa Đơn',
-    tag: 'HÓA ĐƠN & DÒNG TIỀN',
-    icon: FileText,
-    badgeClass: 'text-purple-700 bg-purple-50 border border-purple-200',
-  },
-  {
-    key: 'lao_dong_bhxh',
-    label: 'Lao Động & BHXH',
-    shortLabel: 'Lao Động',
-    tag: 'LAO ĐỘNG & BHXH',
-    icon: Users,
-    badgeClass: 'text-teal-700 bg-teal-50 border border-teal-200',
-  },
-  {
-    key: 'dia_diem_pccc',
-    label: 'Địa Điểm & PCCC',
-    shortLabel: 'PCCC',
-    tag: 'ĐỊA ĐIỂM & PCCC',
-    icon: Building2,
-    badgeClass: 'text-rose-700 bg-rose-50 border border-rose-200',
-  },
-  {
-    key: 'giay_phep_con',
-    label: 'Giấy Phép Con',
-    shortLabel: 'Giấy Phép',
-    tag: 'GIẤY PHÉP CON',
-    icon: Award,
-    badgeClass: 'text-indigo-700 bg-indigo-50 border border-indigo-200',
-  },
-  {
-    key: 'hop_dong',
-    label: 'Hợp Đồng & Giao Kết',
-    shortLabel: 'Hợp Đồng',
-    tag: 'HỢP ĐỒNG & GIAO KẾT',
-    icon: Briefcase,
-    badgeClass: 'text-cyan-700 bg-cyan-50 border border-cyan-200',
-  },
-  {
-    key: 'du_lieu_shtt',
-    label: 'Dữ Liệu & Sở Hữu Trí Tuệ',
-    shortLabel: 'Dữ Liệu',
-    tag: 'DỮ LIỆU & SHTT',
-    icon: HardDrive,
-    badgeClass: 'text-violet-700 bg-violet-50 border border-violet-200',
   },
 ];
 
@@ -207,17 +137,17 @@ export function getBaseProfileFacts(org: any, profile: any): ContextFact[] {
       group: 'boi_canh_co_so',
       currentValue: capitalValue,
       status: charterCapital > 0 ? 'confirmed' : 'draft',
-      source: 'Hồ sơ nền tảng (Nghị định 139/2016/NĐ-CP)',
+      source: 'Hồ sơ nền tảng (Luật Doanh nghiệp 2020)',
       updatedAt: now,
     },
     {
       id: 'fact-base-emp',
       key: 'employee_scale',
-      label: 'Quy mô lao động & Nghĩa vụ Nội quy lao động (NQLĐ)',
+      label: 'Quy mô nhân sự & Sàng lọc chi phí tiền lương TNDN',
       group: 'boi_canh_co_so',
       currentValue: empValue,
       status: count !== undefined && count !== null ? 'confirmed' : 'draft',
-      source: 'Hồ sơ nền tảng (Bộ luật Lao động 2019)',
+      source: 'Hồ sơ nền tảng (Thông tư 96/2015/TT-BTC)',
       updatedAt: now,
     },
     {
@@ -1000,7 +930,7 @@ export const ContextPage: React.FC = () => {
             label="Tên nghĩa vụ / Tiêu đề dữ kiện"
             rules={[{ required: true, message: 'Vui lòng nhập tên dữ kiện' }]}
           >
-            <Input placeholder="Ví dụ: Giấy chứng nhận cơ sở đủ điều kiện ATTP, Hợp đồng thuê mặt bằng..." />
+            <Input placeholder="Ví dụ: Chính sách khấu hao TSCĐ, Hồ sơ chi phí tiền lương được trừ, Tạm nộp TNDN..." />
           </Form.Item>
 
           <Form.Item

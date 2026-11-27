@@ -57,7 +57,6 @@ export const ModuleSurveyModal: React.FC<ModuleSurveyModalProps> = ({
       taxCode: activeOrg?.taxCode || '',
       companyName: activeOrg?.name || '',
       employeeScale: DEFAULT_BASE_PROFILE.employeeScale,
-      requiresLaborRuleBook: DEFAULT_BASE_PROFILE.requiresLaborRuleBook,
       companyTypeTag: (activeOrg?.legalType?.includes('1TV') ? 'TAG_TNHH_1TV' : DEFAULT_BASE_PROFILE.companyTypeTag) as any,
       industryTags: DEFAULT_BASE_PROFILE.industryTags,
     };

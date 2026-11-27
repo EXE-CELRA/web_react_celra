@@ -69,14 +69,14 @@ export const ChatContextSidebar: React.FC<ChatContextSidebarProps> = ({
             <p className="text-[13px] font-bold text-[#172B4D]">
               {activeOrg?.legalName || activeOrg?.name || 'Chưa cập nhật tên doanh nghiệp'}
             </p>
-            {activeOrg?.legalType || activeOrg?.loaiHinhPhapLy ? (
+            {activeOrg?.legalType ? (
               <p className="mt-1 text-[11px] text-slate-500">
-                {activeOrg.legalType || activeOrg.loaiHinhPhapLy}
+                {activeOrg.legalType}
               </p>
             ) : null}
-            {activeOrg?.industry || activeOrg?.nganhNghe ? (
+            {activeOrg?.industry ? (
               <p className="mt-2 text-[11px] text-slate-600">
-                Ngành: {activeOrg.industry || activeOrg.nganhNghe}
+                Ngành: {activeOrg.industry}
               </p>
             ) : null}
             {activeOrg?.scale ? (

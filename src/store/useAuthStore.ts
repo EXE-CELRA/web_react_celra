@@ -10,31 +10,25 @@ import { useAIChatStore } from './useAIChatStore';
 interface LoginCredentials {
   email: string;
   password?: string;
-  matKhau?: string;
   passwordHash?: string;
 }
 
 interface RegisterPayload {
   email: string;
   password?: string;
-  matKhau?: string;
   passwordHash?: string;
   name?: string;
   fullName?: string;
-  hoVaTen?: string;
   phone?: string;
   phoneNumber?: string;
-  soDienThoai?: string;
   otp?: string;
 }
 
 interface UpdateProfilePayload {
   name?: string;
   fullName?: string;
-  hoVaTen?: string;
   phone?: string;
   phoneNumber?: string;
-  soDienThoai?: string;
   email?: string;
   avatar?: string;
 }
@@ -87,6 +81,7 @@ export const resetAllAppStores = () => {
       organizations: [],
       activeOrg: null,
       isLoading: false,
+      hasInitialized: false,
       error: null,
     });
 
@@ -133,7 +128,7 @@ export const useAuthStore = create<AuthState>((set) => {
     try {
       const payload = {
         email: credentials.email,
-        password: credentials.password || credentials.matKhau || credentials.passwordHash,
+        password: credentials.password || credentials.passwordHash,
       };
 
       const res = await apiClient.post<unknown, LoginResponse>('/auth/login', payload);
@@ -179,10 +174,10 @@ export const useAuthStore = create<AuthState>((set) => {
     set({ isLoading: true, error: null });
     try {
       const payload = {
-        name: data.hoVaTen || data.fullName || data.name,
+        name: data.fullName || data.name,
         email: data.email,
-        password: data.matKhau || data.password || data.passwordHash,
-        phone: data.soDienThoai || data.phoneNumber || data.phone,
+        password: data.password || data.passwordHash,
+        phone: data.phoneNumber || data.phone,
         otp: data.otp,
       };
 
@@ -256,14 +251,23 @@ export const useAuthStore = create<AuthState>((set) => {
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch {
+    } catch (err: unknown) {
       set({ isLoading: false });
-      logoutFn();
-      if (
-        !window.location.pathname.includes('/login') &&
-        !window.location.pathname.includes('/register')
-      ) {
-        window.location.replace('/login');
+      const statusCode =
+        err && typeof err === 'object' && 'statusCode' in err
+          ? Number((err as { statusCode?: number }).statusCode)
+          : undefined;
+
+      // Chỉ đăng xuất khi token thực sự hết hạn/không hợp lệ (401) hoặc tài khoản không còn tồn tại (404).
+      // Không xóa phiên đăng nhập khi gặp lỗi mạng tạm thời hoặc lỗi DB quá tải (500/502/503).
+      if (statusCode === 401 || statusCode === 404) {
+        logoutFn();
+        if (
+          !window.location.pathname.includes('/login') &&
+          !window.location.pathname.includes('/register')
+        ) {
+          window.location.replace('/login');
+        }
       }
     }
   };
@@ -272,8 +276,8 @@ export const useAuthStore = create<AuthState>((set) => {
     set({ isLoading: true, error: null });
     try {
       const payload: Record<string, string | undefined> = {
-        name: data.hoVaTen || data.fullName || data.name,
-        phone: data.soDienThoai || data.phoneNumber || data.phone,
+        name: data.fullName || data.name,
+        phone: data.phoneNumber || data.phone,
         email: data.email,
       };
       if (data.avatar !== undefined) {

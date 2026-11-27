@@ -11,15 +11,7 @@ export type IndustryTag =
 
 export type ComplianceModuleId = 
   | 'MODULE_TAX_CORE'
-  | 'MODULE_INVOICE_CASHFLOW'
-  | 'MODULE_LABOR_HR'
-  | 'MODULE_LICENSING_ATTP'
-  | 'MODULE_ECOM_DATA_PRIVACY'
-  | 'MODULE_PREMISES_PCCC'
-  | 'MODULE_CONTRACTS'
-  | 'MODULE_DATA_IP'
-  | 'MODULE_LICENSING_CON'
-  | 'MODULE_LEGAL_CORP';
+  | 'MODULE_INVOICE_CASHFLOW';
 
 export type EmployeeScale = 'under_10' | '10_to_50' | 'over_50';
 
@@ -34,7 +26,6 @@ export interface BaseProfile {
   hasRelatedParty?: boolean; // Có quan hệ công ty con / giao dịch liên kết
   charterCapital?: number;
   isNewlyEstablished?: boolean; // Thành lập trong năm hiện tại
-  requiresLaborRuleBook: boolean;
   companyTypeTag: CompanyTypeTag;
   industryTags: IndustryTag[];
 }
@@ -90,7 +81,7 @@ export interface ComplianceModuleMeta {
   iconName: string;
 }
 
-export type ComplianceDomain = 'TAX' | 'INVOICE' | 'BHXH' | 'LABOR' | 'SAFETY' | 'CORPORATE' | 'LICENSING';
+export type ComplianceDomain = 'TAX' | 'INVOICE';
 
 export interface StandardComplianceQuestion {
   id: string;
