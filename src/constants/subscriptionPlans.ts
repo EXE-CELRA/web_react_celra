@@ -113,12 +113,12 @@ export const DEFAULT_TRIAL_SUBSCRIPTION: {
   nextBillingAt: new Date(Date.now() + 24 * 86400 * 1000).toISOString(),
   autoRenew: true,
   usage: {
-    aiChatboxUsed: 42,
+    aiChatboxUsed: 0,
     aiChatboxLimit: 500,
-    docAnalysisUsed: 15,
+    docAnalysisUsed: 0,
     docAnalysisLimit: 100,
-    storageUsedGb: 1.8,
+    storageUsedGb: 0,
     storageLimitGb: 10,
-    daysRemaining: 24,
+    daysRemaining: 30,
   },
 };
