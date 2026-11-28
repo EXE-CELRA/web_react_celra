@@ -244,13 +244,6 @@ export const TasksPage: React.FC = () => {
           <Text strong style={{ color: '#000000', cursor: 'pointer', fontSize: 13 }} className="hover:text-blue-600 transition-colors" onClick={() => handleOpenTask(record)}>
             {text}
           </Text>
-          {record.ruleCode && (
-            <div style={{ marginTop: 2 }}>
-              <Tag color="cyan" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
-                {record.ruleCode}
-              </Tag>
-            </div>
-          )}
           {(record.legalCitation || record.legalBasis) && (() => {
             const basis = record.legalCitation || record.legalBasis;
             const clean = cleanDLPLUrl(basis);
@@ -377,7 +370,7 @@ export const TasksPage: React.FC = () => {
       title: 'Kỳ hạn & Hạn chót pháp lý',
       dataIndex: 'dueDate',
       key: 'dueDate',
-      width: 260,
+      width: 280,
       render: (date: string, record: TaskItem) => {
         const periodMeta = record.periodCycle ? STATUTORY_PERIOD_METAS[record.periodCycle as StatutoryCycleType] : null;
 
@@ -399,22 +392,24 @@ export const TasksPage: React.FC = () => {
         return (
           <Space direction="vertical" size={4} style={{ width: '100%' }}>
             {/* 1. Hiển thị cảnh báo thời hạn — chuẩn 100% theo ảnh quy định CELRA */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {dlStatus.iconType === 'check' && (
-                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 13 }} />
-              )}
-              {dlStatus.iconType === 'calendar' && (
-                <CalendarOutlined style={{ color: '#52c41a', fontSize: 13 }} />
-              )}
-              {dlStatus.iconType === 'exclamation' && (
-                <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: 13 }} />
-              )}
-              {dlStatus.iconType === 'clock-warning' && (
-                <ClockCircleOutlined style={{ color: '#fa541c', fontSize: 13 }} />
-              )}
-              {dlStatus.iconType === 'clock' && (
-                <ClockCircleOutlined style={{ color: '#1677ff', fontSize: 13 }} />
-              )}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+              <span style={{ lineHeight: '18px', flexShrink: 0 }}>
+                {dlStatus.iconType === 'check' && (
+                  <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 13 }} />
+                )}
+                {dlStatus.iconType === 'calendar' && (
+                  <CalendarOutlined style={{ color: '#52c41a', fontSize: 13 }} />
+                )}
+                {dlStatus.iconType === 'exclamation' && (
+                  <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: 13 }} />
+                )}
+                {dlStatus.iconType === 'clock-warning' && (
+                  <ClockCircleOutlined style={{ color: '#fa541c', fontSize: 13 }} />
+                )}
+                {dlStatus.iconType === 'clock' && (
+                  <ClockCircleOutlined style={{ color: '#1677ff', fontSize: 13 }} />
+                )}
+              </span>
 
               <Tooltip
                 title={
@@ -428,6 +423,7 @@ export const TasksPage: React.FC = () => {
                     color: dlStatus.tagColor,
                     fontSize: 12.5,
                     fontWeight: 600,
+                    lineHeight: '18px',
                     cursor: dlStatus.deadlineStatus === 'OVERDUE_BY_CALENDAR' ? 'help' : 'default',
                   }}
                 >
@@ -437,17 +433,21 @@ export const TasksPage: React.FC = () => {
             </div>
 
             {/* 2. Hạn thông thường theo lịch luật định */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748b' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748b', whiteSpace: 'nowrap' }}>
               <span>Hạn luật định:</span>
-              <Text strong style={{ fontSize: 12, color: '#334155' }}>
+              <Text strong style={{ fontSize: 12, color: '#334155', whiteSpace: 'nowrap' }}>
                 {formatVNCalendarDate(date)}
               </Text>
-              {periodMeta && (
-                <Tag color={periodMeta.color} style={{ margin: 0, fontSize: 10 }}>
+            </div>
+
+            {/* 3. Nhãn kỳ hạn (tách riêng thành một hàng để không ép vỡ chữ ngày tháng) */}
+            {periodMeta && (
+              <div>
+                <Tag color={periodMeta.color} style={{ margin: 0, fontSize: 10.5 }}>
                   {periodMeta.badge}
                 </Tag>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* 3. Trường hợp được gia hạn (Yêu cầu #3: NĐ 245/2026/NĐ-CP) */}
             {extInfo.hasExtension && !isCompleted && (
