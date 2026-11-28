@@ -86,8 +86,7 @@ function isInProgressStatus(status?: string): boolean {
   return (
     s === 'in_progress' ||
     s === 'waiting_document' ||
-    s === 'waiting_verification' ||
-    s === 'need_expert'
+    s === 'waiting_verification'
   );
 }
 

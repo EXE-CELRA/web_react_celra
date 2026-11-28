@@ -6,7 +6,6 @@ export * from './task.interface';
 export * from './context.interface';
 export * from './evidence.interface';
 export * from './compliance.interface';
-export * from './expert.interface';
 export * from './wallet.interface';
 export * from './calendar.interface';
 export * from './audit.interface';
