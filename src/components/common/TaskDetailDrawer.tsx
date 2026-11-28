@@ -49,14 +49,10 @@ const { Text, Paragraph } = Typography;
 
 const PRIORITY_WEIGHTS: Record<string, number> = {
   low: 1,
-  LOW: 1,
   medium: 2,
-  MEDIUM: 2,
   high: 3,
-  HIGH: 3,
   urgent: 4,
   critical: 4,
-  CRITICAL: 4,
 };
 
 function getPriorityWeight(p?: string | null): number {
