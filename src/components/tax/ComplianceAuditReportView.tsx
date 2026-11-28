@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Tag, Button, Drawer, Tooltip, Alert, Modal, Table } from 'antd';
 import {
   ClockCircleOutlined,
@@ -23,9 +23,11 @@ import {
   Building,
   ExternalLink,
 } from 'lucide-react';
+import apiClient from '../../api/client';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { getCalculatedQuarterDeadline } from '../../utils/taxCalendar';
 import { EvidenceUploadModal } from '../common/EvidenceUploadModal';
+import { TaskStatusTag, PriorityTag } from '../common/StatusBadge';
 import { useTaskStore } from '../../store/useTaskStore';
 import type { ContextFact } from '../../interfaces';
 import type { CitTaxTierResult } from '../../utils/taxRateChecker';
@@ -74,6 +76,7 @@ export interface CoordinatedTaskItem {
   assigneeRole: string;
   deadline: string;
   status: CelraTaskStatus;
+  rawStatus?: string;
   completionCondition: string;
 }
 
@@ -140,8 +143,30 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
   onOpenChecklistModal,
   onOpenEtaxGuide,
 }) => {
-  const { createTask, fetchTasks } = useTaskStore();
+  const { tasks, createTask, fetchTasks } = useTaskStore();
   void facts;
+
+  // Dữ liệu bằng chứng thật từ DB
+  const [dbEvidences, setDbEvidences] = useState<any[]>([]);
+
+  const fetchEvidences = useCallback(async () => {
+    if (!activeOrg?.id) {
+      setDbEvidences([]);
+      return;
+    }
+    try {
+      const res = await apiClient.get('/evidence-documents');
+      setDbEvidences(Array.isArray(res) ? res : []);
+    } catch {
+      setDbEvidences([]);
+    }
+  }, [activeOrg?.id]);
+
+  useEffect(() => {
+    if (!activeOrg?.id) return;
+    fetchTasks();
+    fetchEvidences();
+  }, [activeOrg?.id, fetchTasks, fetchEvidences]);
 
   // State điều khiển Drawer Chi tiết nghĩa vụ
   const [selectedObligation, setSelectedObligation] = useState<ComplianceObligationItem | null>(null);
@@ -194,6 +219,51 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
   }, [activeOrg]);
 
   // ============================================================================
+  // HELPER ĐỐI CHIẾU DỮ LIỆU DB (TASKS & EVIDENCE) THEO RULE CODE
+  // ============================================================================
+  const matchEvidenceToRule = useCallback((ev: any, ruleCode: string): boolean => {
+    const ocr = ev?.ocrExtractedData || {};
+    if (ev?.year && Number(ev.year) !== Number(taxYear)) return false;
+    if (ocr.ruleCode === ruleCode || ev?.ruleCode === ruleCode) return true;
+    if (ev?.task?.ruleCode === ruleCode) return true;
+
+    const tag = String(ev?.tag || ocr.tag || '');
+    const docType = String(ev?.documentType || ev?.category || '');
+    switch (ruleCode) {
+      case 'RULE-TAX-TNDN-80':
+        return tag === 'Tạm nộp 80% (1052)' || docType === 'STATE_TREASURY_RECEIPT';
+      case 'RULE-TAX-TNDN-FINAL':
+        return tag === 'Quyết toán 03/TNDN' || docType === 'TAX_DECLARATION';
+      case 'RULE-TAX-TNDN-B4':
+        return tag === 'Chi phí & Mục B4' || tag === 'Bảng kê thu - chi' || docType === 'INVOICE_VOUCHER';
+      case 'RULE-CIT-B4-CASH':
+        return tag === 'Hóa đơn & Ủy nhiệm chi' || docType === 'BANK_PAYMENT_ORDER';
+      case 'RULE-CIT-B4-SALARY':
+        return tag.toLowerCase().includes('lương') || String(ev?.title || '').toLowerCase().includes('lương');
+      case 'RULE-TAX-FCT-10D':
+        return tag === 'Thuế nhà thầu (FCT)' || tag.toLowerCase().includes('fct');
+      default:
+        return false;
+    }
+  }, [taxYear]);
+
+  const mapDbTaskStatusToCelra = (status: string): CelraTaskStatus => {
+    switch (status) {
+      case 'completed': return 'COMPLETED';
+      case 'in_progress': return 'IN_PROGRESS';
+      case 'waiting_verification':
+      case 'pending_review':
+      case 'pending_approval':
+        return 'REVIEW';
+      case 'waiting_input': return 'WAITING_INPUT';
+      case 'overdue':
+      case 'blocked':
+        return 'BLOCKED';
+      default: return 'TODO';
+    }
+  };
+
+  // ============================================================================
   // KHU VỰC 2: DANH SÁCH NGHĨA VỤ TUÂN THỦ TRỌNG TÂM THUẾ TNDN
   // ============================================================================
   const obligations: ComplianceObligationItem[] = useMemo(() => {
@@ -201,7 +271,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
     const hasCitTaxToPay = citSummary.estimatedTaxAmount > 0;
     const isOneMemberLlc = legalType.toUpperCase().includes('1 THÀNH VIÊN') || legalType.toUpperCase().includes('MỘT THÀNH VIÊN') || legalType.toUpperCase().includes('1TV');
 
-    return [
+    const baseObligations: ComplianceObligationItem[] = [
       // 1. KÊ KHAI & TẠM NỘP THUẾ TNDN
       {
         id: 'ob-tndn-1',
@@ -392,7 +462,45 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         verificationQuestion: 'Trong kỳ doanh nghiệp có đưa chi phí quảng cáo Facebook, Google, TikTok hoặc phần mềm quốc tế vào sổ chi phí TNDN không?',
       },
     ];
-  }, [citSummary, citTierResult, legalDeadlineText, internalDeadlineText, industry, legalType, taxQuarter, taxYear]);
+
+    // Đồng bộ trạng thái hoàn thành & số lượng bằng chứng từ DB (tasks & dbEvidences)
+    return baseObligations.map((ob) => {
+      const matchedTasks = tasks.filter((t) => t.ruleCode === ob.ruleCode);
+      const matchedEvs = dbEvidences.filter((ev) => matchEvidenceToRule(ev, ob.ruleCode));
+
+      const syncedUploaded = matchedEvs.length > 0
+        ? Math.min(ob.evidenceTotal, ob.evidenceUploaded + matchedEvs.length)
+        : ob.evidenceUploaded;
+      const syncedMissing = Math.max(0, ob.evidenceTotal - syncedUploaded);
+
+      let syncedCompletion = ob.completionStatus;
+      if (matchedTasks.length > 0) {
+        if (matchedTasks.every((t) => String(t.status || '').toLowerCase() === 'completed')) {
+          syncedCompletion = 'COMPLETED';
+        } else if (matchedTasks.some((t) => String(t.status || '').toLowerCase() === 'overdue')) {
+          syncedCompletion = 'OVERDUE';
+        } else if (
+          matchedTasks.some((t) => {
+            const st = String(t.status || '').toLowerCase();
+            return st === 'waiting_verification' || st === 'waiting_input';
+          })
+        ) {
+          syncedCompletion = 'PENDING_VERIFICATION';
+        } else {
+          syncedCompletion = 'IN_PROGRESS';
+        }
+      } else if (matchedEvs.length > 0 && syncedMissing === 0) {
+        syncedCompletion = 'COMPLETED';
+      }
+
+      return {
+        ...ob,
+        evidenceUploaded: syncedUploaded,
+        evidenceMissing: syncedMissing,
+        completionStatus: syncedCompletion,
+      };
+    });
+  }, [citSummary, citTierResult, legalDeadlineText, internalDeadlineText, industry, legalType, taxQuarter, taxYear, tasks, dbEvidences, matchEvidenceToRule]);
 
   // Bộ lọc danh sách nghĩa vụ
   const filteredObligations = useMemo(() => {
@@ -411,11 +519,26 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
     return { total, completed, inProgress, needVerification, notApplicable };
   }, [obligations]);
 
+  const getObligationDisplayLabel = (code?: string, fallback?: string): string => {
+    const map: Record<string, string> = {
+      'RULE-TAX-TNDN-80': 'Tạm nộp thuế TNDN 80% định kỳ 4 quý',
+      'CIT_QUARTERLY_PREPAY': 'Tạm nộp thuế TNDN 80% hàng quý',
+      'RULE-TAX-TNDN-FINAL': 'Quyết toán thuế TNDN năm (Mẫu 03/TNDN)',
+      'CIT_ANNUAL_FINALIZE': 'Quyết toán thuế TNDN & BCTC năm',
+      'RULE-TAX-TNDN-B4': 'Rà soát chi phí được trừ khi tính thuế TNDN (Mục B4)',
+      'RULE-CIT-B4-CASH': 'Điều kiện chuyển khoản không dùng tiền mặt từ 5 triệu đồng',
+      'RULE-CIT-B4-SALARY': 'Hồ sơ chi phí tiền lương được trừ TNDN',
+      'RULE-TAX-FCT-10D': 'Chứng từ thuế nhà thầu (FCT)',
+    };
+    if (code && map[code]) return map[code];
+    return fallback || 'Nghĩa vụ Thuế TNDN';
+  };
+
   // ============================================================================
-  // KHU VỰC 3: ĐIỀU PHỐI TÁC VỤ (TASK COORDINATION)
+  // KHU VỰC 3: ĐIỀU PHỐI TÁC VỤ (TASK COORDINATION - ĐỒNG BỘ DB)
   // ============================================================================
   const coordinatedTasks: CoordinatedTaskItem[] = useMemo(() => {
-    return [
+    const defaultTemplates: CoordinatedTaskItem[] = [
       {
         id: 'task-cit-pay',
         title: `Tạm nộp tiền thuế TNDN Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter} vào Kho bạc Nhà nước (tiểu mục 1052)`,
@@ -461,13 +584,76 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         completionCondition: 'Nộp Tờ khai 03/TNDN kèm Báo cáo tài chính qua eTax và nhận Thông báo chấp nhận hồ sơ từ Cơ quan Thuế.',
       },
     ];
-  }, [taxQuarter, taxYear, legalDeadlineText, internalDeadlineText, citSummary]);
+
+    const taxRuleCodes = new Set([
+      'RULE-TAX-TNDN-80',
+      'RULE-TAX-TNDN-FINAL',
+      'RULE-TAX-TNDN-B4',
+      'RULE-CIT-B4-CASH',
+      'RULE-CIT-B4-SALARY',
+      'RULE-TAX-FCT-10D',
+    ]);
+
+    const dbTaxTasks = tasks.filter(
+      (t) => (t.ruleCode && taxRuleCodes.has(t.ruleCode)) || t.category === 'Thuế TNDN',
+    );
+
+    // Ưu tiên dữ liệu task thật trong DB cho từng ruleCode; giữ template cho các rule chưa tạo task
+    const merged: CoordinatedTaskItem[] = defaultTemplates.map((tpl) => {
+      const dbMatch = dbTaxTasks.find((t) => t.ruleCode === tpl.relatedObligationCode);
+      if (!dbMatch) return tpl;
+      const dueFormatted = dbMatch.dueDate
+        ? new Date(dbMatch.dueDate).toLocaleDateString('vi-VN')
+        : tpl.deadline;
+      const prioUpper = String(dbMatch.priority || tpl.priority).toUpperCase();
+      const mappedPrio: CoordinatedTaskItem['priority'] =
+        prioUpper === 'CRITICAL' || prioUpper === 'HIGH' || prioUpper === 'MEDIUM' || prioUpper === 'LOW'
+          ? (prioUpper as CoordinatedTaskItem['priority'])
+          : tpl.priority;
+      return {
+        id: dbMatch.id,
+        title: dbMatch.title || tpl.title,
+        relatedObligationCode: dbMatch.ruleCode || tpl.relatedObligationCode,
+        relatedObligationTitle: getObligationDisplayLabel(dbMatch.ruleCode || tpl.relatedObligationCode, tpl.relatedObligationTitle),
+        priority: mappedPrio,
+        assigneeRole: dbMatch.assigneeName || String(dbMatch.assigneeRole || tpl.assigneeRole),
+        deadline: dueFormatted,
+        status: mapDbTaskStatusToCelra(String(dbMatch.status)),
+        rawStatus: String(dbMatch.status),
+        completionCondition: tpl.completionCondition,
+      };
+    });
+
+    // Bổ sung các task Thuế TNDN khác trong DB chưa nằm trong 4 template mặc định
+    const coveredCodes = new Set(merged.map((m) => m.relatedObligationCode));
+    dbTaxTasks.forEach((t) => {
+      if (t.ruleCode && coveredCodes.has(t.ruleCode)) return;
+      const prioUpper = String(t.priority || 'MEDIUM').toUpperCase();
+      merged.push({
+        id: t.id,
+        title: t.title,
+        relatedObligationCode: t.ruleCode || 'MANUAL',
+        relatedObligationTitle: getObligationDisplayLabel(t.ruleCode, t.category || 'Thuế TNDN'),
+        priority:
+          prioUpper === 'CRITICAL' || prioUpper === 'HIGH' || prioUpper === 'MEDIUM' || prioUpper === 'LOW'
+            ? (prioUpper as CoordinatedTaskItem['priority'])
+            : 'MEDIUM',
+        assigneeRole: t.assigneeName || String(t.assigneeRole || 'Chủ doanh nghiệp'),
+        deadline: t.dueDate ? new Date(t.dueDate).toLocaleDateString('vi-VN') : legalDeadlineText,
+        status: mapDbTaskStatusToCelra(String(t.status)),
+        rawStatus: String(t.status),
+        completionCondition: t.legalBasis || 'Hoàn tất chứng từ và cập nhật trạng thái trên hệ thống.',
+      });
+    });
+
+    return merged;
+  }, [taxQuarter, taxYear, legalDeadlineText, internalDeadlineText, citSummary, tasks]);
 
   // ============================================================================
-  // KHU VỰC 4: HỒ SƠ MINH CHỨNG & XÁC MINH (EVIDENCE & VERIFICATION)
+  // KHU VỰC 4: HỒ SƠ MINH CHỨNG & XÁC MINH (EVIDENCE & VERIFICATION - ĐỒNG BỘ DB)
   // ============================================================================
   const complianceEvidences: ComplianceEvidenceItem[] = useMemo(() => {
-    return [
+    const baseItems: ComplianceEvidenceItem[] = [
       {
         id: 'ev-1',
         title: `Bảng kê Doanh thu & Chi phí tính thuế TNDN Quý ${taxQuarter === 'ALL' ? 'cả năm' : taxQuarter}/${taxYear} (Excel)`,
@@ -515,7 +701,58 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         guidanceNote: 'Đảm bảo lưu đủ hợp đồng, quy chế thưởng và tách riêng lương chủ Công ty TNHH 1TV vào Mục B4.',
       },
     ];
-  }, [taxQuarter, taxYear, citSummary]);
+
+    const usedDbIds = new Set<string>();
+    const syncedBase = baseItems.map((item) => {
+      const matched = dbEvidences.find((ev) => matchEvidenceToRule(ev, item.relatedObligationCode));
+      if (!matched) return item;
+      usedDbIds.add(matched.id);
+      const statusMap: Record<string, VerificationDocumentStatus> = {
+        VERIFIED: 'VERIFIED',
+        REJECTED: 'REJECTED',
+        PENDING: 'PENDING',
+      };
+      const updatedStr = matched.createdAt || matched.uploadedAt
+        ? new Date(matched.createdAt || matched.uploadedAt).toLocaleDateString('vi-VN')
+        : undefined;
+      return {
+        ...item,
+        id: matched.id,
+        title: matched.title || matched.name || item.title,
+        verificationStatus: statusMap[matched.verificationStatus] || 'PENDING',
+        fileName: matched.fileName || matched.name || item.fileName,
+        fileUrl: matched.fileUrl,
+        updatedAt: updatedStr,
+      };
+    });
+
+    // Hiển thị thêm các chứng từ Thuế TNDN khác trong DB chưa map vào 5 đầu mục trên
+    const extraDbEvidences: ComplianceEvidenceItem[] = dbEvidences
+      .filter((ev) => !usedDbIds.has(ev.id))
+      .slice(0, 6)
+      .map((ev) => {
+        const ocr = ev?.ocrExtractedData || {};
+        const statusMap: Record<string, VerificationDocumentStatus> = {
+          VERIFIED: 'VERIFIED',
+          REJECTED: 'REJECTED',
+          PENDING: 'PENDING',
+        };
+        return {
+          id: ev.id,
+          title: ev.title || ev.name || 'Chứng từ tuân thủ',
+          documentType: String(ev.documentType || ev.category || 'CHỨNG TỪ THUẾ TNDN').toUpperCase(),
+          relatedObligationCode: ocr.ruleCode || ev.task?.ruleCode || ev.tag || 'Thuế TNDN',
+          relatedObligationTitle: ev.task?.title || ev.tag || 'Hồ sơ Thuế TNDN',
+          verificationStatus: statusMap[ev.verificationStatus] || 'PENDING',
+          fileName: ev.fileName || ev.name,
+          fileUrl: ev.fileUrl,
+          updatedAt: ev.createdAt ? new Date(ev.createdAt).toLocaleDateString('vi-VN') : undefined,
+          guidanceNote: ev.period ? `Kỳ áp dụng: ${ev.period}. Đã lưu trữ trong Kho Bằng Chứng doanh nghiệp.` : 'Đã lưu trữ trong Kho Bằng Chứng doanh nghiệp.',
+        };
+      });
+
+    return [...syncedBase, ...extraDbEvidences];
+  }, [taxQuarter, taxYear, citSummary, dbEvidences, matchEvidenceToRule]);
 
   // ============================================================================
   // KHU VỰC 5: CĂN CỨ PHÁP LÝ TRA CỨU THEO NGHĨA VỤ (LEGAL REFERENCES)
@@ -682,6 +919,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         return <Tag color="red" className="font-bold text-[11px] m-0 border-rose-300">Blocked</Tag>;
     }
   };
+  void renderCelraTaskStatusBadge;
 
   return (
     <div className="space-y-6">
@@ -753,8 +991,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             background: '#ffffff', borderRadius: 14,
             border: '1px solid #e2e8f0', borderLeft: '5px solid #64748b',
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            transition: 'all 0.2s ease', minHeight: 96,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            transition: 'all 0.2s ease',
           }}>
             <div>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -764,7 +1002,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                 {stats.total}
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Ma trận pháp luật thuế</div>
           </div>
 
           {/* Card 2: Đã hoàn thành */}
@@ -772,8 +1009,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             background: '#ffffff', borderRadius: 14,
             border: '1px solid #bbf7d0', borderLeft: '5px solid #16a34a',
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            transition: 'all 0.2s ease', minHeight: 96,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            transition: 'all 0.2s ease',
           }}>
             <div>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -783,7 +1020,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                 {stats.completed}
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>Đầy đủ hồ sơ minh chứng</div>
           </div>
 
           {/* Card 3: Đang thực hiện */}
@@ -791,8 +1027,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             background: '#ffffff', borderRadius: 14,
             border: '1px solid #bfdbfe', borderLeft: '5px solid #2563eb',
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            transition: 'all 0.2s ease', minHeight: 96,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            transition: 'all 0.2s ease',
           }}>
             <div>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -802,7 +1038,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                 {stats.inProgress}
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#2563eb', marginTop: 4 }}>Trong hạn tiến độ quý</div>
           </div>
 
           {/* Card 4: Cần xác minh */}
@@ -811,8 +1046,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             border: stats.needVerification > 0 ? '1px solid #fde68a' : '1px solid #e2e8f0',
             borderLeft: stats.needVerification > 0 ? '5px solid #d97706' : '5px solid #94a3b8',
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            transition: 'all 0.2s ease', minHeight: 96,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            transition: 'all 0.2s ease',
           }}>
             <div>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -822,7 +1057,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                 {stats.needVerification}
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#d97706', marginTop: 4 }}>Chờ đối soát chứng từ</div>
           </div>
 
           {/* Card 5: Không áp dụng */}
@@ -830,8 +1064,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
             background: '#ffffff', borderRadius: 14,
             border: '1px solid #e2e8f0', borderLeft: '5px solid #cbd5e1',
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '14px 16px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            transition: 'all 0.2s ease', minHeight: 96,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            transition: 'all 0.2s ease',
           }}>
             <div>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -841,7 +1075,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                 {stats.notApplicable}
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Ngoài phạm vi ngành</div>
           </div>
         </div>
       </div>
@@ -927,9 +1160,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
               {/* Dòng 1: Header thẻ nghĩa vụ */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Tag className="font-mono font-bold text-[10.5px] uppercase bg-slate-100 text-slate-700 border-slate-200 m-0">
-                    {item.ruleCode}
-                  </Tag>
                   <Tag color="cyan" className="font-semibold text-[10.5px] m-0 border-cyan-200">
                     {item.categoryLabel}
                   </Tag>
@@ -1030,25 +1260,28 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {coordinatedTasks.map((t) => (
+              {coordinatedTasks.map((t) => {
+                const statusForTag = t.rawStatus || (
+                  t.status === 'COMPLETED'
+                    ? 'completed'
+                    : t.status === 'BLOCKED'
+                    ? 'overdue'
+                    : t.status === 'TODO'
+                    ? 'todo'
+                    : 'in_progress'
+                );
+                return (
                 <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="py-3 px-3 font-semibold text-slate-800 max-w-[240px]">
                     {t.title}
                   </td>
-                  <td className="py-3 px-3">
-                    <Tooltip title={t.relatedObligationTitle}>
-                      <Tag className="font-mono text-[10px] font-bold m-0 border-slate-200">
-                        {t.relatedObligationCode}
-                      </Tag>
-                    </Tooltip>
+                  <td className="py-3 px-3 max-w-[200px]">
+                    <span className="text-slate-700 font-medium leading-snug block">
+                      {t.relatedObligationTitle}
+                    </span>
                   </td>
-                  <td className="py-3 px-3">
-                    <Tag
-                      color={t.priority === 'CRITICAL' ? 'red' : t.priority === 'HIGH' ? 'orange' : 'blue'}
-                      className="text-[10px] font-bold m-0"
-                    >
-                      {t.priority}
-                    </Tag>
+                  <td className="py-3 px-3 whitespace-nowrap">
+                    <PriorityTag priority={t.priority} />
                   </td>
                   <td className="py-3 px-3 text-slate-600 font-medium">
                     {t.assigneeRole}
@@ -1056,8 +1289,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                   <td className="py-3 px-3 font-mono font-semibold text-slate-700 whitespace-nowrap">
                     {t.deadline}
                   </td>
-                  <td className="py-3 px-3">
-                    {renderCelraTaskStatusBadge(t.status)}
+                  <td className="py-3 px-3 whitespace-nowrap">
+                    <TaskStatusTag status={statusForTag} />
                   </td>
                   <td className="py-3 px-3 text-slate-500 max-w-[260px] leading-relaxed">
                     {t.completionCondition}
@@ -1079,7 +1312,8 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
                     </Button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1405,9 +1639,11 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         onClose={() => setUploadModalVisible(false)}
         onSuccess={() => {
           setUploadModalVisible(false);
+          fetchEvidences();
+          fetchTasks();
           Modal.success({
             title: 'Tải Bằng Chứng Thành Công',
-            content: 'Tệp chứng từ đã được lưu trữ và đính kèm vào hồ sơ rà soát tuân thủ của doanh nghiệp.',
+            content: 'Tệp chứng từ đã được lưu trữ và đồng bộ vào hồ sơ rà soát tuân thủ của doanh nghiệp.',
             okText: 'Đã hiểu',
           });
         }}

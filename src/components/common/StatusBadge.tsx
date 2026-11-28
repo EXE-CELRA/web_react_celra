@@ -32,21 +32,34 @@ export const TaskStatusTag: React.FC<{ status: TaskStatus | string }> = ({ statu
   );
 };
 
-export const PriorityTag: React.FC<{ priority: TaskPriority }> = ({ priority }) => {
-  const map: Record<string, { color: string; text: string }> = {
-    LOW: { color: 'blue', text: 'Thấp' },
-    MEDIUM: { color: 'gold', text: 'Trung bình' },
-    HIGH: { color: 'orange', text: 'Cao' },
-    CRITICAL: { color: 'red', text: 'Khẩn cấp' },
-    // Backend lowercase mappings:
-    low: { color: 'blue', text: 'Thấp' },
-    medium: { color: 'gold', text: 'Trung bình' },
-    high: { color: 'orange', text: 'Cao' },
-    urgent: { color: 'red', text: 'Khẩn cấp' },
+export const PriorityTag: React.FC<{ priority: TaskPriority | string }> = ({ priority }) => {
+  const key = String(priority || '').toUpperCase();
+  const map: Record<string, { bg: string; border: string; color: string; text: string }> = {
+    LOW: { bg: '#eff6ff', border: '#93c5fd', color: '#1d4ed8', text: 'Thấp' },
+    MEDIUM: { bg: '#fef9c3', border: '#fde047', color: '#a16207', text: 'Trung bình' },
+    HIGH: { bg: '#ffedd5', border: '#fb923c', color: '#c2410c', text: 'Cao' },
+    CRITICAL: { bg: '#fee2e2', border: '#f87171', color: '#b91c1c', text: 'Khẩn cấp' },
+    URGENT: { bg: '#fee2e2', border: '#f87171', color: '#b91c1c', text: 'Khẩn cấp' },
   };
 
-  const item = map[priority] || { color: 'default', text: priority };
-  return <Tag color={item.color}>{item.text}</Tag>;
+  const item = map[key];
+  if (!item) {
+    return <Tag>{priority}</Tag>;
+  }
+
+  return (
+    <Tag
+      style={{
+        backgroundColor: item.bg,
+        borderColor: item.border,
+        color: item.color,
+        fontWeight: 600,
+        margin: 0,
+      }}
+    >
+      {item.text}
+    </Tag>
+  );
 };
 
 export const SeverityTag: React.FC<{ severity: RiskSeverity }> = ({ severity }) => {

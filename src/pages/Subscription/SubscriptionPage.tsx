@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Tabs, Tag, Button, Progress, Modal, message, Switch } from 'antd';
+import { Tabs, Tag, Button, Progress, Modal, message, Switch, QRCode } from 'antd';
 import {
   Sparkles,
   ShieldCheck,
@@ -43,6 +43,7 @@ export const SubscriptionPage: React.FC = () => {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+  const [showVietQrStep, setShowVietQrStep] = useState(false);
 
   useEffect(() => {
     fetchSubscription(activeOrg?.id);
@@ -54,6 +55,7 @@ export const SubscriptionPage: React.FC = () => {
 
   const handleOpenUpgrade = (plan: PlanFeatureDefinition) => {
     setSelectedPlanForUpgrade(plan);
+    setShowVietQrStep(false);
     setUpgradeModalOpen(true);
   };
 
@@ -61,14 +63,17 @@ export const SubscriptionPage: React.FC = () => {
     if (!selectedPlanForUpgrade) return;
     setIsProcessing(true);
     try {
-      await subscribePlan(selectedPlanForUpgrade.code, method);
+      await subscribePlan(selectedPlanForUpgrade.code, method, billingCycle);
+      await fetchInvoices(activeOrg?.id);
       message.success(
         `Chúc mừng bạn đã kích hoạt thành công ${selectedPlanForUpgrade.name}! Hạn mức sử dụng mới đã sẵn sàng.`
       );
+      setShowVietQrStep(false);
       setUpgradeModalOpen(false);
       setActiveTab('overview');
-    } catch {
-      message.error('Có sự cố khi kích hoạt gói dịch vụ. Vui lòng thử lại!');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      message.error(e?.response?.data?.message || e?.message || 'Có sự cố khi kích hoạt gói dịch vụ. Vui lòng thử lại!');
     } finally {
       setIsProcessing(false);
     }
@@ -249,6 +254,7 @@ export const SubscriptionPage: React.FC = () => {
                       <Button
                         block
                         onClick={() => {
+                          setBillingCycle('MONTHLY');
                           handleOpenUpgrade(currentPlanDef);
                         }}
                         className="text-xs font-semibold text-slate-700 h-10 rounded-xl border-slate-300 hover:border-slate-400"
@@ -285,13 +291,13 @@ export const SubscriptionPage: React.FC = () => {
                           </div>
                         </div>
                         <span className="text-xs font-extrabold font-mono text-teal-700">
-                          {subscription?.usage?.aiChatboxUsed ?? 42} / {currentPlanDef.aiChatboxMonthlyLimit}
+                          {subscription?.usage?.aiChatboxUsed ?? 0} / {currentPlanDef.aiChatboxMonthlyLimit}
                         </span>
                       </div>
 
                       <div>
                         {(() => {
-                          const used = subscription?.usage?.aiChatboxUsed ?? 42;
+                          const used = subscription?.usage?.aiChatboxUsed ?? 0;
                           const limit = currentPlanDef.aiChatboxMonthlyLimit;
                           const percent = Math.min(100, Math.round((used / limit) * 100));
                           return (
@@ -305,8 +311,8 @@ export const SubscriptionPage: React.FC = () => {
                           );
                         })()}
                         <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1 font-medium">
-                          <span>Đã sử dụng {Math.min(100, Math.round(((subscription?.usage?.aiChatboxUsed ?? 42) / currentPlanDef.aiChatboxMonthlyLimit) * 100))}%</span>
-                          <span>Còn lại {Math.max(0, currentPlanDef.aiChatboxMonthlyLimit - (subscription?.usage?.aiChatboxUsed ?? 42))} câu</span>
+                          <span>Đã sử dụng {Math.min(100, Math.round(((subscription?.usage?.aiChatboxUsed ?? 0) / currentPlanDef.aiChatboxMonthlyLimit) * 100))}%</span>
+                          <span>Còn lại {Math.max(0, currentPlanDef.aiChatboxMonthlyLimit - (subscription?.usage?.aiChatboxUsed ?? 0))} câu</span>
                         </div>
                       </div>
                     </div>
@@ -324,13 +330,13 @@ export const SubscriptionPage: React.FC = () => {
                           </div>
                         </div>
                         <span className="text-xs font-extrabold font-mono text-blue-700">
-                          {subscription?.usage?.docAnalysisUsed ?? 15} / {currentPlanDef.docAnalysisMonthlyLimit}
+                          {subscription?.usage?.docAnalysisUsed ?? 0} / {currentPlanDef.docAnalysisMonthlyLimit}
                         </span>
                       </div>
 
                       <div>
                         {(() => {
-                          const used = subscription?.usage?.docAnalysisUsed ?? 15;
+                          const used = subscription?.usage?.docAnalysisUsed ?? 0;
                           const limit = currentPlanDef.docAnalysisMonthlyLimit;
                           const percent = Math.min(100, Math.round((used / limit) * 100));
                           return (
@@ -344,8 +350,8 @@ export const SubscriptionPage: React.FC = () => {
                           );
                         })()}
                         <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1 font-medium">
-                          <span>Đã sử dụng {Math.min(100, Math.round(((subscription?.usage?.docAnalysisUsed ?? 15) / currentPlanDef.docAnalysisMonthlyLimit) * 100))}%</span>
-                          <span>Còn lại {Math.max(0, currentPlanDef.docAnalysisMonthlyLimit - (subscription?.usage?.docAnalysisUsed ?? 15))} lượt</span>
+                          <span>Đã sử dụng {Math.min(100, Math.round(((subscription?.usage?.docAnalysisUsed ?? 0) / currentPlanDef.docAnalysisMonthlyLimit) * 100))}%</span>
+                          <span>Còn lại {Math.max(0, currentPlanDef.docAnalysisMonthlyLimit - (subscription?.usage?.docAnalysisUsed ?? 0))} lượt</span>
                         </div>
                       </div>
                     </div>
@@ -363,13 +369,13 @@ export const SubscriptionPage: React.FC = () => {
                           </div>
                         </div>
                         <span className="text-xs font-extrabold font-mono text-purple-700">
-                          {subscription?.usage?.storageUsedGb ?? 1.8} GB / {currentPlanDef.storageGbLimit} GB
+                          {Number(subscription?.usage?.storageUsedGb ?? 0).toFixed(2)} GB / {currentPlanDef.storageGbLimit} GB
                         </span>
                       </div>
 
                       <div>
                         {(() => {
-                          const used = subscription?.usage?.storageUsedGb ?? 1.8;
+                          const used = Number(subscription?.usage?.storageUsedGb ?? 0);
                           const limit = currentPlanDef.storageGbLimit;
                           const percent = Math.min(100, Math.round((used / limit) * 100));
                           return (
@@ -383,8 +389,8 @@ export const SubscriptionPage: React.FC = () => {
                           );
                         })()}
                         <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1 font-medium">
-                          <span>Đã sử dụng {Math.min(100, Math.round(((subscription?.usage?.storageUsedGb ?? 1.8) / currentPlanDef.storageGbLimit) * 100))}%</span>
-                          <span>Còn trống {(currentPlanDef.storageGbLimit - (subscription?.usage?.storageUsedGb ?? 1.8)).toFixed(1)} GB</span>
+                          <span>Đã sử dụng {Math.min(100, Math.round((Number(subscription?.usage?.storageUsedGb ?? 0) / currentPlanDef.storageGbLimit) * 100))}%</span>
+                          <span>Còn trống {Math.max(0, currentPlanDef.storageGbLimit - Number(subscription?.usage?.storageUsedGb ?? 0)).toFixed(2)} GB</span>
                         </div>
                       </div>
                     </div>
@@ -745,79 +751,131 @@ export const SubscriptionPage: React.FC = () => {
       <Modal
         title={null}
         open={upgradeModalOpen}
-        onCancel={() => setUpgradeModalOpen(false)}
+        onCancel={() => {
+          setShowVietQrStep(false);
+          setUpgradeModalOpen(false);
+        }}
         footer={null}
         width={560}
         centered
         className="celra-rounded-modal"
       >
-        {selectedPlanForUpgrade && (
-          <div className="p-4 space-y-6">
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto border border-teal-100">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900">
-                Xác Nhận Đăng Ký {selectedPlanForUpgrade.name}
-              </h3>
-              <p className="text-xs text-slate-500">
-                Gói sẽ được kích hoạt ngay lập tức cho doanh nghiệp <strong>{activeOrg?.name}</strong> trong vòng 30 ngày.
-              </p>
-            </div>
+        {selectedPlanForUpgrade && (() => {
+          const isYearly = billingCycle === 'YEARLY';
+          const payableAmount = isYearly
+            ? Math.round(selectedPlanForUpgrade.priceVnd * 12 * 0.85)
+            : selectedPlanForUpgrade.priceVnd;
+          const transferNote = `CELRA ${selectedPlanForUpgrade.code} ${activeOrg?.taxCode || activeOrg?.id?.slice(0, 8) || ''}`.trim();
 
-            {/* Chi tiết chi phí */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Gói lựa chọn:</span>
-                <span className="font-bold text-slate-900">{selectedPlanForUpgrade.name}</span>
+          return (
+            <div className="p-4 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto border border-teal-100">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">
+                  Xác Nhận Đăng Ký {selectedPlanForUpgrade.name}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Gói sẽ được kích hoạt cho doanh nghiệp <strong>{activeOrg?.name}</strong> trong{' '}
+                  <strong>{isYearly ? '12 tháng (365 ngày)' : '30 ngày'}</strong>.
+                </p>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Thời hạn sử dụng:</span>
-                <span className="font-bold text-slate-900">30 ngày kể từ ngày kích hoạt</span>
+
+              {/* Chi tiết chi phí */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">Gói lựa chọn:</span>
+                  <span className="font-bold text-slate-900">{selectedPlanForUpgrade.name}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">Chu kỳ thanh toán:</span>
+                  <span className="font-bold text-slate-900">
+                    {isYearly ? '12 tháng (Tiết kiệm 15%)' : '1 tháng (30 ngày)'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">Hạn mức AI Chatbox:</span>
+                  <span className="font-bold text-teal-700">{selectedPlanForUpgrade.aiChatboxMonthlyLimit} lượt/tháng</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                  <span className="text-sm font-extrabold text-slate-900">Tổng thanh toán:</span>
+                  <span className="text-2xl font-black text-teal-700 font-mono">
+                    {payableAmount.toLocaleString('vi-VN')} ₫
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Hạn mức AI Chatbox:</span>
-                <span className="font-bold text-teal-700">{selectedPlanForUpgrade.aiChatboxMonthlyLimit} lượt/tháng</span>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                <span className="text-sm font-extrabold text-slate-900">Tổng thanh toán:</span>
-                <span className="text-2xl font-black text-teal-700 font-mono">
-                  {selectedPlanForUpgrade.priceVnd.toLocaleString('vi-VN')} ₫
-                </span>
+
+              {!showVietQrStep ? (
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-slate-700">Chọn phương thức thanh toán:</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Button
+                      block
+                      loading={isProcessing}
+                      onClick={() => setShowVietQrStep(true)}
+                      className="h-12 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 border-none shadow-sm"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      Chuyển Khoản VietQR
+                    </Button>
+
+                    <Button
+                      block
+                      loading={isProcessing}
+                      onClick={() => handleConfirmUpgrade('Sandbox')}
+                      className="h-12 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 flex items-center justify-center gap-2"
+                    >
+                      <Zap className="w-4 h-4 text-indigo-600" />
+                      Kích Hoạt Nhanh (Sandbox)
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-teal-50/50 border border-teal-200 rounded-2xl p-4 space-y-4">
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="bg-white p-2 rounded-xl border border-slate-200 shrink-0">
+                      <QRCode
+                        value={`VIETQR|CELRA|${payableAmount}|${transferNote}`}
+                        size={136}
+                      />
+                    </div>
+                    <div className="space-y-1.5 text-xs text-slate-700 flex-1">
+                      <div className="font-extrabold text-teal-900 text-sm">Quét mã chuyển khoản VietQR</div>
+                      <div>Số tiền: <strong className="text-teal-700 font-mono">{payableAmount.toLocaleString('vi-VN')} ₫</strong></div>
+                      <div>Nội dung CK: <strong className="font-mono text-slate-900">{transferNote}</strong></div>
+                      <div className="text-[11px] text-slate-500">
+                        Sau khi hoàn tất chuyển khoản, nhấn nút xác nhận bên dưới để ghi nhận hóa đơn và kích hoạt gói.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setShowVietQrStep(false)}
+                      disabled={isProcessing}
+                      className="rounded-xl text-xs font-semibold h-10"
+                    >
+                      Quay lại
+                    </Button>
+                    <Button
+                      type="primary"
+                      block
+                      loading={isProcessing}
+                      onClick={() => handleConfirmUpgrade('VietQR')}
+                      className="rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs h-10 border-none"
+                    >
+                      Tôi đã chuyển khoản — Kích hoạt gói
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-[11px] text-slate-400 text-center">
+                Sau khi kích hoạt thành công, hóa đơn điện tử sẽ được lưu vào mục Lịch sử Hóa đơn.
               </div>
             </div>
-
-            {/* Phương thức thanh toán */}
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-slate-700">Chọn phương thức thanh toán:</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button
-                  block
-                  loading={isProcessing}
-                  onClick={() => handleConfirmUpgrade('VietQR')}
-                  className="h-12 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 border-none shadow-sm"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Thanh Toán VietQR Thật
-                </Button>
-
-                <Button
-                  block
-                  loading={isProcessing}
-                  onClick={() => handleConfirmUpgrade('Sandbox')}
-                  className="h-12 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 flex items-center justify-center gap-2"
-                >
-                  <Zap className="w-4 h-4 text-indigo-600" />
-                  Mô Phỏng Sandbox
-                </Button>
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-400 text-center">
-              Sau khi thanh toán thành công, hóa đơn VAT điện tử sẽ được tự động xuất và lưu vào mục Lịch sử Hóa đơn.
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* 4. Modal Chi Tiết Hóa Đơn Điện Tử */}

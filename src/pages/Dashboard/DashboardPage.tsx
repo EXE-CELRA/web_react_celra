@@ -9,21 +9,44 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useTaskStore } from '../../store/useTaskStore';
-import { useWalletStore } from '../../store/useWalletStore';
 import { TaskStatusTag, PriorityTag } from '../../components/common/StatusBadge';
-import { VietQRModal } from '../../components/common/VietQRModal';
+import { getDeadlineStatus } from '../../utils/taxCalendar';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const { Title, Text, Paragraph } = Typography;
 
+interface PendingLegalUpdateItem {
+  id: string;
+  sourceType: 'LEGAL_DOCUMENT' | 'RULE';
+  sourceCode: string;
+  sourceVersion: string;
+  title: string;
+  legalReference: string;
+  issuedBy: string;
+  effectiveDate: string;
+  sourceUrl?: string;
+  syncedAt: string;
+  question: string;
+  options: string[];
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Chủ doanh nghiệp',
+  internal_accountant: 'Kế toán nội bộ',
+  service_accountant: 'Kế toán dịch vụ',
+  hr_staff: 'Nhân sự',
+  expert: 'Chuyên gia',
+  admin: 'Quản trị viên',
+};
+
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { activeOrg, organizations } = useOrgStore();
   const { tasks, fetchTasks } = useTaskStore();
-  const { fetchWallet } = useWalletStore();
 
   const [stats, setStats] = useState<{
     totalTasks: number;
@@ -40,14 +63,14 @@ export const DashboardPage: React.FC = () => {
     urgentTasksCount: 0,
     complianceScore: 0,
   });
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const alertStorageKey = activeOrg?.id ? `celra_pending_law_alert_v2_${activeOrg.id}` : 'celra_pending_law_alert_v2';
-  const [showLawAlert, setShowLawAlert] = useState<boolean>(() => {
-    return localStorage.getItem(alertStorageKey) !== 'dismissed';
-  });
+
+  const [pendingUpdates, setPendingUpdates] = useState<PendingLegalUpdateItem[]>([]);
   const [microSurveyVisible, setMicroSurveyVisible] = useState(false);
   const [microSelectedOption, setMicroSelectedOption] = useState<string>('Đã hoàn thành / Tuân thủ đầy đủ');
   const [updatingLawContext, setUpdatingLawContext] = useState(false);
+
+  const activeUpdate = pendingUpdates[0] || null;
+
   // Kiểm tra cờ trạng thái hoàn thành bài khảo sát bối cảnh (tách biệt theo từng doanh nghiệp)
   const isSurveyCompleted = Boolean(
     activeOrg?.id &&
@@ -56,20 +79,35 @@ export const DashboardPage: React.FC = () => {
   );
 
   const handleOpenMicroSurvey = () => {
+    if (!activeUpdate) return;
+    setMicroSelectedOption(activeUpdate.options[0] || 'Đã hoàn thành / Tuân thủ đầy đủ');
     setMicroSurveyVisible(true);
   };
 
-  const handleConfirmMicroSurvey = async () => {
+  const handleAcknowledgeUpdate = async (status: 'CONFIRMED' | 'DISMISSED') => {
+    if (!activeUpdate) return;
     setUpdatingLawContext(true);
     try {
-      localStorage.setItem(alertStorageKey, 'dismissed');
-      localStorage.setItem(`celra_law_rule_tndn_version_${activeOrg?.id || 'default'}`, '2.0');
-      message.success('✅ Đã cập nhật thành công bối cảnh tuân thủ lên phiên bản Luật mới (Nghị định 252/2026/NĐ-CP)! Dữ liệu lịch sử cũ vẫn được bảo toàn.');
-      setShowLawAlert(false);
-      setMicroSurveyVisible(false);
-      await loadDashboardData();
+      await apiClient.post('/context-facts/legal-updates/acknowledge', {
+        sourceType: activeUpdate.sourceType,
+        sourceCode: activeUpdate.sourceCode,
+        sourceVersion: activeUpdate.sourceVersion,
+        status,
+        selectedOption: status === 'CONFIRMED' ? microSelectedOption : undefined,
+        title: activeUpdate.title,
+        legalReference: activeUpdate.legalReference,
+      });
+
+      if (status === 'CONFIRMED') {
+        message.success(`Đã ghi nhận xác nhận tuân thủ cho ${activeUpdate.sourceCode} vào cơ sở dữ liệu!`);
+        setMicroSurveyVisible(false);
+      } else {
+        message.info(`Đã tạm hoãn thông báo cho ${activeUpdate.sourceCode}.`);
+      }
+
+      setPendingUpdates((prev) => prev.filter((item) => item.id !== activeUpdate.id));
     } catch {
-      message.error('Lỗi khi cập nhật bối cảnh');
+      message.error('Lỗi khi lưu xác nhận cập nhật bối cảnh pháp luật');
     } finally {
       setUpdatingLawContext(false);
     }
@@ -84,6 +122,7 @@ export const DashboardPage: React.FC = () => {
       urgentTasksCount: 0,
       complianceScore: 0,
     });
+    setPendingUpdates([]);
     if (activeOrg) {
       loadDashboardData();
     }
@@ -97,6 +136,16 @@ export const DashboardPage: React.FC = () => {
         (localStorage.getItem(`celra_survey_completed_${activeOrg.id}`) === 'true' ||
          (activeOrg?.taxCode && activeOrg?.name))
       );
+
+      // Kéo dữ liệu cập nhật pháp luật mới từ API (nếu có văn bản / quy tắc mới chưa xác nhận)
+      apiClient
+        .get<unknown, { pendingUpdates?: PendingLegalUpdateItem[] }>('/context-facts/legal-updates/pending')
+        .then((res) => {
+          setPendingUpdates(Array.isArray(res?.pendingUpdates) ? res.pendingUpdates : []);
+        })
+        .catch(() => {
+          setPendingUpdates([]);
+        });
 
       // Nếu chưa hoàn thành bài khảo sát, toàn bộ số liệu để là 0
       if (!isSurveyDone) {
@@ -112,7 +161,6 @@ export const DashboardPage: React.FC = () => {
       }
 
       await fetchTasks();
-      await fetchWallet();
 
       const currentTasks = useTaskStore.getState().tasks;
       const total = currentTasks.length;
@@ -130,22 +178,36 @@ export const DashboardPage: React.FC = () => {
         return;
       }
 
-      const completed = currentTasks.filter((t) => {
+      let completed = 0;
+      let overdue = 0;
+      let inProgress = 0;
+      let urgent = 0;
+
+      currentTasks.forEach((t) => {
         const s = String(t.status || '').toUpperCase();
-        return s === 'COMPLETED' || s === 'VERIFIED';
-      }).length;
-      const inProgress = currentTasks.filter((t) => {
-        const s = String(t.status || '').toUpperCase();
-        return s === 'IN_PROGRESS' || s === 'TODO' || s === 'WAITING_VERIFICATION' || s === 'NEED_INFO';
-      }).length;
-      const overdue = currentTasks.filter((t) => {
-        const s = String(t.status || '').toUpperCase();
-        return s === 'OVERDUE';
-      }).length;
-      const urgent = currentTasks.filter((t) => {
-        const p = String(t.priority || '').toLowerCase();
-        return p === 'high' || p === 'urgent' || p === 'critical';
-      }).length;
+        const isCompleted = s === 'COMPLETED' || s === 'VERIFIED' || s === 'DONE';
+        const isCancelled = s === 'CANCELLED';
+        const p = String(t.customPriority || t.priority || '').toLowerCase();
+
+        if (p === 'high' || p === 'urgent' || p === 'critical') {
+          urgent += 1;
+        }
+
+        if (isCompleted) {
+          completed += 1;
+          return;
+        }
+        if (isCancelled) return;
+
+        const dlStatus = t.dueDate
+          ? getDeadlineStatus(t.dueDate, null, false).deadlineStatus
+          : null;
+        if (s === 'OVERDUE' || dlStatus === 'OVERDUE_BY_CALENDAR') {
+          overdue += 1;
+        } else {
+          inProgress += 1;
+        }
+      });
 
       const score = Math.round((completed / total) * 100);
 
@@ -192,13 +254,21 @@ export const DashboardPage: React.FC = () => {
   };
 
   // Hàm chuyển đổi mã quy mô sang tiếng Việt thân thiện
-  const formatScale = (scale?: string) => {
-    if (!scale) return 'Chưa xác định';
-    if (scale === 'MICRO') return 'Siêu nhỏ (< 10 nhân sự)';
-    if (scale === 'SMALL') return 'Nhỏ (10 - 50 nhân sự)';
-    if (scale === 'MEDIUM') return 'Vừa (50 - 200 nhân sự)';
-    if (scale === 'LARGE') return 'Lớn (> 200 nhân sự)';
-    return scale;
+  const formatScale = (scale?: string, employeeCount?: number) => {
+    if (scale) {
+      if (scale === 'MICRO') return 'Siêu nhỏ (< 10 nhân sự)';
+      if (scale === 'SMALL') return 'Nhỏ (10 - 50 nhân sự)';
+      if (scale === 'MEDIUM') return 'Vừa (50 - 200 nhân sự)';
+      if (scale === 'LARGE') return 'Lớn (> 200 nhân sự)';
+      return scale;
+    }
+    if (typeof employeeCount === 'number' && employeeCount > 0) {
+      if (employeeCount < 10) return `Siêu nhỏ (${employeeCount} nhân sự)`;
+      if (employeeCount <= 50) return `Nhỏ (${employeeCount} nhân sự)`;
+      if (employeeCount <= 200) return `Vừa (${employeeCount} nhân sự)`;
+      return `Lớn (${employeeCount} nhân sự)`;
+    }
+    return 'Chưa xác định';
   };
 
   if (!activeOrg && organizations.length === 0) {
@@ -217,40 +287,48 @@ export const DashboardPage: React.FC = () => {
   }
 
   const urgentTasks = isSurveyCompleted
-    ? tasks.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED').slice(0, 5)
+    ? tasks
+        .filter((t) => {
+          const st = String(t.status || '').toLowerCase();
+          return st !== 'completed' && st !== 'verified' && st !== 'done' && st !== 'cancelled';
+        })
+        .slice(0, 5)
     : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* 🔔 BANNER THÔNG BÁO LUẬT MỚI VỪA BAN HÀNH (MICRO-SURVEY 30 GIÂY) */}
-      {showLawAlert && (
+      {/* 🔔 BANNER CẬP NHẬT PHÁP LUẬT MỚI TỪ API (CHỈ HIỆN KHI CÓ DỮ LIỆU MỚI CHỜ XÁC NHẬN) */}
+      {activeUpdate && (
         <Alert
           message={
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <Space wrap>
-                <Tag color="volcano" style={{ fontWeight: 'bold' }}>QUY ĐỊNH MỚI 2026</Tag>
-                <Tag color="blue" style={{ fontWeight: 'bold' }}>MICRO-SURVEY 30 GIÂY</Tag>
+                <Tag color="volcano" style={{ fontWeight: 'bold' }}>CẬP NHẬT PHÁP LUẬT MỚI</Tag>
+                <Tag color="blue" style={{ fontWeight: 'bold' }}>
+                  {activeUpdate.sourceCode}
+                </Tag>
+                {pendingUpdates.length > 1 && (
+                  <Tag color="default">Còn {pendingUpdates.length} mục chờ xác nhận</Tag>
+                )}
                 <strong style={{ fontSize: 14 }}>
-                  Nghị định 252/2026/NĐ-CP vừa ban hành có điều khoản sửa đổi ảnh hưởng đến doanh nghiệp bạn!
+                  {activeUpdate.title}
                 </strong>
               </Space>
               <Space>
                 <Button
                   type="primary"
                   size="small"
-                icon={<ThunderboltOutlined />}
+                  icon={<ThunderboltOutlined />}
                   onClick={handleOpenMicroSurvey}
                   style={{ backgroundColor: '#fa541c', borderColor: '#fa541c', fontWeight: 600 }}
                 >
-                  Xác Nhận Nhanh (30 Giây)
+                  Xác Nhận Nhanh
                 </Button>
                 <Button
                   type="text"
                   size="small"
-                  onClick={() => {
-                    localStorage.setItem(alertStorageKey, 'dismissed');
-                    setShowLawAlert(false);
-                  }}
+                  loading={updatingLawContext}
+                  onClick={() => handleAcknowledgeUpdate('DISMISSED')}
                   style={{ color: '#8c8c8c' }}
                 >
                   Để sau
@@ -260,7 +338,17 @@ export const DashboardPage: React.FC = () => {
           }
           description={
             <div style={{ marginTop: 6, fontSize: 12, color: '#595959' }}>
-              Ban Quản trị CELRA vừa duyệt cập nhật văn bản từ Cổng Dữ Liệu Pháp Luật. Bạn <strong>không cần</strong> làm lại toàn bộ bài khảo sát, chỉ cần 30 giây để cập nhật trạng thái tuân thủ cho điều khoản quy định mới này.
+              Nguồn: <strong>{activeUpdate.issuedBy}</strong> • Hiệu lực: <strong>{activeUpdate.effectiveDate}</strong>. Bạn <strong>không cần</strong> làm lại toàn bộ bài khảo sát, chỉ cần xác nhận nhanh tình trạng tuân thủ cho quy định vừa đồng bộ.
+              {activeUpdate.sourceUrl && (
+                <a
+                  href={activeUpdate.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ marginLeft: 8, color: '#1677ff', fontWeight: 600 }}
+                >
+                  Xem văn bản gốc ↗
+                </a>
+              )}
             </div>
           }
           type="warning"
@@ -297,7 +385,9 @@ export const DashboardPage: React.FC = () => {
               </strong>{' '}
               | Quy mô:{' '}
               <strong style={{ color: '#fff' }}>
-                {isSurveyCompleted ? formatScale(activeOrg?.scale || (activeOrg as any)?.employeeScale) : 'Chưa xác định'}
+                {isSurveyCompleted
+                  ? formatScale(activeOrg?.scale || (activeOrg as any)?.employeeScale, activeOrg?.employeeCount)
+                  : 'Chưa xác định'}
               </strong>
             </Paragraph>
           </Col>
@@ -482,10 +572,11 @@ export const DashboardPage: React.FC = () => {
                   {
                     title: 'Tên nghĩa vụ',
                     dataIndex: 'title',
+                    width: 280,
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     render: (text: string, record: any) => (
-                      <div>
-                        <Text strong style={{ cursor: 'pointer', color: '#1677ff' }} onClick={() => navigate('/tasks')}>
+                      <div style={{ maxWidth: 270 }}>
+                        <Text strong style={{ cursor: 'pointer', color: '#1677ff', fontSize: 13 }} onClick={() => navigate('/tasks')}>
                           {text}
                         </Text>
                         <div style={{ fontSize: 11, color: '#8c8c8c' }}>{record.legalCitation || record.category}</div>
@@ -495,20 +586,24 @@ export const DashboardPage: React.FC = () => {
                   {
                     title: 'Mức độ',
                     dataIndex: 'priority',
-                    width: 110,
+                    width: 100,
                     render: (priority) => <PriorityTag priority={priority} />,
                   },
                   {
                     title: 'Trạng thái',
                     dataIndex: 'status',
-                    width: 140,
+                    width: 130,
                     render: (status) => <TaskStatusTag status={status} />,
                   },
                   {
                     title: 'Vai trò phụ trách',
                     dataIndex: 'assigneeRole',
-                    width: 130,
-                    render: (role) => <Tag color="blue">{role}</Tag>,
+                    width: 140,
+                    render: (role: string) => (
+                      <Tag color="blue" style={{ margin: 0 }}>
+                        {ROLE_LABELS[role] || role || 'Chủ doanh nghiệp'}
+                      </Tag>
+                    ),
                   },
                 ]}
               />
@@ -525,15 +620,15 @@ export const DashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* MODAL MICRO-SURVEY 30 GIÂY */}
+      {/* MODAL XÁC NHẬN CẬP NHẬT PHÁP LUẬT TỪ API */}
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ThunderboltOutlined style={{ color: '#fa541c', fontSize: 18 }} />
-            <span>Cập Nhật Bối Cảnh Luật Mới (30 Giây)</span>
+            <span>Xác Nhận Cập Nhật Quy Định Mới</span>
           </div>
         }
-        open={microSurveyVisible}
+        open={microSurveyVisible && Boolean(activeUpdate)}
         onCancel={() => setMicroSurveyVisible(false)}
         footer={[
           <Button key="back" onClick={() => setMicroSurveyVisible(false)}>
@@ -543,53 +638,55 @@ export const DashboardPage: React.FC = () => {
             key="submit"
             type="primary"
             loading={updatingLawContext}
-            onClick={handleConfirmMicroSurvey}
+            onClick={() => handleAcknowledgeUpdate('CONFIRMED')}
             style={{ backgroundColor: '#fa541c', borderColor: '#fa541c' }}
           >
             Lưu Cập Nhật Bối Cảnh Mới
           </Button>,
         ]}
       >
-        <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ padding: '10px 14px', backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #f0f0f0' }}>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>CĂN CỨ PHÁP LUẬT MỚI:</Text>
-            <Text strong style={{ fontSize: 13, color: '#1677ff' }}>
-              Khoản 1 Điều 8 Nghị định 252/2026/NĐ-CP (Sửa đổi, bổ sung quy định nộp thuế TNDN &amp; Quản lý thuế)
-            </Text>
-          </div>
+        {activeUpdate && (
+          <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ padding: '10px 14px', backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #f0f0f0' }}>
+              <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>VĂN BẢN / QUY ĐỊNH MỚI CẬP NHẬT:</Text>
+              <Text strong style={{ fontSize: 13, color: '#1677ff' }}>
+                {activeUpdate.legalReference}
+              </Text>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                {activeUpdate.issuedBy} • Hiệu lực: {activeUpdate.effectiveDate}
+              </div>
+            </div>
 
-          <div>
-            <Text strong style={{ fontSize: 13 }}>
-              Câu hỏi tình huống mới:
-            </Text>
-            <Paragraph style={{ marginTop: 6, fontSize: 13, color: '#262626' }}>
-              "Doanh nghiệp có thực hiện tạm nộp thuế TNDN 4 quý đạt tỷ lệ luật định và kê khai đầy đủ theo quy định tại Nghị định 252/2026/NĐ-CP không?"
-            </Paragraph>
-          </div>
+            <div>
+              <Text strong style={{ fontSize: 13 }}>
+                Câu hỏi rà soát nhanh:
+              </Text>
+              <Paragraph style={{ marginTop: 6, fontSize: 13, color: '#262626' }}>
+                "{activeUpdate.question}"
+              </Paragraph>
+            </div>
 
-          <div>
-            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-              Chọn tình trạng tuân thủ thực tế của doanh nghiệp:
-            </Text>
-            <Radio.Group
-              value={microSelectedOption}
-              onChange={(e) => setMicroSelectedOption(e.target.value)}
-              style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
-            >
-              <Radio value="Đã hoàn thành / Tuân thủ đầy đủ">Đã hoàn thành / Tuân thủ đầy đủ</Radio>
-              <Radio value="Chưa thực hiện / Chưa có">Chưa thực hiện / Chưa có</Radio>
-              <Radio value="Đang chuẩn bị / Có một phần">Đang chuẩn bị / Có một phần</Radio>
-              <Radio value="Chưa rõ quy định">Chưa rõ quy định</Radio>
-            </Radio.Group>
-          </div>
+            <div>
+              <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                Chọn tình trạng tuân thủ thực tế của doanh nghiệp:
+              </Text>
+              <Radio.Group
+                value={microSelectedOption}
+                onChange={(e) => setMicroSelectedOption(e.target.value)}
+                style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+              >
+                {activeUpdate.options.map((opt) => (
+                  <Radio key={opt} value={opt}>{opt}</Radio>
+                ))}
+              </Radio.Group>
+            </div>
 
-          <div style={{ fontSize: 11, color: '#8c8c8c', fontStyle: 'italic' }}>
-            * Lưu ý: Câu trả lời sẽ tự động nâng cấp dữ kiện Context Fact lên phiên bản v2.0 mà vẫn giữ nguyên bản ghi lịch sử ở phiên bản cũ theo nguyên tắc Luật không hồi tố.
+            <div style={{ fontSize: 11, color: '#8c8c8c', fontStyle: 'italic' }}>
+              * Lưu ý: Câu trả lời được lưu vào hồ sơ bối cảnh của doanh nghiệp và giữ nguyên toàn bộ bản ghi lịch sử trước đó theo nguyên tắc Luật không hồi tố.
+            </div>
           </div>
-        </div>
+        )}
       </Modal>
-
-      <VietQRModal visible={qrModalOpen} onClose={() => setQrModalOpen(false)} onSuccess={loadDashboardData} />
     </div>
   );
 };

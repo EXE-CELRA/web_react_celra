@@ -22,8 +22,48 @@ const REMINDERS = [
 const BUBBLE_MS = 10000;
 const REMINDER_GAP_MS = 75000;
 const QUIET_MS = 8000;
+const DRAG_THRESHOLD_PX = 5;
+const VIEWPORT_MARGIN_PX = 8;
 const GREET_SESSION_KEY = 'celra_mascot_greeted';
 const NOTIFY_STORAGE_KEY = 'celra_mascot_notifications';
+const POSITION_STORAGE_KEY = 'celra_mascot_position';
+
+interface MascotPosition {
+  x: number;
+  y: number;
+}
+
+const clampPosition = (x: number, y: number, width: number, height: number): MascotPosition => {
+  if (typeof window === 'undefined') return { x, y };
+  const maxX = Math.max(VIEWPORT_MARGIN_PX, window.innerWidth - width - VIEWPORT_MARGIN_PX);
+  const maxY = Math.max(VIEWPORT_MARGIN_PX, window.innerHeight - height - VIEWPORT_MARGIN_PX);
+  return {
+    x: Math.min(Math.max(VIEWPORT_MARGIN_PX, x), maxX),
+    y: Math.min(Math.max(VIEWPORT_MARGIN_PX, y), maxY),
+  };
+};
+
+const readStoredPosition = (): MascotPosition | null => {
+  try {
+    const raw = localStorage.getItem(POSITION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<MascotPosition>;
+    if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+      return clampPosition(parsed.x, parsed.y, 82, 92);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredPosition = (pos: MascotPosition) => {
+  try {
+    localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(pos));
+  } catch {
+    // Storage không khả dụng — bỏ qua
+  }
+};
 
 const readStoredFlag = (key: string, fallback: boolean) => {
   try {
@@ -70,10 +110,40 @@ export const CelraMascot: React.FC = () => {
     readStoredFlag(NOTIFY_STORAGE_KEY, true),
   );
   const [pulsing, setPulsing] = useState(false);
+  const [position, setPosition] = useState<MascotPosition | null>(() => readStoredPosition());
+  const [isDragging, setIsDragging] = useState(false);
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    originX: number;
+    originY: number;
+    width: number;
+    height: number;
+    didDrag: boolean;
+  } | null>(null);
+  const suppressNextClickRef = useRef(false);
 
   const lastActivityRef = useRef(0);
   const reminderIndexRef = useRef(0);
   const pulseTimerRef = useRef<number | null>(null);
+
+  // Kẹp lại vị trí mascot khi thay đổi kích thước cửa sổ
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((prev) => {
+        if (!prev) return prev;
+        const rect = rootRef.current?.getBoundingClientRect();
+        const w = rect?.width || 82;
+        const h = rect?.height || 92;
+        return clampPosition(prev.x, prev.y, w, h);
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Ghi nhận thao tác của người dùng để tạm hoãn lời nhắc khi đang thao tác trên website
   useEffect(() => {
@@ -147,6 +217,11 @@ export const CelraMascot: React.FC = () => {
   }, []);
 
   const handleOpenChat = useCallback(() => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+
     // 🛡️ Ở màn hình login, register, forgot-password: Tuyệt đối không cho phép mở chatbox
     if (isAuthPage) {
       antMessage.warning('Vui lòng đăng nhập để sử dụng Trợ lý Pháp lý AI.');
@@ -174,24 +249,120 @@ export const CelraMascot: React.FC = () => {
     setBubble(null);
   }, []);
 
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      width: rect.width,
+      height: rect.height,
+      didDrag: false,
+    };
+
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state || moveEv.pointerId !== state.pointerId) return;
+
+      const dx = moveEv.clientX - state.startClientX;
+      const dy = moveEv.clientY - state.startClientY;
+
+      if (!state.didDrag && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      if (!state.didDrag) {
+        state.didDrag = true;
+        setIsDragging(true);
+      }
+
+      const nextPos = clampPosition(
+        state.originX + dx,
+        state.originY + dy,
+        state.width,
+        state.height,
+      );
+      setPosition(nextPos);
+    };
+
+    const handlePointerUp = (upEv: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state || upEv.pointerId !== state.pointerId) return;
+
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+
+      if (state.didDrag) {
+        const dx = upEv.clientX - state.startClientX;
+        const dy = upEv.clientY - state.startClientY;
+        const finalPos = clampPosition(
+          state.originX + dx,
+          state.originY + dy,
+          state.width,
+          state.height,
+        );
+        setPosition(finalPos);
+        writeStoredPosition(finalPos);
+        suppressNextClickRef.current = true;
+        // Phòng hờ trường hợp trình duyệt không bắn sự kiện click sau drag
+        window.setTimeout(() => {
+          suppressNextClickRef.current = false;
+        }, 120);
+      }
+
+      setIsDragging(false);
+      dragStateRef.current = null;
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  }, []);
+
   // 🛡️ Khi khung chatbox đang mở: Ẩn hoàn toàn mascot để không che khuất hoặc vướng giao diện chat
   if (chatOpen) {
     return null;
   }
 
+  const isOnLeftHalf =
+    position !== null && typeof window !== 'undefined' && position.x < window.innerWidth / 2;
+  const isNearTop = position !== null && position.y < 190;
+
   const rootClassName = [
     'celra-mascot',
     pulsing ? 'is-pulsing' : '',
+    isDragging ? 'is-dragging' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
+  const rootStyle: React.CSSProperties | undefined = position
+    ? {
+        left: position.x,
+        top: position.y,
+        right: 'auto',
+        bottom: 'auto',
+      }
+    : undefined;
+
   return (
-    <div className={rootClassName}>
-      {/* Bong bóng hội thoại / nhắc nhở nổi phía trên mascot */}
+    <div ref={rootRef} className={rootClassName} style={rootStyle}>
+      {/* Bong bóng hội thoại / nhắc nhở nổi phía trên (hoặc dưới nếu gần mép trên) */}
       {bubble && (
         <div
-          className="celra-mascot__bubble"
+          className={[
+            'celra-mascot__bubble',
+            isOnLeftHalf ? 'is-align-left' : '',
+            isNearTop ? 'is-below' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           role="status"
           aria-live="polite"
         >
@@ -223,15 +394,20 @@ export const CelraMascot: React.FC = () => {
         </div>
       )}
 
-      {/* Nút mascot cố định góc dưới bên phải */}
+      {/* Nút mascot có thể kéo thả di chuyển tự do trên màn hình */}
       <button
         type="button"
         className={`celra-mascot__button ${isAuthPage ? 'is-disabled' : ''}`}
+        onPointerDown={handlePointerDown}
         onClick={handleOpenChat}
         aria-label="Mở trợ lý AI CELRA"
         aria-expanded={chatOpen}
-        title={isAuthPage ? 'Vui lòng đăng nhập để sử dụng Trợ lý AI' : 'Trợ lý AI CELRA — Nhấn để trò chuyện'}
-        style={isAuthPage ? { cursor: 'not-allowed' } : undefined}
+        title={
+          isAuthPage
+            ? 'Vui lòng đăng nhập để sử dụng Trợ lý AI (kéo để di chuyển)'
+            : 'Trợ lý AI CELRA — Nhấn để trò chuyện, kéo để di chuyển'
+        }
+        style={isAuthPage ? { cursor: isDragging ? 'grabbing' : 'grab' } : undefined}
       >
         <img
           className="celra-mascot__img"

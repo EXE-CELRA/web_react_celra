@@ -13,6 +13,7 @@ import {
 import apiClient from '../../api/client';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useSubscriptionStore } from '../../store/useSubscriptionStore';
 import '../CelraMascot/CelraMascot.css';
 import {
   type CitationItem,
@@ -236,6 +237,11 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
           timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
+
+      // Đồng bộ lại số lượt AI Chatbox đã sử dụng theo gói dịch vụ
+      if (currentOrgId) {
+        useSubscriptionStore.getState().fetchSubscription(currentOrgId).catch(() => {});
+      }
     } catch (err: unknown) {
       let backendMsg = 'Đã có sự cố kết nối tới Engine AI. Vui lòng thử lại sau giây lát.';
       if (typeof err === 'string') {
