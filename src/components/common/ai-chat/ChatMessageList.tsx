@@ -40,7 +40,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   onAcceptProposal,
   onOpenAudit,
 }) => {
-  const isWelcomeScreen = messages.length === 1 && messages[0].id === 'welcome-msg';
+  const isWelcomeScreen =
+    messages.length === 0 || (messages.length === 1 && messages[0].id === 'welcome-msg');
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">

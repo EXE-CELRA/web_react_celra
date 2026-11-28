@@ -134,6 +134,59 @@ export function clearChatHistory(userId?: string, orgId?: string): void {
   }
 }
 
+const ACTIVE_CONV_STORAGE_KEY = 'celra_active_conv_id';
+
+export function getStoredActiveConversationId(userId?: string, orgId?: string): string | null {
+  try {
+    if (!userId) return null;
+    return localStorage.getItem(`${ACTIVE_CONV_STORAGE_KEY}_u_${userId}_org_${orgId || 'default'}`);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredActiveConversationId(conversationId: string | null, userId?: string, orgId?: string): void {
+  try {
+    if (!userId) return;
+    const key = `${ACTIVE_CONV_STORAGE_KEY}_u_${userId}_org_${orgId || 'default'}`;
+    if (conversationId) {
+      localStorage.setItem(key, conversationId);
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function formatConversationTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  const now = new Date();
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) {
+    return 'Hôm qua';
+  }
+
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+}
+
 export function getDefaultWelcomeMessage(companyName?: string): MessageItem {
   return {
     id: 'welcome-msg',
