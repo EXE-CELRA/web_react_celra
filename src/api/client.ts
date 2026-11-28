@@ -58,11 +58,12 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     const status = error.response?.status;
-    const isProfileCheck =
-      typeof error.config?.url === 'string' && error.config.url.includes('/auth/profile');
+    const reqUrl = typeof error.config?.url === 'string' ? error.config.url : '';
+    const isProfileCheck = reqUrl.includes('/auth/profile');
+    const isLogoutCall = reqUrl.includes('/auth/logout');
 
     // Nếu token hết hạn (401) hoặc tài khoản bị xóa trên DB (404 khi load profile): chặn và đá ra login ngay lập tức
-    if (status === 401 || (status === 404 && isProfileCheck)) {
+    if (!isLogoutCall && (status === 401 || (status === 404 && isProfileCheck))) {
       handleAuthKickout();
     }
     return Promise.reject(error.response?.data || error.message);
