@@ -8,6 +8,7 @@ import {
   ClockCircleOutlined,
   CheckSquareOutlined,
   InfoCircleOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import {
   Plus,
@@ -26,6 +27,8 @@ import {
   getQuarterDeadline,
 } from './audit.constants';
 import { buildRevenueColumns, buildExpenseColumns } from './citTableColumns';
+import { TableColumnCustomizerDrawer } from '../../../components/common/TableColumnCustomizerDrawer';
+import { useTableColumnSettings } from '../../../hooks/useTableColumnSettings';
 
 interface CitLedgerSectionProps {
   taxQuarter: number | 'ALL';
@@ -137,6 +140,16 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
     taxQuarter,
     onOpenEditExpense,
     onDeleteExpense,
+  });
+
+  const revenueColSettings = useTableColumnSettings<CitRevenueRecord>({
+    tableKey: 'cit_revenues_ledger',
+    columns: revenueColumns,
+  });
+
+  const expenseColSettings = useTableColumnSettings<CitExpenseRecord>({
+    tableKey: 'cit_expenses_ledger',
+    columns: expenseColumns,
   });
 
   return (
@@ -548,6 +561,15 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
                       >
                         Tải mẫu Excel
                       </Button>
+                      <Button
+                        size="middle"
+                        icon={<SettingOutlined />}
+                        onClick={() => revenueColSettings.setDrawerOpen(true)}
+                        className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-blue-500 hover:text-blue-600 shadow-2xs whitespace-nowrap"
+                        title="Tùy chỉnh cột hiển thị, thứ tự và độ rộng bảng"
+                      >
+                        Tùy chỉnh giao diện
+                      </Button>
                     </div>
                   </div>
 
@@ -555,7 +577,9 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
                     dataSource={revenuesData}
                     rowKey="id"
                     loading={isRevenueLoading}
-                    columns={revenueColumns}
+                    columns={revenueColSettings.visibleColumns}
+                    components={revenueColSettings.tableComponents}
+                    scroll={{ x: 'max-content' }}
                     pagination={{
                       current: revenuePage,
                       pageSize: revenueLimit,
@@ -662,6 +686,15 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
                       >
                         Tải mẫu Excel
                       </Button>
+                      <Button
+                        size="middle"
+                        icon={<SettingOutlined />}
+                        onClick={() => expenseColSettings.setDrawerOpen(true)}
+                        className="text-xs font-medium rounded-lg border-slate-300 text-slate-700 hover:border-blue-500 hover:text-blue-600 shadow-2xs whitespace-nowrap"
+                        title="Tùy chỉnh cột hiển thị, thứ tự và độ rộng bảng"
+                      >
+                        Tùy chỉnh giao diện
+                      </Button>
                     </div>
                   </div>
 
@@ -669,7 +702,9 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
                     dataSource={expensesData}
                     rowKey="id"
                     loading={isExpenseLoading}
-                    columns={expenseColumns}
+                    columns={expenseColSettings.visibleColumns}
+                    components={expenseColSettings.tableComponents}
+                    scroll={{ x: 'max-content' }}
                     pagination={{
                       current: expensePage,
                       pageSize: expenseLimit,
@@ -694,6 +729,24 @@ export const CitLedgerSection: React.FC<CitLedgerSectionProps> = ({
           ]}
         />
       </div>
+
+      {/* DRAWER TÙY CHỈNH GIAO DIỆN BẢNG DOANH THU & CHI PHÍ */}
+      <TableColumnCustomizerDrawer
+        open={revenueColSettings.drawerOpen}
+        onClose={() => revenueColSettings.setDrawerOpen(false)}
+        columns={revenueColSettings.resolvedColumns}
+        loading={revenueColSettings.isSaving}
+        onSave={revenueColSettings.saveSettings}
+        onReset={revenueColSettings.resetSettings}
+      />
+      <TableColumnCustomizerDrawer
+        open={expenseColSettings.drawerOpen}
+        onClose={() => expenseColSettings.setDrawerOpen(false)}
+        columns={expenseColSettings.resolvedColumns}
+        loading={expenseColSettings.isSaving}
+        onSave={expenseColSettings.saveSettings}
+        onReset={expenseColSettings.resetSettings}
+      />
     </div>
   );
 };

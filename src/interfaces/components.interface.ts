@@ -5,6 +5,7 @@ import type { Organization } from './organization.interface';
 import type { TaskItem } from './task.interface';
 import type { DynamicSituationQuestion } from './survey.interface';
 import type { CitationItem } from './aiAssistant.interface';
+import type { CustomizableColumnType } from './tablePreference.interface';
 
 export interface CelraFilterBarProps {
   // Tìm kiếm theo từ khóa
@@ -40,6 +41,14 @@ export interface AIChatDrawerProps {
 export interface CelraTableProps<T extends object = Record<string, unknown>> extends TableProps<T> {
   headerBg?: string;
   headerTextColor?: string;
+  /** Khóa định danh duy nhất của bảng để bật Tùy chỉnh giao diện & đồng bộ DB đa thiết bị */
+  tableKey?: string;
+  /** Bật/tắt nút Tùy chỉnh giao diện cột (mặc định true nếu có tableKey) */
+  enableColumnCustomizer?: boolean;
+  /** Danh sách cột hỗ trợ metadata khóa/cố định (locked, customizerTitle, defaultVisible...) */
+  columns?: CustomizableColumnType<T>[];
+  /** Nội dung chèn thêm bên cạnh nút Tùy chỉnh giao diện trên thanh công cụ bảng */
+  toolbarExtra?: React.ReactNode;
 }
 
 export interface ElectronicReceiptTransaction {

@@ -475,11 +475,16 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
 
       let syncedCompletion = ob.completionStatus;
       if (matchedTasks.length > 0) {
-        if (matchedTasks.every((t) => t.status === 'completed')) {
+        if (matchedTasks.every((t) => String(t.status || '').toLowerCase() === 'completed')) {
           syncedCompletion = 'COMPLETED';
-        } else if (matchedTasks.some((t) => t.status === 'overdue')) {
+        } else if (matchedTasks.some((t) => String(t.status || '').toLowerCase() === 'overdue')) {
           syncedCompletion = 'OVERDUE';
-        } else if (matchedTasks.some((t) => t.status === 'waiting_verification' || t.status === 'waiting_input')) {
+        } else if (
+          matchedTasks.some((t) => {
+            const st = String(t.status || '').toLowerCase();
+            return st === 'waiting_verification' || st === 'waiting_input';
+          })
+        ) {
           syncedCompletion = 'PENDING_VERIFICATION';
         } else {
           syncedCompletion = 'IN_PROGRESS';
@@ -916,6 +921,7 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         return <Tag color="purple" className="font-bold text-[11px] m-0 border-purple-300">Expert Required</Tag>;
     }
   };
+  void renderCelraTaskStatusBadge;
 
   return (
     <div className="space-y-6">

@@ -35,6 +35,7 @@ import {
   ThunderboltOutlined,
   BellOutlined,
   WarningOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTaskStore } from '../../store/useTaskStore';
@@ -43,6 +44,8 @@ import type { TaskItem, TaskStatus, StatutoryCycleType, ComplianceNotification }
 import { TaskStatusTag } from '../../components/common/StatusBadge';
 import { EvidenceUploadModal } from '../../components/common/EvidenceUploadModal';
 import { TaskDetailDrawer } from '../../components/common/TaskDetailDrawer';
+import { TableColumnCustomizerDrawer } from '../../components/common/TableColumnCustomizerDrawer';
+import { useTableColumnSettings } from '../../hooks/useTableColumnSettings';
 import { cleanDLPLUrl, matchCoreLegalDocUrl } from '../../api/legalApi';
 import { formatVNCalendarDate, getDeadlineStatus, getExtensionInfo, STATUTORY_PERIOD_METAS } from '../../utils/taxCalendar';
 
@@ -486,7 +489,20 @@ export const TasksPage: React.FC = () => {
     },
   ];
 
-  
+  const {
+    visibleColumns: taskVisibleColumns,
+    resolvedColumns: taskResolvedColumns,
+    tableComponents: taskTableComponents,
+    drawerOpen: taskCustomizerOpen,
+    setDrawerOpen: setTaskCustomizerOpen,
+    isSaving: isTaskCustomizerSaving,
+    saveSettings: saveTaskCustomizer,
+    resetSettings: resetTaskCustomizer,
+  } = useTableColumnSettings<TaskItem>({
+    tableKey: 'tasks_list',
+    columns,
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* HEADER CARD */}
@@ -512,6 +528,16 @@ export const TasksPage: React.FC = () => {
                   Nhắc Hạn
                 </Button>
               </Badge>
+            </Tooltip>
+
+            <Tooltip title="Tùy chỉnh cột hiển thị, thứ tự và độ rộng bảng">
+              <Button
+                icon={<SettingOutlined />}
+                onClick={() => setTaskCustomizerOpen(true)}
+                style={{ borderRadius: 8 }}
+              >
+                Tùy chỉnh giao diện
+              </Button>
             </Tooltip>
 
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)} style={{ borderRadius: 8 }}>
@@ -660,9 +686,11 @@ export const TasksPage: React.FC = () => {
             ) : (
               <Table
                 dataSource={displayedTasks}
-                columns={columns}
+                columns={taskVisibleColumns}
+                components={taskTableComponents}
                 rowKey="id"
                 loading={isLoading}
+                scroll={{ x: 'max-content' }}
                 pagination={{
                   defaultPageSize: 10,
                   showSizeChanger: true,
@@ -674,6 +702,16 @@ export const TasksPage: React.FC = () => {
           </>
 
       </Card>
+
+      {/* DRAWER TÙY CHỈNH GIAO DIỆN BẢNG */}
+      <TableColumnCustomizerDrawer
+        open={taskCustomizerOpen}
+        onClose={() => setTaskCustomizerOpen(false)}
+        columns={taskResolvedColumns}
+        loading={isTaskCustomizerSaving}
+        onSave={saveTaskCustomizer}
+        onReset={resetTaskCustomizer}
+      />
 
       {/* DRAWER THÔNG BÁO NHẮC HẠN */}
       <Drawer
