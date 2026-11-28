@@ -1,12 +1,24 @@
 import type { EvidenceUploadModalProps } from '../../interfaces';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Modal, Form, Input, Select, Upload, message, Alert, Row, Col } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import apiClient from '../../api/client';
 
+const RULE_CODE_DEFAULT_META: Record<string, { tag: string; documentType: string }> = {
+  'RULE-TAX-TNDN-80': { tag: 'Tạm nộp 80% (1052)', documentType: 'STATE_TREASURY_RECEIPT' },
+  'RULE-TAX-TNDN-FINAL': { tag: 'Quyết toán 03/TNDN', documentType: 'TAX_DECLARATION' },
+  'RULE-TAX-TNDN-B4': { tag: 'Chi phí & Mục B4', documentType: 'INVOICE_VOUCHER' },
+  'RULE-CIT-B4-CASH': { tag: 'Hóa đơn & Ủy nhiệm chi', documentType: 'BANK_PAYMENT_ORDER' },
+  'RULE-CIT-B4-SALARY': { tag: 'Thuế TNDN', documentType: 'OTHER' },
+  'RULE-TAX-FCT-10D': { tag: 'Thuế nhà thầu (FCT)', documentType: 'OTHER' },
+};
+
 export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
   visible,
   taskId,
+  initialTag,
+  initialQuarter,
+  initialYear,
   onClose,
   onSuccess,
 }) => {
@@ -22,6 +34,17 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
     }
     return list;
   }, [currentYear]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const rulePreset = initialTag ? RULE_CODE_DEFAULT_META[initialTag] : undefined;
+    form.setFieldsValue({
+      documentType: rulePreset?.documentType || 'TAX_DECLARATION',
+      tag: rulePreset?.tag || (initialTag && !initialTag.startsWith('RULE-') ? initialTag : 'Thuế TNDN'),
+      quarter: initialQuarter !== undefined ? String(initialQuarter) : 'Cả năm',
+      year: initialYear ?? currentYear,
+    });
+  }, [visible, initialTag, initialQuarter, initialYear, currentYear, form]);
 
   const handleSubmit = async (values: any) => {
     if (fileList.length === 0) {
@@ -47,6 +70,9 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
     }
     if (taskId) {
       formData.append('taskId', taskId);
+    }
+    if (initialTag && initialTag.startsWith('RULE-')) {
+      formData.append('metadata', JSON.stringify({ ruleCode: initialTag }));
     }
 
     try {
@@ -167,8 +193,9 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
           </Col>
         </Row>
 
-        <Form.Item label="Chọn tệp (PDF, JPG, PNG, DOCX, XLSX)">
+        <Form.Item label="Chọn tệp chứng từ (PDF, XML, XLSX, DOCX, JPG, PNG)">
           <Upload.Dragger
+            accept=".pdf,.xml,.xlsx,.xls,.csv,.docx,.doc,.png,.jpg,.jpeg,.webp"
             fileList={fileList}
             beforeUpload={(file) => {
               setFileList([file]);
@@ -185,7 +212,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
               <InboxOutlined style={{ fontSize: 36, color: '#1677ff' }} />
             </p>
             <p className="ant-upload-text">Kéo thả tệp vào đây hoặc nhấp để chọn tệp từ máy tính</p>
-            <p className="ant-upload-hint">Hỗ trợ Excel (.xlsx, .xls), PDF, Word, Ảnh chứng từ. Dung lượng tối đa 25MB.</p>
+            <p className="ant-upload-hint">Hỗ trợ Hóa đơn điện tử (.xml, .pdf), Excel (.xlsx, .xls, .csv), Word, Ảnh chứng từ (tối đa 25MB — tự động mã hóa AES-256-GCM trên Cloud).</p>
           </Upload.Dragger>
         </Form.Item>
       </Form>

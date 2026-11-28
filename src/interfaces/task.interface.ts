@@ -36,7 +36,6 @@ export type TaskStatus =
   | 'pending_assignee'
   | 'in_progress'
   | 'waiting_verification'
-  | 'need_expert'
   | 'completed'
   | 'cancelled';
 

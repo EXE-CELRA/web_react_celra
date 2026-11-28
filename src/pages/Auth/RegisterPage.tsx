@@ -39,24 +39,15 @@ export const RegisterPage: React.FC = () => {
         content: "Đang gửi mã OTP đến email của bạn...",
         key: "otp_loading",
       });
-      const res: any = await apiClient.post("/auth/send-otp", {
+      await apiClient.post("/auth/send-otp", {
         email: values.email,
         name: values.fullName,
       });
 
-      if (res?.debugOtp) {
-        setOtpCode(res.debugOtp);
-        message.success({
-          content: `[Thử nghiệm] Mã OTP tự động: ${res.debugOtp}`,
-          key: "otp_loading",
-          duration: 6,
-        });
-      } else {
-        message.success({
-          content: "Mã OTP đã được gửi về email! Vui lòng kiểm tra hộp thư.",
-          key: "otp_loading",
-        });
-      }
+      message.success({
+        content: "Mã OTP đã được gửi về email! Vui lòng kiểm tra hộp thư.",
+        key: "otp_loading",
+      });
       setIsOtpModalOpen(true);
     } catch (err: any) {
       const errorMsg =
@@ -93,6 +84,9 @@ export const RegisterPage: React.FC = () => {
       const errorMsg =
         err?.message ||
         (typeof err === "string" ? err : "Mã OTP không đúng hoặc đã hết hạn");
+      if (String(errorMsg).includes("xóa hủy") || String(errorMsg).includes("bị hủy")) {
+        setOtpCode("");
+      }
       message.error(errorMsg);
     } finally {
       setIsSubmittingOtp(false);
@@ -289,7 +283,7 @@ export const RegisterPage: React.FC = () => {
           kiểm tra mục Spam), sao chép mã và nhập vào bên dưới để hoàn tất đăng ký.
         </p>
         <p style={{ color: "#64748b", fontSize: 12, marginTop: -4 }}>
-          💡 <em>Mẹo thử nghiệm: Bạn cũng có thể dùng mã master <strong>123456</strong> để đăng ký nhanh trong môi trường phát triển.</em>
+          Lưu ý bảo mật: Mã OTP có hiệu lực trong 5 phút và sẽ tự động bị hủy nếu nhập sai quá 5 lần.
         </p>
         <Input
           maxLength={6}

@@ -16,7 +16,6 @@ export const ForgotPasswordPage: React.FC = () => {
   // State Modal 1: Nhập mã OTP
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [debugOtp, setDebugOtp] = useState<string | null>(null);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
 
@@ -32,27 +31,15 @@ export const ForgotPasswordPage: React.FC = () => {
         content: 'Đang gửi mã OTP khôi phục mật khẩu...',
         key: 'forgot_otp_loading',
       });
-      const res: any = await apiClient.post('/auth/forgot-password/send-otp', {
+      await apiClient.post('/auth/forgot-password/send-otp', {
         email: values.email,
       });
       setTargetEmail(values.email);
-
-      if (res?.debugOtp) {
-        setDebugOtp(res.debugOtp);
-        setOtpCode(res.debugOtp);
-        message.info({
-          content: `Mã OTP xác thực: ${res.debugOtp} (Đã tự động điền)`,
-          duration: 10,
-          key: 'forgot_otp_loading',
-        });
-      } else {
-        setDebugOtp(null);
-        setOtpCode('');
-        message.success({
-          content: 'Mã xác thực OTP đã được gửi về email của bạn!',
-          key: 'forgot_otp_loading',
-        });
-      }
+      setOtpCode('');
+      message.success({
+        content: 'Mã xác thực OTP đã được gửi về email của bạn!',
+        key: 'forgot_otp_loading',
+      });
       setIsOtpModalOpen(true);
     } catch (err: any) {
       const errorMsg =
@@ -76,23 +63,14 @@ export const ForgotPasswordPage: React.FC = () => {
         content: 'Đang gửi lại mã OTP...',
         key: 'resend_otp_loading',
       });
-      const res: any = await apiClient.post('/auth/forgot-password/send-otp', {
+      await apiClient.post('/auth/forgot-password/send-otp', {
         email: targetEmail,
       });
-      if (res?.debugOtp) {
-        setDebugOtp(res.debugOtp);
-        setOtpCode(res.debugOtp);
-        message.info({
-          content: `Mã OTP xác thực mới: ${res.debugOtp} (Đã tự động điền)`,
-          duration: 10,
-          key: 'resend_otp_loading',
-        });
-      } else {
-        message.success({
-          content: 'Mã OTP mới đã được gửi về email!',
-          key: 'resend_otp_loading',
-        });
-      }
+      setOtpCode('');
+      message.success({
+        content: 'Mã OTP mới đã được gửi về email!',
+        key: 'resend_otp_loading',
+      });
     } catch (err: any) {
       const errorMsg =
         err?.message ||
@@ -127,6 +105,9 @@ export const ForgotPasswordPage: React.FC = () => {
       const errorMsg =
         err?.message ||
         (typeof err === 'string' ? err : 'Mã OTP không đúng hoặc đã hết hạn');
+      if (String(errorMsg).includes('xóa hủy') || String(errorMsg).includes('bị hủy')) {
+        setOtpCode('');
+      }
       message.error(errorMsg);
     } finally {
       setIsVerifyingOtp(false);
@@ -151,6 +132,16 @@ export const ForgotPasswordPage: React.FC = () => {
       const errorMsg =
         err?.message ||
         (typeof err === 'string' ? err : 'Không thể đặt lại mật khẩu');
+      if (
+        String(errorMsg).includes('hết hạn') ||
+        String(errorMsg).includes('bị hủy') ||
+        String(errorMsg).includes('xóa hủy') ||
+        String(errorMsg).includes('không tồn tại')
+      ) {
+        setIsResetModalOpen(false);
+        setOtpCode('');
+        setIsOtpModalOpen(true);
+      }
       message.error(errorMsg);
     } finally {
       setIsSubmittingReset(false);
@@ -234,26 +225,9 @@ export const ForgotPasswordPage: React.FC = () => {
         <p style={{ color: '#475569', fontSize: 14 }}>
           Chúng tôi đã gửi một mã xác thực 6 chữ số đến email <strong>{targetEmail}</strong>. Vui lòng kiểm tra hộp thư (hoặc mục Spam).
         </p>
-        {debugOtp && (
-          <div
-            style={{
-              margin: '12px 0',
-              padding: '10px 14px',
-              backgroundColor: '#eff6ff',
-              borderRadius: 8,
-              border: '1px dashed #3b82f6',
-              textAlign: 'center',
-            }}
-          >
-            <span style={{ fontSize: 13, color: '#1d4ed8' }}>
-              💡 <strong>Mã thử nghiệm (Hệ thống):</strong>{' '}
-              <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: 4, color: '#0052cc' }}>
-                {debugOtp}
-              </span>{' '}
-              <span style={{ fontSize: 11, color: '#64748b' }}>(Đã tự điền)</span>
-            </span>
-          </div>
-        )}
+        <p style={{ color: '#64748b', fontSize: 12, marginTop: -4 }}>
+          Lưu ý bảo mật: Mã OTP có hiệu lực trong 5 phút và sẽ tự động bị hủy nếu nhập sai quá 5 lần.
+        </p>
         <Input
           maxLength={6}
           placeholder="Nhập OTP của bạn"

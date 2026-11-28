@@ -1,14 +1,6 @@
 import type { Organization } from './organization.interface';
 
-export type RoleType =
-  | 'SUPER_ADMIN'
-  | 'BUSINESS_OWNER'
-  | 'INTERNAL_ACCOUNTANT'
-  | 'HR_OFFICER'
-  | 'OPS_LEAD'
-  | 'OUTSOURCED_AGENT'
-  | 'VERIFIER_EXPERT'
-  | 'AUDITOR';
+export type RoleType = 'owner' | 'staff' | 'admin' | 'SUPER_ADMIN' | 'BUSINESS_OWNER' | 'STAFF';
 
 export interface User {
   id: string;

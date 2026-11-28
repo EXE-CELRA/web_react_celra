@@ -11,7 +11,11 @@ interface SubscriptionState {
 
   fetchSubscription: (orgId?: string) => Promise<SubscriptionInfo | null>;
   fetchInvoices: (orgId?: string) => Promise<PaymentInvoiceItem[]>;
-  subscribePlan: (planCode: SubscriptionPlanCode, method?: 'VietQR' | 'Sandbox') => Promise<SubscriptionInfo>;
+  subscribePlan: (
+    planCode: SubscriptionPlanCode,
+    method?: 'VietQR' | 'Sandbox',
+    billingCycle?: 'MONTHLY' | 'YEARLY',
+  ) => Promise<SubscriptionInfo>;
   toggleAutoRenew: () => Promise<boolean>;
   cancelAutoRenew: () => Promise<boolean>;
 }
@@ -119,15 +123,19 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     return fallbackInvoices;
   },
 
-  subscribePlan: async (planCode: SubscriptionPlanCode, method: 'VietQR' | 'Sandbox' = 'VietQR') => {
+  subscribePlan: async (
+    planCode: SubscriptionPlanCode,
+    method: 'VietQR' | 'Sandbox' = 'VietQR',
+    billingCycle: 'MONTHLY' | 'YEARLY' = 'MONTHLY',
+  ) => {
     set({ isLoading: true, error: null });
     const targetOrgId = localStorage.getItem('celra_active_org_id') || undefined;
-    const plan = SUBSCRIPTION_PLANS[planCode];
 
     try {
       const res = await apiClient.post<unknown, SubscriptionInfo>('/subscriptions/subscribe', {
         planCode,
         paymentMethod: method,
+        billingCycle,
       });
       if (res && res.plan) {
         set({ subscription: res, isLoading: false });
@@ -136,59 +144,11 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         }
         return res;
       }
-    } catch {
-      // Fallback cập nhật state mượt mà cho trải nghiệm người dùng
+      throw new Error('Phản hồi kích hoạt gói dịch vụ không hợp lệ');
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
     }
-
-    const now = new Date();
-    const expires = new Date(now.getTime() + 30 * 86400 * 1000);
-
-    const updatedSub: SubscriptionInfo = {
-      organizationId: targetOrgId || 'default-org',
-      plan: plan.code,
-      planName: plan.name,
-      priceVnd: plan.priceVnd,
-      status: 'ACTIVE',
-      startedAt: now.toISOString(),
-      expiresAt: expires.toISOString(),
-      nextBillingAt: expires.toISOString(),
-      autoRenew: true,
-      usage: {
-        aiChatboxUsed: 0,
-        aiChatboxLimit: plan.aiChatboxMonthlyLimit,
-        docAnalysisUsed: 0,
-        docAnalysisLimit: plan.docAnalysisMonthlyLimit,
-        storageUsedGb: 0.5,
-        storageLimitGb: plan.storageGbLimit,
-        daysRemaining: 30,
-      },
-    };
-
-    if (targetOrgId) {
-      localStorage.setItem(getStorageKey(targetOrgId), JSON.stringify(updatedSub));
-    }
-
-    const newInvoice: PaymentInvoiceItem = {
-      id: `inv-${Date.now()}`,
-      code: `INV-${Date.now().toString().slice(-6)}`,
-      planCode: plan.code,
-      planName: plan.name,
-      amountVnd: plan.priceVnd,
-      paidAt: now.toISOString(),
-      paymentMethod: method,
-      status: 'SUCCESS',
-      periodStart: now.toISOString(),
-      periodEnd: expires.toISOString(),
-      taxNote: 'Đã kích hoạt gói đăng ký thành công',
-    };
-
-    set((state) => ({
-      subscription: updatedSub,
-      invoices: [newInvoice, ...state.invoices],
-      isLoading: false,
-    }));
-
-    return updatedSub;
   },
 
   toggleAutoRenew: async () => {
