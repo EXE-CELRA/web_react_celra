@@ -72,6 +72,8 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     () => localStorage.getItem('celra_chat_expanded') === 'true',
   );
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [conversationFileIds, setConversationFileIds] = useState<string[]>([]);
   const [messages, setMessages] = useState<MessageItem[]>(
     () =>
       loadChatHistory(user?.id, currentOrgId) ?? [
@@ -125,10 +127,12 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
-    if (!query || loading) return;
+    if ((!query && !attachedFile) || loading) return;
 
+    const actualQuery = query || 'Đọc và phân tích tệp tài liệu đính kèm này giúp tôi.';
     setInputText('');
-    const fileName = attachedFile?.name;
+    const fileToUpload = attachedFile;
+    const fileName = fileToUpload?.name;
     setAttachedFile(null);
     const userMsgId = `usr-${Date.now()}`;
     const userTimestamp = new Date().toLocaleTimeString('vi-VN', {
@@ -141,16 +145,49 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       {
         id: userMsgId,
         sender: 'USER',
-        text: fileName ? `${query}\n[Tài liệu đính kèm: ${fileName}]` : query,
+        text: fileName ? `${actualQuery}\n[Tài liệu đính kèm: ${fileName}]` : actualQuery,
         timestamp: userTimestamp,
       },
     ]);
     setLoading(true);
 
     try {
+      let uploadedFileId = activeFileId || undefined;
+      if (fileToUpload) {
+        try {
+          const formData = new FormData();
+          formData.append('file', fileToUpload);
+          formData.append(
+            'conversationId',
+            `conv-${user?.id || 'guest'}-${currentOrgId || 'default'}`,
+          );
+          const uploadRes = (await apiClient.post('/ai-assistant/upload-file', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })) as { fileId?: string; fileName?: string; summary?: string };
+
+          if (uploadRes?.fileId) {
+            uploadedFileId = uploadRes.fileId;
+            setActiveFileId(uploadedFileId);
+            setConversationFileIds((prev) => Array.from(new Set([...prev, uploadedFileId!])));
+          }
+        } catch (uploadErr: unknown) {
+          const errObj = uploadErr as { message?: string } | null;
+          antMessage.warning(
+            errObj?.message || 'Không thể trích xuất tệp, AI sẽ trả lời theo dữ liệu hiện có.',
+          );
+        }
+      }
+
+      const allFileIds = Array.from(
+        new Set([...conversationFileIds, ...(uploadedFileId ? [uploadedFileId] : [])]),
+      );
+
       const res = (await apiClient.post('/ai-assistant/chat', {
-        message: query,
-        question: query,
+        message: actualQuery,
+        question: actualQuery,
+        conversationId: `conv-${user?.id || 'guest'}-${currentOrgId || 'default'}`,
+        fileId: uploadedFileId,
+        fileIds: allFileIds.length > 0 ? allFileIds : undefined,
         history: messages.slice(-10).map((m) => ({
           role: m.sender === 'USER' ? 'user' : 'assistant',
           content: m.text,
@@ -160,6 +197,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
         content?: string;
         answer?: string;
         citations?: CitationItem[];
+        attachedFiles?: Array<{ fileId: string; fileName: string; fileType: string; fileSize?: string }>;
         actionType?: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit';
         isEnterpriseQuery?: boolean;
         verificationChecklist?: VerificationChecklistItem[];
@@ -313,6 +351,8 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
             type="button"
             onClick={() => {
               clearChatHistory(user?.id, currentOrgId);
+              setActiveFileId(null);
+              setConversationFileIds([]);
               setMessages([getDefaultWelcomeMessage(activeOrg?.legalName || activeOrg?.name)]);
               antMessage.success('Đã bắt đầu phiên tư vấn mới!');
             }}
@@ -394,12 +434,12 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
               >
                 <label
                   className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl text-slate-400 hover:text-[#172B4D] hover:bg-slate-50 transition-colors cursor-pointer"
-                  title="Đính kèm tài liệu (PDF, Word)"
+                  title="Đính kèm tài liệu (PDF, Word, Excel, CSV, TXT)"
                 >
                   <Paperclip className="w-4 h-4" />
                   <input
                     type="file"
-                    accept=".pdf,.doc,.docx"
+                    accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt"
                     className="hidden"
                     onChange={(e) => setAttachedFile(e.target.files?.[0] || null)}
                   />
@@ -426,9 +466,9 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
 
                 <button
                   type="submit"
-                  disabled={!inputText.trim() || loading}
+                  disabled={(!inputText.trim() && !attachedFile) || loading}
                   className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center transition-all ${
-                    inputText.trim() && !loading
+                    (inputText.trim() || attachedFile) && !loading
                       ? 'bg-[#2563EB] hover:bg-blue-700 text-white cursor-pointer shadow-xs'
                       : 'bg-slate-100 text-slate-300 cursor-not-allowed'
                   }`}
