@@ -41,6 +41,7 @@ export interface MessageItem {
   sender: 'USER' | 'AI';
   text: string;
   citations?: CitationItem[];
+  attachedFiles?: Array<{ fileId: string; fileName: string; fileType: string; fileSize?: string }>;
   actionType?: 'info' | 'open_compliance_audit' | 'task_proposal' | 'enterprise_audit';
   isEnterpriseQuery?: boolean;
   verificationChecklist?: VerificationChecklistItem[];

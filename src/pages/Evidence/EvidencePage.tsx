@@ -99,23 +99,28 @@ export const EvidencePage: React.FC = () => {
   const handleDownload = async (record: EvidenceDocument) => {
     setDownloadingId(record.id);
     try {
-      const response = await apiClient.get(`/evidence-documents/${record.id}/download`, {
+      const response: any = await apiClient.get(`/evidence-documents/${record.id}/download`, {
         responseType: 'blob',
       });
-      const blob = new Blob([response.data]);
+      const blob =
+        response instanceof Blob
+          ? response
+          : new Blob([response?.data ?? response], {
+              type: record.fileType || 'application/octet-stream',
+            });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const downloadName = record.fileName || record.name || 'tai_lieu.xlsx';
+      const downloadName = record.fileName || record.name || 'chung_tu_tuan_thu.pdf';
       link.setAttribute('download', downloadName);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-      message.success(`Đã tải về: ${downloadName}`);
+      message.success(`Đã giải mã và tải về: ${downloadName}`);
     } catch (err: any) {
       console.error(err);
-      message.error(err?.response?.data?.message || 'Không thể tải tệp về. Vui lòng kiểm tra lại!');
+      message.error(err?.message || err?.response?.data?.message || 'Không thể tải tệp về. Vui lòng kiểm tra lại!');
     } finally {
       setDownloadingId(null);
     }

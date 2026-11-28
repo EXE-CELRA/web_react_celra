@@ -193,8 +193,9 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
           </Col>
         </Row>
 
-        <Form.Item label="Chọn tệp (PDF, JPG, PNG, DOCX, XLSX)">
+        <Form.Item label="Chọn tệp chứng từ (PDF, XML, XLSX, DOCX, JPG, PNG)">
           <Upload.Dragger
+            accept=".pdf,.xml,.xlsx,.xls,.csv,.docx,.doc,.png,.jpg,.jpeg,.webp"
             fileList={fileList}
             beforeUpload={(file) => {
               setFileList([file]);
@@ -211,7 +212,7 @@ export const EvidenceUploadModal: React.FC<EvidenceUploadModalProps> = ({
               <InboxOutlined style={{ fontSize: 36, color: '#1677ff' }} />
             </p>
             <p className="ant-upload-text">Kéo thả tệp vào đây hoặc nhấp để chọn tệp từ máy tính</p>
-            <p className="ant-upload-hint">Hỗ trợ Excel (.xlsx, .xls), PDF, Word, Ảnh chứng từ. Dung lượng tối đa 25MB.</p>
+            <p className="ant-upload-hint">Hỗ trợ Hóa đơn điện tử (.xml, .pdf), Excel (.xlsx, .xls, .csv), Word, Ảnh chứng từ (tối đa 25MB — tự động mã hóa AES-256-GCM trên Cloud).</p>
           </Upload.Dragger>
         </Form.Item>
       </Form>
