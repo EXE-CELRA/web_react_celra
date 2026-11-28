@@ -141,8 +141,7 @@ export const TasksPage: React.FC = () => {
     return (
       s === 'in_progress' ||
       s === 'waiting_document' ||
-      s === 'waiting_verification' ||
-      s === 'need_expert'
+      s === 'waiting_verification'
     );
   };
 

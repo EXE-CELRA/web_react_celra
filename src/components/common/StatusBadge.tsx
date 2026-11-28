@@ -18,7 +18,7 @@ export const TaskStatusTag: React.FC<{ status: TaskStatus | string }> = ({ statu
       </Tag>
     );
   }
-  if (s === 'in_progress' || s === 'waiting_document' || s === 'waiting_verification' || s === 'need_expert') {
+  if (s === 'in_progress' || s === 'waiting_document' || s === 'waiting_verification') {
     return (
       <Tag color="blue" style={{ fontWeight: 500 }}>
         Đang thực hiện

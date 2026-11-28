@@ -37,7 +37,7 @@ import type { CitTaxTierResult } from '../../utils/taxRateChecker';
 export type ApplicabilityStatus = 'APPLICABLE' | 'POSSIBLE' | 'NEED_VERIFICATION' | 'NOT_APPLICABLE';
 export type ObligationCompletionStatus = 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED' | 'OVERDUE' | 'PENDING_VERIFICATION';
 export type VerificationDocumentStatus = 'NOT_AVAILABLE' | 'MISSING' | 'PENDING' | 'VERIFIED' | 'REJECTED';
-export type CelraTaskStatus = 'TODO' | 'WAITING_INPUT' | 'IN_PROGRESS' | 'REVIEW' | 'COMPLETED' | 'BLOCKED' | 'EXPERT_REQUIRED';
+export type CelraTaskStatus = 'TODO' | 'WAITING_INPUT' | 'IN_PROGRESS' | 'REVIEW' | 'COMPLETED' | 'BLOCKED';
 
 export interface ComplianceObligationItem {
   id: string;
@@ -680,8 +680,6 @@ export const ComplianceAuditReportView: React.FC<ComplianceAuditReportViewProps>
         return <Tag color="green" className="font-bold text-[11px] m-0 border-emerald-300">Completed</Tag>;
       case 'BLOCKED':
         return <Tag color="red" className="font-bold text-[11px] m-0 border-rose-300">Blocked</Tag>;
-      case 'EXPERT_REQUIRED':
-        return <Tag color="purple" className="font-bold text-[11px] m-0 border-purple-300">Expert Required</Tag>;
     }
   };
 
