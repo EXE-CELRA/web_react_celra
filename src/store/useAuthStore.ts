@@ -49,7 +49,8 @@ interface AuthState {
 
   login: (credentials: LoginCredentials) => Promise<LoginResponse>;
   register: (data: RegisterPayload) => Promise<unknown>;
-  logout: () => void;
+  logout: (skipServerRevoke?: boolean) => void;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<{ message: string }>;
   loadUserProfile: () => Promise<void>;
   updateProfile: (data: UpdateProfilePayload) => Promise<{ success: boolean; user: User }>;
   setActiveRole: (role: string) => void;
@@ -198,7 +199,8 @@ export const useAuthStore = create<AuthState>((set) => {
     }
   };
 
-  const logoutFn = () => {
+  const logoutFn = (skipServerRevoke = false) => {
+    const tokenToRevoke = localStorage.getItem('celra_access_token');
     resetAllAppStores();
     set({
       user: null,
@@ -206,6 +208,38 @@ export const useAuthStore = create<AuthState>((set) => {
       isAuthenticated: false,
       activeRole: null,
     });
+    if (!skipServerRevoke && tokenToRevoke) {
+      void apiClient
+        .post(
+          '/auth/logout',
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${tokenToRevoke}`,
+            },
+          },
+        )
+        .catch(() => {});
+    }
+  };
+
+  const changePasswordFn = async (oldPassword: string, newPassword: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiClient.patch<unknown, { message: string; accessToken?: string }>(
+        '/auth/change-password',
+        { oldPassword, newPassword },
+      );
+      if (res?.accessToken) {
+        localStorage.setItem('celra_access_token', res.accessToken);
+      }
+      set({ isLoading: false });
+      return { message: res?.message || 'Đổi mật khẩu thành công' };
+    } catch (err: unknown) {
+      const msg = extractApiError(err, 'Đổi mật khẩu thất bại');
+      set({ error: msg, isLoading: false });
+      throw new Error(msg, { cause: err });
+    }
   };
 
   const loadProfileFn = async () => {
@@ -261,7 +295,7 @@ export const useAuthStore = create<AuthState>((set) => {
       // Chỉ đăng xuất khi token thực sự hết hạn/không hợp lệ (401) hoặc tài khoản không còn tồn tại (404).
       // Không xóa phiên đăng nhập khi gặp lỗi mạng tạm thời hoặc lỗi DB quá tải (500/502/503).
       if (statusCode === 401 || statusCode === 404) {
-        logoutFn();
+        logoutFn(true);
         if (
           !window.location.pathname.includes('/login') &&
           !window.location.pathname.includes('/register')
@@ -339,6 +373,7 @@ export const useAuthStore = create<AuthState>((set) => {
     login: loginFn,
     register: registerFn,
     logout: logoutFn,
+    changePassword: changePasswordFn,
     loadUserProfile: loadProfileFn,
     updateProfile: updateProfileFn,
     setActiveRole: setActiveRoleFn,
